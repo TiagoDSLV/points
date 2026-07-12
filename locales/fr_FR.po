@@ -135,9 +135,9 @@ msgstr "Contrat à points par défaut pour :"
 #: inc/entity.class.php:43
 msgid "Credit voucher"
 msgid_plural "Credit vouchers"
-msgstr[0] "Contrat à points"
-msgstr[1] "Contrats à points"
-msgstr[2] "Contrats à points"
+msgstr[0] "Point"
+msgstr[1] "Points"
+msgstr[2] "Points"
 
 #: front/ticket.form.php:39
 msgid "Credit voucher entity must be selected."
@@ -237,11 +237,10 @@ msgstr "Préavis (en jours)"
 
 #: inc/bareme.class.php templates/tickets/consume.html.twig
 msgid "Rate scale"
-msgstr "Barème tarifaire"
-
-#: inc/bareme.class.php templates/tickets/consume.html.twig
-msgid "Rate scales"
-msgstr "Barèmes tarifaires"
+msgid_plural "Rate scales"
+msgstr[0] "Barème tarifaire"
+msgstr[1] "Barèmes tarifaires"
+msgstr[2] "Barèmes tarifaires"
 
 #: inc/bareme.class.php
 msgid "Points per 15-minute slot"

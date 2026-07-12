@@ -129,8 +129,8 @@ msgstr "Default voucher for : "
 #: inc/entity.class.php:43
 msgid "Credit voucher"
 msgid_plural "Credit vouchers"
-msgstr[0] "Points voucher"
-msgstr[1] "Points vouchers"
+msgstr[0] "Point"
+msgstr[1] "Points"
 
 #: front/ticket.form.php:39
 msgid "Credit voucher entity must be selected."
@@ -223,3 +223,9 @@ msgstr "Low points alert"
 #: inc/entity.class.php:372
 msgid "Notice (in days)"
 msgstr "Notice (in days)"
+
+#: inc/bareme.class.php templates/tickets/consume.html.twig
+msgid "Rate scale"
+msgid_plural "Rate scales"
+msgstr[0] "Rate scale"
+msgstr[1] "Rate scales"
