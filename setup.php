@@ -107,7 +107,7 @@ function plugin_init_credit()
 function plugin_version_credit()
 {
     return [
-        'name'           => _sn('Points voucher', 'Points vouchers', 2, 'credit'),
+        'name'           => 'Points',
         'version'        => PLUGIN_CREDIT_VERSION,
         'author'         => '<a href="http://www.teclib.com">Teclib\'</a>',
         'license'        => 'GPLv3',
