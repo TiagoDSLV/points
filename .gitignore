@@ -1,0 +1,5 @@
+dist/
+node_modules/
+vendor/
+.gh_token
+.php-cs-fixer.cache
