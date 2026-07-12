@@ -31,8 +31,6 @@
 
 class PluginCreditBareme extends CommonDropdown
 {
-    public static $rightname = 'config';
-
     public static function getTypeName($nb = 0)
     {
         return _sn('Rate scale', 'Rate scales', $nb, 'credit');
