@@ -86,8 +86,6 @@ function plugin_init_credit()
 
         $PLUGIN_HOOKS['menu_toadd']['credit'] = ['admin' => 'PluginCreditContract'];
     }
-
-    Plugin::registerClass(PluginCreditProfile::class, ['addtabon' => Profile::class]);
 }
 
 

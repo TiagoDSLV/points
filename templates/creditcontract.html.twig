@@ -49,13 +49,6 @@
                 }
             ) }}
 
-            {{ fields.dropdownField(
-                credittypeclass,
-                'plugin_credit_types_id',
-                0,
-                __('Type'),
-            ) }}
-
             {{ fields.dropdownYesNo(
                 'is_active',
                 0,
@@ -126,7 +119,6 @@
         'columns': columns,
         'formatters': {
             'name': 'raw_html',
-            'plugin_credit_types_id': 'raw_html',
             'begin_date': 'date',
             'end_date': 'date',
             'overconsumption_allowed': 'yesno',

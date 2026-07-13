@@ -32,48 +32,7 @@
 {% import 'components/form/fields_macros.html.twig' as fields %}
 
 {% block form_fields %}
-    <div class="hr-text">
-        <i class="fa-2x ti ti-info-circle"></i>
-        <span>{{ __('General') }}</span>
-    </div>
-
-    {{ fields.autoNameField('name', item, __('Name'), withtemplate, field_options) }}
-
-    {{ fields.dropdownField(
-        credittypeclass,
-        'plugin_credit_types_id',
-        item.fields['plugin_credit_types_id'],
-        __('Type'),
-        field_options
-    ) }}
-
-    {{ fields.dropdownYesNo(
-        'is_active',
-        item.fields['is_active'],
-        __('Active'),
-        field_options
-    ) }}
-
     <input type="hidden" name="contracts_id" value="{{ item.fields.contracts_id ?? contract_id }}">
-
-    <div class="hr-text">
-        <i class="fa-2x ti ti ti-calendar"></i>
-        <span>{{ __('Validity') }}</span>
-    </div>
-
-    {{ fields.dateField(
-        'begin_date',
-        item.fields['begin_date'],
-        __('Start date'),
-        field_options
-    ) }}
-
-    {{ fields.dateField(
-        'end_date',
-        item.fields['end_date'],
-        __('End date'),
-        field_options
-    ) }}
 
     <div class="hr-text">
         <i class="fa-2x ti ti ti-coins"></i>

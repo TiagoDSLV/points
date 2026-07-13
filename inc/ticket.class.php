@@ -209,23 +209,15 @@ class PluginCreditTicket extends CommonDBTM
             $credit_contract = new PluginCreditContract();
             $credit_contract->getFromDB($data['plugin_credit_contracts_id']);
 
-            if (!empty($data['plugin_credit_types_id'])) {
-                $type = (new PluginCreditType())->getById($data['plugin_credit_types_id']);
-                $data['plugin_credit_types_id'] = $type ? $type->getLink() : '';
-            } else {
-                $data['plugin_credit_types_id'] = '';
-            }
-
             $entries[] = array_merge($data, [
-                'id'                     => $data['id'],
-                'name'                   => $credit_contract->getName(),
-                'plugin_credit_types_id' => $data['plugin_credit_types_id'],
-                'date_creation'          => $data['date_creation'],
-                'users_id'               => Session::haveRight('user', READ)
+                'id'            => $data['id'],
+                'name'          => $credit_contract->getName(),
+                'date_creation' => $data['date_creation'],
+                'users_id'      => Session::haveRight('user', READ)
                     ? getUserLink($data['users_id'])
                     : getUserName($data['users_id']),
-                'consumed'               => $data['consumed'],
-                'itemtype'               => PluginCreditTicket::class,
+                'consumed'      => $data['consumed'],
+                'itemtype'      => PluginCreditTicket::class,
             ]);
         }
 

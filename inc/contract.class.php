@@ -55,7 +55,6 @@ class PluginCreditContract extends CommonDBTM
         TemplateRenderer::getInstance()->display('@credit/creditcontract_form.html.twig', [
             'item'              => $this,
             'params'            => $options,
-            'credittypeclass'   => PluginCreditType::class,
             'quantity_consumed' => $consumed,
             'contract_id'       => $options['contract_id'] ?? 0,
         ]);
@@ -199,7 +198,6 @@ class PluginCreditContract extends CommonDBTM
 
         $columns = [
             'name'                    => __('Name'),
-            'plugin_credit_types_id'  => __('Type'),
             'is_active'               => __('Active'),
             'begin_date'              => __('Start date'),
             'end_date'                => __('End date'),
@@ -219,16 +217,6 @@ class PluginCreditContract extends CommonDBTM
 
             $item = new self();
             $item = $item->getById($data['id']);
-
-            if (!empty($data['plugin_credit_types_id'])) {
-                $type = new PluginCreditType();
-                $type = $type->getById($data['plugin_credit_types_id']);
-                if ($type) {
-                    $data['plugin_credit_types_id'] = $type->getLink();
-                }
-            } else {
-                $data['plugin_credit_types_id'] = '';
-            }
 
             $modal = Ajax::createIframeModalWindow(
                 'displaycreditconsumed_' . $data["id"],
@@ -262,7 +250,6 @@ class PluginCreditContract extends CommonDBTM
 
         TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
             'form_url'            => self::getFormUrl(),
-            'credittypeclass'     => PluginCreditType::class,
             'columns'             => $columns,
             'contract_id'         => $ID,
             'entries'             => $entries,
@@ -422,14 +409,6 @@ class PluginCreditContract extends CommonDBTM
             'max'      => 1000000,
             'step'     => 1,
             'toadd'    => [0 => __('Unlimited')],
-        ];
-
-        $tab[] = [
-            'id'       => 995,
-            'table'    => PluginCreditType::getTable(),
-            'field'    => 'name',
-            'name'     => PluginCreditType::getTypeName(),
-            'datatype' => 'dropdown',
         ];
 
         $tab[] = [

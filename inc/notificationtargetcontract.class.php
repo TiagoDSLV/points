@@ -34,7 +34,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
     public function getEvents()
     {
         return [
-            'expired'    => __('Expiration date', 'credit'),
             'lowcredits' => __('Low credits', 'credit'),
         ];
     }

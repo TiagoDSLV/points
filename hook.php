@@ -61,16 +61,6 @@ function plugin_credit_install()
 
     CronTask::register(
         'PluginCreditContract',
-        'creditexpired',
-        DAY_TIMESTAMP,
-        [
-            'comment' => '',
-            'mode' => CronTask::MODE_EXTERNAL,
-        ],
-    );
-
-    CronTask::register(
-        'PluginCreditContract',
         'lowcredits',
         DAY_TIMESTAMP,
         [
@@ -118,7 +108,6 @@ function plugin_credit_uninstall()
 function plugin_credit_getDropdown()
 {
     return [
-        'PluginCreditType'   => PluginCreditType::getTypeName(Session::getPluralNumber()),
         'PluginCreditBareme' => PluginCreditBareme::getTypeName(Session::getPluralNumber()),
     ];
 }
