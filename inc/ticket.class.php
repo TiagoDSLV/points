@@ -435,8 +435,8 @@ class PluginCreditTicket extends CommonDBTM
         }
 
         // Only act if actiontime actually changed.
-        if (!isset($item->input['actiontime']) && !array_key_exists('actiontime', $item->oldvalues ?? [])) {
-            return;
+        if (!isset($item->input['actiontime'])) {
+            return; // actiontime not part of this update
         }
 
         $existing = $DB->request([
@@ -454,14 +454,9 @@ class PluginCreditTicket extends CommonDBTM
         }
 
         $new_duration = (int) ($item->fields['actiontime'] ?? 0);
-        if ($new_duration <= 0) {
-            return;
-        }
-
-        $new_points = PluginCreditBareme::calculatePoints($new_duration, $bareme_id);
-        if ($new_points <= 0) {
-            return;
-        }
+        $new_points   = $new_duration > 0
+            ? PluginCreditBareme::calculatePoints($new_duration, $bareme_id)
+            : 0;
 
         $credit_ticket = new self();
         $credit_ticket->update([
@@ -524,9 +519,8 @@ class PluginCreditTicket extends CommonDBTM
             'name'     => __('Rate scale', 'credit'),
             'datatype' => 'dropdown',
             'joinparams' => [
-                'jointype'   => 'child',
-                'foreignkey' => 'id',
-                'linkfield'  => 'plugin_credit_bareme_id',
+                'jointype'  => '',
+                'linkfield' => 'plugin_credit_bareme_id',
             ],
         ];
 
@@ -538,9 +532,8 @@ class PluginCreditTicket extends CommonDBTM
             'datatype'   => 'itemlink',
             'itemtype'   => 'Ticket',
             'joinparams' => [
-                'jointype'   => 'child',
-                'foreignkey' => 'id',
-                'linkfield'  => 'tickets_id',
+                'jointype'  => '',
+                'linkfield' => 'tickets_id',
             ],
         ];
 
