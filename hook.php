@@ -131,7 +131,8 @@ function plugin_credit_get_datas(NotificationTargetTicket $target)
 
     $query = [
         'SELECT' => [
-            $contracts_table . '.name',
+            $contracts_table . '.id',
+            $contracts_table . '.contracts_id',
             $contracts_table . '.quantity',
             new QuerySubQuery([
                 'SELECT' => [
@@ -165,18 +166,15 @@ function plugin_credit_get_datas(NotificationTargetTicket $target)
                 'ON' => ['glpi_contracts' => 'id', $contracts_table => 'contracts_id'],
             ],
         ],
-        'WHERE' => array_merge(
-            PluginCreditContract::getActiveFilter(),
-            [
-                'glpi_contracts.is_deleted'  => 0,
-                'glpi_contracts.entities_id' => $entity_id,
-            ],
-        ),
+        'WHERE' => [
+            'glpi_contracts.is_deleted'  => 0,
+            'glpi_contracts.entities_id' => $entity_id,
+        ],
     ];
 
     foreach ($DB->request($query) as $credit) {
         $target->data["credit.ticket"][] = [
-            '##credit.voucher##' => $credit['name'],
+            '##credit.voucher##' => Dropdown::getDropdownName('glpi_contracts', $credit['contracts_id']),
             '##credit.used##'    => (int) $credit['consumed_on_ticket'],
             '##credit.left##'    => (int) $credit['quantity'] - (int) $credit['consumed_total'],
         ];

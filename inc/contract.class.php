@@ -46,6 +46,11 @@ class PluginCreditContract extends CommonDBTM
         return 'ti ti-coins';
     }
 
+    public function getName($options = [])
+    {
+        return Dropdown::getDropdownName('glpi_contracts', $this->fields['contracts_id'] ?? 0);
+    }
+
     public function showForm($ID, array $options = [])
     {
         $this->initForm($ID, $options);
@@ -119,29 +124,11 @@ class PluginCreditContract extends CommonDBTM
             return false;
         }
 
-        if (!isset($input['name']) || $input['name'] == '') {
-            Session::addMessageAfterRedirect(__s('Credit voucher name is mandatory.', 'credit'));
-            return false;
-        }
-
-        if (isset($input['end_date']) && $input['end_date'] != '') {
-            $input['end_date'] .= ' 23:59:59';
-        }
-
         return $input;
     }
 
     public function prepareInputForUpdate($input)
     {
-        if (isset($input['name']) && (string) $input['name'] === '') {
-            Session::addMessageAfterRedirect(__s('Credit voucher name is mandatory.', 'credit'));
-            return false;
-        }
-
-        if (isset($input['end_date']) && $input['end_date'] != '') {
-            $input['end_date'] .= ' 23:59:59';
-        }
-
         return $input;
     }
 
@@ -195,10 +182,6 @@ class PluginCreditContract extends CommonDBTM
         $canedit = $contract->canEdit($ID);
 
         $columns = [
-            'name'                    => __('Name'),
-            'is_active'               => __('Active'),
-            'begin_date'              => __('Start date'),
-            'end_date'                => __('End date'),
             'quantity'                => __('Quantity sold', 'credit'),
             'quantity_consumed'       => __('Quantity consumed', 'credit'),
             'quantity_remaining'      => __('Quantity remaining', 'credit'),
@@ -266,7 +249,6 @@ class PluginCreditContract extends CommonDBTM
     {
         /** @var DBmysql $DB */
         global $DB;
-        $filter = self::getActiveFilter();
         $iterator = $DB->request([
             'SELECT' => [
                 self::getTable() . '.id AS pool_id',
@@ -279,10 +261,10 @@ class PluginCreditContract extends CommonDBTM
                     'ON' => ['glpi_contracts' => 'id', self::getTable() => 'contracts_id'],
                 ],
             ],
-            'WHERE' => array_merge($filter, [
+            'WHERE' => [
                 'glpi_contracts.is_deleted'  => 0,
                 'glpi_contracts.entities_id' => $entity_id,
-            ]),
+            ],
             'ORDER' => ['glpi_contracts.name ASC'],
         ]);
         $result = [];
@@ -296,24 +278,6 @@ class PluginCreditContract extends CommonDBTM
             $result[(int) $row['pool_id']] = $label;
         }
         return $result;
-    }
-
-    public static function getActiveFilter()
-    {
-        /** @var DBmysql $DB */
-        global $DB;
-        return [
-            self::getTable() . '.is_active' => 1,
-            'OR' => [
-                self::getTable() . '.end_date' => null,
-                new QueryExpression(
-                    sprintf(
-                        'NOW() < %s',
-                        $DB->quoteName(self::getTable() . '.end_date'),
-                    ),
-                ),
-            ],
-        ];
     }
 
     public static function getMaximumConsumptionForCredit(int $credit_id)
@@ -372,30 +336,6 @@ class PluginCreditContract extends CommonDBTM
     public function rawSearchOptions()
     {
         $tab = parent::rawSearchOptions();
-
-        $tab[] = [
-            'id'       => 991,
-            'table'    => self::getTable(),
-            'field'    => 'is_active',
-            'name'     => __('Active'),
-            'datatype' => 'bool',
-        ];
-
-        $tab[] = [
-            'id'       => 992,
-            'table'    => self::getTable(),
-            'field'    => 'begin_date',
-            'name'     => __('Start date'),
-            'datatype' => 'date',
-        ];
-
-        $tab[] = [
-            'id'       => 993,
-            'table'    => self::getTable(),
-            'field'    => 'end_date',
-            'name'     => __('End date'),
-            'datatype' => 'date',
-        ];
 
         $tab[] = [
             'id'       => 994,
@@ -461,7 +401,7 @@ class PluginCreditContract extends CommonDBTM
             [
                 'SELECT' => [
                     self::getTable() . '.id',
-                    self::getTable() . '.name',
+                    self::getTable() . '.contracts_id',
                     self::getTable() . '.quantity',
                     self::getTable() . '.low_credit_alert',
                     new QueryExpression('SUM(' . PluginCreditTicket::getTable() . '.consumed) AS quantity_consumed'),
@@ -475,9 +415,7 @@ class PluginCreditContract extends CommonDBTM
                         ],
                     ],
                 ],
-                'WHERE' => [
-                    self::getTable() . '.is_active' => 1,
-                ],
+                'WHERE' => [],
                 'GROUPBY' => self::getTable() . '.id',
                 'HAVING' => [new QueryExpression(
                     $DB->quoteName(self::getTable() . '.quantity')
@@ -494,8 +432,8 @@ class PluginCreditContract extends CommonDBTM
             $task->addVolume(1);
             $task->log(
                 sprintf(
-                    'Low credit for %s',
-                    $credit_data['name'],
+                    'Low credit for contract #%d',
+                    $credit_data['contracts_id'],
                 ),
             );
 
@@ -535,30 +473,26 @@ class PluginCreditContract extends CommonDBTM
 
         $table = self::getTable();
 
-        if (!$DB->tableExists($table)) {
-            $query = <<<SQL
-                CREATE TABLE IF NOT EXISTS `$table` (
-                    `id` int {$default_key_sign} NOT NULL auto_increment,
-                    `name` varchar(255) DEFAULT NULL,
-                    `contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    `is_active` tinyint NOT NULL DEFAULT '0',
-                    `plugin_credit_types_id` tinyint {$default_key_sign} NOT NULL DEFAULT '0',
-                    `begin_date` timestamp NULL DEFAULT NULL,
-                    `end_date` timestamp NULL DEFAULT NULL,
-                    `quantity` int NOT NULL DEFAULT '0',
-                    `overconsumption_allowed` tinyint NOT NULL DEFAULT '0',
-                    `low_credit_alert` int DEFAULT NULL,
-                    PRIMARY KEY (`id`),
-                    UNIQUE KEY `contracts_id` (`contracts_id`),
-                    KEY `name` (`name`),
-                    KEY `is_active` (`is_active`),
-                    KEY `plugin_credit_types_id` (`plugin_credit_types_id`),
-                    KEY `begin_date` (`begin_date`),
-                    KEY `end_date` (`end_date`)
-                ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;
+        $create_sql = <<<SQL
+            CREATE TABLE IF NOT EXISTS `$table` (
+                `id` int {$default_key_sign} NOT NULL auto_increment,
+                `contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `quantity` int NOT NULL DEFAULT '0',
+                `overconsumption_allowed` tinyint NOT NULL DEFAULT '0',
+                `low_credit_alert` int DEFAULT '-1',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `contracts_id` (`contracts_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;
 SQL;
-            $DB->doQuery($query);
+
+        if (!$DB->tableExists($table)) {
+            $DB->doQuery($create_sql);
+        } elseif ($DB->fieldExists($table, 'name')) {
+            // Old schema with name/is_active/dates — recreate clean (dev env, no real data).
+            $DB->doQuery("DROP TABLE `{$table}`");
+            $DB->doQuery($create_sql);
         }
+        // else: schema already correct, nothing to do.
 
         return true;
     }
@@ -570,8 +504,8 @@ SQL;
      */
     public static function uninstall(Migration $migration)
     {
-        $table = self::getTable();
-        $migration->dropTable($table);
+        $migration->dropTable(self::getTable());
+        $migration->dropTable('glpi_plugin_credit_types');
 
         return true;
     }

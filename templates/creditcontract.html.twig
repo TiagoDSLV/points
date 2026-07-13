@@ -37,36 +37,9 @@
         <input type="hidden" name="contracts_id" value="{{ contract_id }}">
         <div class="hr-text mt-2">
             <i class="fa-2x ti ti-coin"></i>
-            <span>{{ __('Add a credit voucher', 'credit') }}</span>
+            <span>{{ __('Configure points pool', 'credit') }}</span>
         </div>
         <div class="row">
-            {{ fields.textField(
-                'name',
-                '',
-                __('Name'),
-                {
-                    'required': true,
-                }
-            ) }}
-
-            {{ fields.dropdownYesNo(
-                'is_active',
-                0,
-                __('Active'),
-            ) }}
-
-            {{ fields.dateField(
-                'begin_date',
-                '',
-                __('Start date'),
-            ) }}
-
-            {{ fields.dateField(
-                'end_date',
-                '',
-                __('End date'),
-            ) }}
-
             {{ fields.dropdownNumberField(
                 'quantity',
                 0,
@@ -118,11 +91,7 @@
         'nosort': true,
         'columns': columns,
         'formatters': {
-            'name': 'raw_html',
-            'begin_date': 'date',
-            'end_date': 'date',
             'overconsumption_allowed': 'yesno',
-            'is_active': 'yesno',
             'quantity_consumed': 'raw_html',
         },
         'entries': entries,
