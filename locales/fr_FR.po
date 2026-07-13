@@ -135,7 +135,7 @@ msgstr "Contrat à points par défaut pour :"
 #: inc/entity.class.php:43
 msgid "Credit voucher"
 msgid_plural "Credit vouchers"
-msgstr[0] "Point"
+msgstr[0] "Points"
 msgstr[1] "Points"
 msgstr[2] "Points"
 
