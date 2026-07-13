@@ -307,7 +307,6 @@ class PluginCreditContract extends CommonDBTM
                 ],
             ],
             'WHERE' => [
-                $pool_table . '.is_deleted'     => 0,
                 'glpi_contracts.is_deleted'     => 0,
                 'glpi_contracts_items.itemtype' => 'Ticket',
                 'glpi_contracts_items.items_id' => $ticket_id,
