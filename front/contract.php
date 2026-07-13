@@ -29,17 +29,17 @@
  * -------------------------------------------------------------------------
  */
 
-Session::checkRight(PluginCreditEntity::$rightname, READ);
+Session::checkRight(PluginCreditContract::$rightname, READ);
 
 Html::header(
-    PluginCreditEntity::getTypeName(Session::getPluralNumber()),
+    PluginCreditContract::getTypeName(Session::getPluralNumber()),
     $_SERVER['PHP_SELF'],
     "admin",
-    PluginCreditEntity::class,
+    PluginCreditContract::class,
     "credit",
     false,
 );
 
-Search::show(PluginCreditEntity::class);
+Search::show(PluginCreditContract::class);
 
 Html::footer();

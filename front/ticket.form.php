@@ -43,7 +43,7 @@ if (!$ticket->getFromDB((int) $_REQUEST['tickets_id'])) {
 }
 
 $PluginCreditTicket = new PluginCreditTicket();
-if ($_REQUEST['plugin_credit_entities_id'] == 0) {
+if ($_REQUEST['plugin_credit_contracts_id'] == 0) {
     Session::addMessageAfterRedirect(
         __s('Credit voucher entity must be selected.', 'credit'),
         true,
@@ -59,16 +59,11 @@ if ($_REQUEST['plugin_credit_entities_id'] == 0) {
     Html::back();
 }
 
-if (Session::haveAccessToEntity($_REQUEST['plugin_credit_entities_id'])) {
-    throw new AccessDeniedHttpException();
-}
-
-
 $input = [
-    'tickets_id'                => $_REQUEST['tickets_id'],
-    'plugin_credit_entities_id' => $_REQUEST['plugin_credit_entities_id'],
-    'consumed'                  => $_REQUEST['plugin_credit_quantity'],
-    'users_id'                  => Session::getLoginUserID(),
+    'tickets_id'                 => $_REQUEST['tickets_id'],
+    'plugin_credit_contracts_id' => $_REQUEST['plugin_credit_contracts_id'],
+    'consumed'                   => $_REQUEST['plugin_credit_quantity'],
+    'users_id'                   => Session::getLoginUserID(),
 ];
 
 

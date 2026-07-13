@@ -135,12 +135,12 @@ class PluginCreditTicket extends CommonDBTM
 
 
     /**
-     * Get all tickets for a credit vouchers.
+     * Get all tickets for a credit voucher.
      *
-     * @param $ID           integer     plugin_credit_entities_id ID
+     * @param $ID           integer     plugin_credit_contracts_id ID
      * @return array of vouchers
      */
-    public static function getAllForCreditEntity($ID): array
+    public static function getAllForCreditContract($ID): array
     {
         /** @var DBmysql $DB */
         global $DB;
@@ -149,7 +149,7 @@ class PluginCreditTicket extends CommonDBTM
             'SELECT' => '*',
             'FROM'   => self::getTable(),
             'WHERE'  => [
-                'plugin_credit_entities_id' => $ID,
+                'plugin_credit_contracts_id' => $ID,
             ],
             'ORDER'  => ['id DESC'],
         ];
@@ -163,11 +163,11 @@ class PluginCreditTicket extends CommonDBTM
     }
 
     /**
-     * Get consumed tickets for credit entity entry
+     * Get consumed tickets for credit contract entry
      *
-     * @param $ID integer PluginCreditEntity id
+     * @param $ID integer PluginCreditContract id
      */
-    public static function getConsumedForCreditEntity($ID)
+    public static function getConsumedForCreditContract($ID)
     {
         /** @var DBmysql $DB */
         global $DB;
@@ -178,7 +178,7 @@ class PluginCreditTicket extends CommonDBTM
             'SELECT' => ['SUM' => 'consumed as sum'],
             'FROM'   => self::getTable(),
             'WHERE'  => [
-                'plugin_credit_entities_id' => $ID,
+                'plugin_credit_contracts_id' => $ID,
             ],
         ];
 
@@ -233,8 +233,8 @@ class PluginCreditTicket extends CommonDBTM
                 ];
             }
             foreach (self::getAllForTicket($ID) as $data) {
-                $credit_entity = new PluginCreditEntity();
-                $credit_entity->getFromDB($data['plugin_credit_entities_id']);
+                $credit_entity = new PluginCreditContract();
+                $credit_entity->getFromDB($data['plugin_credit_contracts_id']);
 
                 if (!empty($data['plugin_credit_types_id'])) {
                     $type = new PluginCreditType();
@@ -263,18 +263,14 @@ class PluginCreditTicket extends CommonDBTM
             'rand'                  => $rand,
             'entity_id'             => $ticket->getEntityID(),
             'type_name'             => self::getTypeName(2),
-            'creditentityclass'     => PluginCreditEntity::class,
+            'creditentityclass'     => PluginCreditContract::class,
             'form_url'              => self::getFormUrl(),
-            'conditions'            => PluginCreditEntity::getActiveFilter(),
+            'conditions'            => PluginCreditContract::getActiveFilter(),
             'canedit'               => $canedit,
             'ID'                    => $ID,
             'entries'               => $entries,
             'massiveactionparams'   => $massiveactionparams ?? [],
         ]);
-
-        $Entity = new Entity();
-        $Entity->getFromDB($ticket->fields['entities_id']);
-        PluginCreditEntity::showForItemtype($Entity, 'Ticket');
     }
 
     /**
@@ -357,7 +353,7 @@ class PluginCreditTicket extends CommonDBTM
             }
 
             if ($default_credit != 0) {
-                $max = PluginCreditEntity::getMaximumConsumptionForCredit($default_credit);
+                $max = PluginCreditContract::getMaximumConsumptionForCredit($default_credit);
             }
         }
 
@@ -368,8 +364,8 @@ class PluginCreditTicket extends CommonDBTM
             'default_credit_max'    => $max ?? 0,
             'entity_id'             => $ticket->getEntityID(),
             'type_name'             => self::getTypeName(2),
-            'condition'             => PluginCreditEntity::getActiveFilter(),
-            'creditentityclass'     => PluginCreditEntity::class,
+            'condition'             => PluginCreditContract::getActiveFilter(),
+            'creditentityclass'     => PluginCreditContract::class,
             'plugin_credit_geturl'  => plugin_credit_geturl(),
             'is_task'               => $item instanceof TicketTask,
             'baremes'               => PluginCreditBareme::getAllBaremes(),
@@ -379,15 +375,15 @@ class PluginCreditTicket extends CommonDBTM
     /**
      * Display the detailled list of tickets on which consumption is declared.
      *
-     * @param int $ID plugin_credit_entities_id
+     * @param int $ID plugin_credit_contracts_id
      */
     public static function displayConsumed($ID)
     {
-        $consumed_credits = self::getConsumedForCreditEntity($ID);
+        $consumed_credits = self::getConsumedForCreditContract($ID);
         $tickets_data = [];
 
         if ($consumed_credits > 0) {
-            foreach (self::getAllForCreditEntity($ID) as $data) {
+            foreach (self::getAllForCreditContract($ID) as $data) {
                 $Ticket = new Ticket();
                 $Ticket->getFromDB($data['tickets_id']);
 
@@ -471,8 +467,8 @@ class PluginCreditTicket extends CommonDBTM
         }
 
         if (
-            !isset($item->input['plugin_credit_entities_id'])
-            || $item->input['plugin_credit_entities_id'] == 0
+            !isset($item->input['plugin_credit_contracts_id'])
+            || $item->input['plugin_credit_contracts_id'] == 0
         ) {
             Session::addMessageAfterRedirect(
                 __s('You must provide a credit voucher', 'credit'),
@@ -484,11 +480,11 @@ class PluginCreditTicket extends CommonDBTM
 
         $credit_ticket = new self();
 
-        $credit_entity = new PluginCreditEntity();
-        $credit_entity->getFromDB($item->input['plugin_credit_entities_id']);
+        $credit_entity = new PluginCreditContract();
+        $credit_entity->getFromDB($item->input['plugin_credit_contracts_id']);
 
         $quantity_sold      = (int) $credit_entity->fields['quantity'];
-        $quantity_consumed  = $credit_ticket->getConsumedForCreditEntity($item->input['plugin_credit_entities_id']);
+        $quantity_consumed  = $credit_ticket->getConsumedForCreditContract($item->input['plugin_credit_contracts_id']);
         $quantity_remaining = max(0, $quantity_sold - $quantity_consumed);
 
         if (0 !== $quantity_sold && $quantity_remaining < $item->input['plugin_credit_quantity']) {
@@ -533,10 +529,10 @@ class PluginCreditTicket extends CommonDBTM
         }
 
         $input = [
-            'tickets_id'                => $ticket->getID(),
-            'plugin_credit_entities_id' => $item->input['plugin_credit_entities_id'],
-            'consumed'                  => $quantity,
-            'users_id'                  => Session::getLoginUserID(),
+            'tickets_id'                 => $ticket->getID(),
+            'plugin_credit_contracts_id' => $item->input['plugin_credit_contracts_id'],
+            'consumed'                   => $quantity,
+            'users_id'                   => Session::getLoginUserID(),
         ];
         if ($credit_ticket->add($input)) {
             Session::addMessageAfterRedirect(
@@ -573,9 +569,9 @@ class PluginCreditTicket extends CommonDBTM
 
         $tab[] = [
             'id'       => 883,
-            'table'    => PluginCreditEntity::getTable(),
+            'table'    => PluginCreditContract::getTable(),
             'field'    => 'name',
-            'name'     => PluginCreditEntity::getTypeName(Session::getPluralNumber()),
+            'name'     => PluginCreditContract::getTypeName(Session::getPluralNumber()),
             'datatype' => 'dropdown',
         ];
 
@@ -603,13 +599,13 @@ class PluginCreditTicket extends CommonDBTM
                 CREATE TABLE IF NOT EXISTS `$table` (
                     `id` int {$default_key_sign} NOT NULL auto_increment,
                     `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    `plugin_credit_entities_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                    `plugin_credit_contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                     `date_creation` timestamp NULL DEFAULT NULL,
                     `consumed` int NOT NULL DEFAULT '0',
                     `users_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                     PRIMARY KEY (`id`),
                     KEY `tickets_id` (`tickets_id`),
-                    KEY `plugin_credit_entities_id` (`plugin_credit_entities_id`),
+                    KEY `plugin_credit_contracts_id` (`plugin_credit_contracts_id`),
                     KEY `date_creation` (`date_creation`),
                     KEY `consumed` (`consumed`),
                     KEY `users_id` (`users_id`)
@@ -620,13 +616,6 @@ SQL;
             // Fix #1 in 1.0.1 : change tinyint to int for tickets_id
             $migration->changeField($table, 'tickets_id', 'tickets_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
 
-            // Change tinyint to int
-            $migration->changeField(
-                $table,
-                'plugin_credit_entities_id',
-                'plugin_credit_entities_id',
-                "int {$default_key_sign} NOT NULL DEFAULT 0",
-            );
             $migration->changeField($table, 'users_id', 'users_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
 
             //execute the whole migration

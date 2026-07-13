@@ -36,6 +36,6 @@ Html::header_nocache();
 global $DB;
 
 if (isset($_POST["entity"])) {
-    $max = PluginCreditEntity::getMaximumConsumptionForCredit($_POST["entity"]);
+    $max = PluginCreditContract::getMaximumConsumptionForCredit($_POST["entity"]);
     echo $max;
 }

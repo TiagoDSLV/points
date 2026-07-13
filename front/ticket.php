@@ -31,15 +31,20 @@
 
 Html::popHeader(__('Setup'), $_SERVER['PHP_SELF'], true);
 
-if (!isset($_GET["plugcreditentity"])) {
-    throw new RuntimeException('Invalid params provided!');
-} else {
+if (isset($_GET["plugcreditcontract"])) {
+    $_GET['plugcreditcontract'] = (int) $_GET['plugcreditcontract'];
+    $credit_id = $_GET['plugcreditcontract'];
+} elseif (isset($_GET["plugcreditentity"])) {
+    // Backwards compatibility
     $_GET['plugcreditentity'] = (int) $_GET['plugcreditentity'];
+    $credit_id = $_GET['plugcreditentity'];
+} else {
+    throw new RuntimeException('Invalid params provided!');
 }
 
 Session::checkLoginUser();
 Session::checkRightsOr('ticket', [Ticket::STEAL, Ticket::OWN]);
 
-PluginCreditTicket::displayConsumed($_GET['plugcreditentity']);
+PluginCreditTicket::displayConsumed($credit_id);
 
 Html::popFooter();

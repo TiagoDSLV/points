@@ -141,7 +141,7 @@ msgstr[2] "Points"
 
 #: front/ticket.form.php:39
 msgid "Credit voucher entity must be selected."
-msgstr "L'entité du contrat à points doit être sélectionnée."
+msgstr "Le contrat à points doit être sélectionné."
 
 #: front/ticket.form.php:46
 msgid "Credit voucher quantity must be greater than 0."

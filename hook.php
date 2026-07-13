@@ -66,7 +66,7 @@ function plugin_credit_install()
     $migration->executeMigration();
 
     CronTask::register(
-        'PluginCreditEntity',
+        'PluginCreditContract',
         'creditexpired',
         DAY_TIMESTAMP,
         [
@@ -76,7 +76,7 @@ function plugin_credit_install()
     );
 
     CronTask::register(
-        'PluginCreditEntity',
+        'PluginCreditContract',
         'lowcredits',
         DAY_TIMESTAMP,
         [
@@ -131,7 +131,7 @@ function plugin_credit_get_datas(NotificationTargetTicket $target)
     /** @var DBmysql $DB */
     global $DB;
 
-    $target->data['##lang.credit.voucher##'] = PluginCreditEntity::getTypeName();
+    $target->data['##lang.credit.voucher##'] = PluginCreditContract::getTypeName();
     $target->data['##lang.credit.used##']    = __('Quantity consumed', 'credit');
     $target->data['##lang.credit.left##']    = __('Quantity remaining', 'credit');
 
@@ -140,19 +140,22 @@ function plugin_credit_get_datas(NotificationTargetTicket $target)
     $ticket->getFromDB($id);
     $entity_id = $ticket->fields['entities_id'];
 
+    $contracts_table = PluginCreditContract::getTable();
+    $tickets_table   = PluginCreditTicket::getTable();
+
     $query = [
         'SELECT' => [
-            'name',
-            'quantity',
+            $contracts_table . '.name',
+            $contracts_table . '.quantity',
             new QuerySubQuery([
                 'SELECT' => [
                     'SUM' => 'consumed AS consumed_on_ticket',
                 ],
                 'FROM' => [
-                    'glpi_plugin_credit_tickets',
+                    $tickets_table,
                 ],
                 'WHERE' => [
-                    'plugin_credit_entities_id' => new QueryExpression($DB->quoteName('glpi_plugin_credit_entities.id')),
+                    'plugin_credit_contracts_id' => new QueryExpression($DB->quoteName($contracts_table . '.id')),
                     'tickets_id' => $id,
                 ],
             ], 'consumed_on_ticket'),
@@ -161,20 +164,28 @@ function plugin_credit_get_datas(NotificationTargetTicket $target)
                     'SUM' => 'consumed AS consumed_total',
                 ],
                 'FROM' => [
-                    'glpi_plugin_credit_tickets',
+                    $tickets_table,
                 ],
                 'WHERE' => [
-                    'plugin_credit_entities_id' => new QueryExpression($DB->quoteName('glpi_plugin_credit_entities.id')),
+                    'plugin_credit_contracts_id' => new QueryExpression($DB->quoteName($contracts_table . '.id')),
                 ],
             ], 'consumed_total'),
         ],
         'FROM' => [
-            'glpi_plugin_credit_entities',
+            $contracts_table,
         ],
-        'WHERE' => [
-            'is_active' => 1,
-            'entities_id' => $entity_id,
+        'LEFT JOIN' => [
+            'glpi_contracts' => [
+                'ON' => ['glpi_contracts' => 'id', $contracts_table => 'contracts_id'],
+            ],
         ],
+        'WHERE' => array_merge(
+            PluginCreditContract::getActiveFilter(),
+            [
+                'glpi_contracts.is_deleted'  => 0,
+                'glpi_contracts.entities_id' => $entity_id,
+            ],
+        ),
     ];
 
     foreach ($DB->request($query) as $credit) {

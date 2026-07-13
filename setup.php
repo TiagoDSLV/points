@@ -55,10 +55,10 @@ function plugin_init_credit()
 
     if (Session::getLoginUserID() && $plugin->isActivated('credit')) {
         Plugin::registerClass(
-            'PluginCreditEntity',
+            'PluginCreditContract',
             [
                 'notificationtemplates_types' => true,
-                'addtabon'                    => 'Entity',
+                'addtabon'                    => 'Contract',
             ],
         );
 
@@ -91,7 +91,7 @@ function plugin_init_credit()
         ];
         $PLUGIN_HOOKS['item_get_datas']['credit'] = ['NotificationTargetTicket' => 'plugin_credit_get_datas'];
 
-        $PLUGIN_HOOKS['menu_toadd']['credit'] = ['admin' => 'PluginCreditEntity'];
+        $PLUGIN_HOOKS['menu_toadd']['credit'] = ['admin' => 'PluginCreditContract'];
     }
 
     Plugin::registerClass(PluginCreditProfile::class, ['addtabon' => Profile::class]);

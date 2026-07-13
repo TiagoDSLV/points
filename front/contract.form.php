@@ -31,48 +31,48 @@
 use Glpi\Event;
 use Glpi\Exception\Http\BadRequestHttpException;
 
-$PluginCreditEntity = new PluginCreditEntity();
+$PluginCreditContract = new PluginCreditContract();
 
 if (isset($_POST["add"])) {
-    $PluginCreditEntity->check(-1, CREATE, $_POST);
-    if ($PluginCreditEntity->add($_POST)) {
+    $PluginCreditContract->check(-1, CREATE, $_POST);
+    if ($PluginCreditContract->add($_POST)) {
         Event::log(
             $_POST["plugin_credit_types_id"],
-            "entity",
+            "contract",
             4,
             "setup",
-            sprintf(__('%s adds a vouchers to an entity'), $_SESSION["glpiname"]),
+            sprintf(__('%s adds a vouchers to a contract'), $_SESSION["glpiname"]),
         );
     }
     Html::back();
 } elseif (isset($_POST["update"])) {
-    $PluginCreditEntity->check($_POST['id'], UPDATE);
-    $PluginCreditEntity->update($_POST);
+    $PluginCreditContract->check($_POST['id'], UPDATE);
+    $PluginCreditContract->update($_POST);
     Html::back();
 } elseif (isset($_POST["delete"])) {
-    $PluginCreditEntity->check($_POST['id'], DELETE);
-    $PluginCreditEntity->delete($_POST);
-    $PluginCreditEntity->redirectToList();
+    $PluginCreditContract->check($_POST['id'], DELETE);
+    $PluginCreditContract->delete($_POST);
+    $PluginCreditContract->redirectToList();
 } elseif (isset($_POST["restore"])) {
-    $PluginCreditEntity->check($_POST['id'], DELETE);
-    $PluginCreditEntity->restore($_POST);
-    $PluginCreditEntity->redirectToList();
+    $PluginCreditContract->check($_POST['id'], DELETE);
+    $PluginCreditContract->restore($_POST);
+    $PluginCreditContract->redirectToList();
 } elseif (isset($_POST["purge"])) {
-    $PluginCreditEntity->check($_POST['id'], PURGE);
-    $PluginCreditEntity->delete($_POST, true);
-    $PluginCreditEntity->redirectToList();
+    $PluginCreditContract->check($_POST['id'], PURGE);
+    $PluginCreditContract->delete($_POST, true);
+    $PluginCreditContract->redirectToList();
 } elseif (isset($_GET['id'])) {
     $ID = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-    Session::checkRight(PluginCreditEntity::$rightname, READ);
+    Session::checkRight(PluginCreditContract::$rightname, READ);
 
     if (isset($_GET['forcetab'])) {
-        Session::setActiveTab(PluginCreditEntity::class, $_GET['forcetab']);
+        Session::setActiveTab(PluginCreditContract::class, $_GET['forcetab']);
         unset($_GET['forcetab']);
     }
 
-    Html::header(PluginCreditEntity::getTypeName(), $_SERVER['PHP_SELF'], "admin", PluginCreditEntity::class, "credit");
-    $PluginCreditEntity->display(['id' => $ID]);
+    Html::header(PluginCreditContract::getTypeName(), $_SERVER['PHP_SELF'], "admin", PluginCreditContract::class, "credit");
+    $PluginCreditContract->display(['id' => $ID]);
     Html::footer();
 } else {
     throw new BadRequestHttpException();

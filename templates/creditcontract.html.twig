@@ -32,9 +32,9 @@
 {% set rand = random() %}
 {% if canedit %}
 <div name="firstbloc" id="firstbloc" class="">
-    <form name="creditentity_form{{ rand }}" id="creditentity_form{{ rand }}" method="post" action="{{ form_url }}">
+    <form name="creditcontract_form{{ rand }}" id="creditcontract_form{{ rand }}" method="post" action="{{ form_url }}">
         <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="entities_id" value="{{ entity_id }}">
+        <input type="hidden" name="contracts_id" value="{{ contract_id }}">
         <div class="hr-text mt-2">
             <i class="fa-2x ti ti-coin"></i>
             <span>{{ __('Add a credit voucher', 'credit') }}</span>
@@ -60,12 +60,6 @@
                 'is_active',
                 0,
                 __('Active'),
-            ) }}
-
-            {{ fields.dropdownYesNo(
-                'is_recursive',
-                0,
-                __('Child entities'),
             ) }}
 
             {{ fields.dateField(
@@ -137,8 +131,6 @@
             'end_date': 'date',
             'overconsumption_allowed': 'yesno',
             'is_active': 'yesno',
-            'is_recursive': 'yesno',
-            'entities_id': 'raw_html',
             'quantity_consumed': 'raw_html',
         },
         'entries': entries,

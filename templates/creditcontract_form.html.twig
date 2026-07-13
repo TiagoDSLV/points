@@ -54,20 +54,7 @@
         field_options
     ) }}
 
-    {{ fields.dropdownField(
-        'Entity',
-        'entities_id',
-        item.fields['entities_id'],
-        __('Entity'),
-        field_options|merge({'entity': -1})
-    ) }}
-
-    {{ fields.dropdownYesNo(
-        'is_recursive',
-        item.fields['is_recursive'],
-        __('Child entities'),
-        field_options
-    ) }}
+    <input type="hidden" name="contracts_id" value="{{ item.fields.contracts_id ?? contract_id }}">
 
     <div class="hr-text">
         <i class="fa-2x ti ti ti-calendar"></i>
