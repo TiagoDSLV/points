@@ -222,23 +222,23 @@ class PluginCreditContract extends CommonDBTM
             foreach ($iterator as $data) {
                 $ticket      = new Ticket();
                 $ticket_link = '';
+                $task_link = '';
                 if ($ticket->getFromDB($data['tickets_id'])) {
                     $ticket_link = sprintf(
                         '<a href="%s">%s</a>',
                         htmlspecialchars($ticket->getLinkURL()),
                         htmlspecialchars($ticket->getNameID()),
                     );
-                }
 
-                $task_link = '';
-                if ((int) ($data['tickettasks_id'] ?? 0) > 0) {
-                    $task_link = sprintf(
-                        '<a href="%s#TicketTask%d">%s #%d</a>',
-                        htmlspecialchars($ticket->getLinkURL()),
-                        (int) $data['tickettasks_id'],
-                        __('Task', 'credit'),
-                        (int) $data['tickettasks_id'],
-                    );
+                    if ((int) ($data['tickettasks_id'] ?? 0) > 0) {
+                        $task_link = sprintf(
+                            '<a href="%s#TicketTask%d">%s #%d</a>',
+                            htmlspecialchars($ticket->getLinkURL()),
+                            (int) $data['tickettasks_id'],
+                            __('Task', 'credit'),
+                            (int) $data['tickettasks_id'],
+                        );
+                    }
                 }
 
                 $bareme_name = '';
