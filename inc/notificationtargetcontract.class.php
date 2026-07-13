@@ -113,8 +113,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
         }
 
         $lang = [
-            'credit.expired'                => __('Credit voucher expiration', 'credit'),
-            'credit.expired.information'    => __('This credit voucher will expire soon. Please, consider buying a new one.', 'credit'),
             'credit.lowcredits'             => __('Amount of credit remaining close to or at 0', 'credit'),
             'credit.lowcredits.information' => __('The remaining quantity has reached 0 or almost.', 'credit'),
         ];
@@ -233,21 +231,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
     {
         /** @var DBmysql $DB */
         global $DB;
-
-        $notification = new Notification();
-        $notifications_iterator = $DB->request(
-            [
-                'SELECT' => 'id',
-                'FROM'   => $notification->getTable(),
-                'WHERE'  => [
-                    'itemtype' => 'PluginCreditContract',
-                    'event'    => 'expired',
-                ],
-            ],
-        );
-        foreach ($notifications_iterator as $notification_data) {
-            $notification->delete($notification_data);
-        }
 
         $template             = new NotificationTemplate();
         $templates_iterator   = $DB->request(
