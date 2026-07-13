@@ -453,6 +453,21 @@ class PluginCreditTicket extends CommonDBTM
                 true,
                 INFO,
             );
+            Log::history(
+                (int) $credit_entity->fields['contracts_id'],
+                Contract::class,
+                [
+                    0,
+                    '',
+                    sprintf(
+                        __('%1$d pts consumed — Task #%2$d / Ticket #%3$d', 'credit'),
+                        $quantity,
+                        ($item instanceof TicketTask) ? $item->getID() : 0,
+                        $ticket->getID(),
+                    ),
+                ],
+                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+            );
         }
     }
 
@@ -490,7 +505,9 @@ class PluginCreditTicket extends CommonDBTM
             ? (int) $item->input['plugin_credit_bareme_id']
             : (int) $existing['plugin_credit_bareme_id'];
 
-        $new_duration = (int) $item->fields['actiontime'];
+        $new_duration = isset($item->input['actiontime'])
+            ? (int) $item->input['actiontime']
+            : (int) ($item->fields['actiontime'] ?? 0);
 
         if ($bareme_id <= 0) {
             if ($has_bareme) {
@@ -514,6 +531,32 @@ class PluginCreditTicket extends CommonDBTM
             'consumed'               => $new_points,
             'plugin_credit_bareme_id' => $bareme_id,
         ]);
+    }
+
+    /**
+     * Log consumption deletion in the linked contract's history.
+     * Called by GLPI when a PluginCreditTicket record is purged (manual deletion from contract view).
+     */
+    public function post_purgeItem(): void
+    {
+        $pool = new PluginCreditContract();
+        if ($pool->getFromDB((int) $this->fields['plugin_credit_contracts_id'])) {
+            Log::history(
+                (int) $pool->fields['contracts_id'],
+                Contract::class,
+                [
+                    0,
+                    '',
+                    sprintf(
+                        __('%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d', 'credit'),
+                        (int) $this->fields['consumed'],
+                        (int) $this->fields['tickettasks_id'],
+                        (int) $this->fields['tickets_id'],
+                    ),
+                ],
+                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+            );
+        }
     }
 
     /**

@@ -57,89 +57,76 @@
         ) }}
 
         <div id="creditvoucherblock{{ rand }}" style="display: {% if consume == 1 %}block{% else %}none{% endif %}">
-            <div class="row">
 
-                {# Contract info (read-only) #}
-                <div class="col-6 col-sm-6">
-                    <div class="row mb-2">
-                        <label class="col-xxl-5 col-form-label">
-                            {{ __('Contract', 'credit') }}
-                        </label>
-                        <div class="col-xxl-7 d-flex align-items-center gap-2">
-                            <span class="fw-semibold">{{ pool.contract_name }}</span>
-                            <span class="badge bg-secondary">
-                                {% if pool.unlimited %}
-                                    {{ __('Unlimited', 'credit') }}
-                                {% else %}
-                                    {{ pool.remaining }} pts restants
-                                {% endif %}
+            {# Contract info (read-only) using GLPI native field layout #}
+            {% set contract_badge %}
+                <strong>{{ pool.contract_name }}</strong>
+                <span class="badge bg-secondary ms-2">
+                    {% if pool.unlimited %}{{ __('Unlimited', 'credit') }}{% else %}{{ pool.remaining }} pts restants{% endif %}
+                </span>
+            {% endset %}
+            {{ fields.htmlField('', contract_badge, __('Contract', 'credit')) }}
+
+            {# Barème dropdown using GLPI native field layout #}
+            {% set bareme_select %}
+                <select id="plugin_credit_bareme_id_{{ rand }}"
+                        name="plugin_credit_bareme_id"
+                        class="form-select"
+                        onchange="onBaremeChange{{ rand }}()">
+                    <option value="0" {% if existing_bareme_id == 0 %}selected{% endif %}>{{ __('-- Manual entry --', 'credit') }}</option>
+                    {% for id, bareme in baremes %}
+                        <option value="{{ id }}"
+                                data-points="{{ bareme.points_par_tranche }}"
+                                {% if id == existing_bareme_id %}selected{% endif %}>
+                            {{ bareme.name }} ({{ bareme.points_par_tranche }} pts / 15 min)
+                        </option>
+                    {% endfor %}
+                </select>
+            {% endset %}
+            {{ fields.htmlField('plugin_credit_bareme_id', bareme_select, __('Rate scale', 'credit')) }}
+
+            {# Auto-calculation preview #}
+            <div id="credit_auto_calc_block_{{ rand }}" style="display:none;" class="mb-2">
+                <div class="row">
+                    <div class="col-xxl-5"></div>
+                    <div class="col-xxl-7">
+                        <div class="alert alert-info py-2 px-3 mb-0 d-flex align-items-center gap-2">
+                            <i class="ti ti-calculator"></i>
+                            <span>
+                                {{ __('Auto-calculated points', 'credit') }} :
+                                <strong id="credit_auto_calc_detail_{{ rand }}">—</strong>
                             </span>
                         </div>
                     </div>
                 </div>
-
-                {# Bareme dropdown #}
-                <div class="col-6 col-sm-6">
-                    <div class="row mb-2">
-                        <label class="col-xxl-5 col-form-label">
-                            {{ __('Rate scale', 'credit') }}
-                        </label>
-                        <div class="col-xxl-7">
-                            <select id="plugin_credit_bareme_id_{{ rand }}"
-                                    name="plugin_credit_bareme_id"
-                                    class="form-select"
-                                    onchange="onBaremeChange{{ rand }}()">
-                                <option value="0" {% if existing_bareme_id == 0 %}selected{% endif %}>{{ __('-- Manual entry --', 'credit') }}</option>
-                                {% for id, bareme in baremes %}
-                                    <option value="{{ id }}"
-                                            data-points="{{ bareme.points_par_tranche }}"
-                                            {% if id == existing_bareme_id %}selected{% endif %}>
-                                        {{ bareme.name }} ({{ bareme.points_par_tranche }} pts / 15 min)
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {# Auto-calculation preview badge #}
-                <div class="col-12 mb-2" id="credit_auto_calc_block_{{ rand }}" style="display:none;">
-                    <div class="alert alert-info py-2 px-3 mb-0 d-flex align-items-center gap-2">
-                        <i class="ti ti-calculator"></i>
-                        <span>
-                            {{ __('Auto-calculated points', 'credit') }} :
-                            <strong id="credit_auto_calc_detail_{{ rand }}">—</strong>
-                        </span>
-                    </div>
-                </div>
-
             </div>
+
         </div>
 
         <script>
             function showCreditDiv{{ rand }}() {
-                const creditVoucherBlock = document.getElementById('creditvoucherblock{{ rand }}');
+                var creditVoucherBlock = document.getElementById('creditvoucherblock{{ rand }}');
                 if (creditVoucherBlock) {
-                    const isHidden = creditVoucherBlock.style.display !== 'none';
+                    var isHidden = creditVoucherBlock.style.display !== 'none';
                     creditVoucherBlock.style.display = isHidden ? 'none' : 'block';
                 }
             }
 
             function getTaskDurationSeconds{{ rand }}() {
-                // GLPI 11 showTimestampForm() renders selects named "_actiontime_hours" /
-                // "_actiontime_minutes" (leading underscore, plural). Try these first because
-                // they reflect the user's current selection immediately on change.
-                var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
-                var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
-                if (hourSel && minuteSel) {
-                    return (parseInt(hourSel.value) || 0) * 3600
-                         + (parseInt(minuteSel.value) || 0) * 60;
-                }
-
-                // Fallback (older GLPI or after JS has synced): hidden input in seconds
+                // Primary: hidden actiontime input that GLPI keeps synced (value in seconds).
+                // GLPI's own onchange handler updates this before our deferred callback runs.
                 var hidden = document.querySelector('input[name="actiontime"]');
                 if (hidden && parseInt(hidden.value) > 0) {
                     return parseInt(hidden.value);
+                }
+
+                // Fallback: GLPI 11 showTimestampForm select values are already in seconds —
+                // hour select = hours×3600, minute select = minutes×60. Just add them.
+                var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
+                var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
+                if (hourSel && minuteSel) {
+                    return (parseInt(hourSel.value) || 0)
+                         + (parseInt(minuteSel.value) || 0);
                 }
 
                 return 0;
@@ -155,7 +142,6 @@
                 var baremeId = parseInt(baremeSelect.value) || 0;
 
                 if (baremeId === 0) {
-                    // Manual mode: hide auto-calc block
                     if (autoBlock) autoBlock.style.display = 'none';
                     return;
                 }
@@ -180,8 +166,6 @@
                 }
             }
 
-            // Defer listener attachment until after GLPI's own form JS has initialized
-            // the duration picker (avoids querySelector returning null at parse time).
             requestAnimationFrame(function watchDuration{{ rand }}() {
                 var targets = [
                     document.querySelector('select[name="_actiontime_hours"]'),
@@ -190,11 +174,11 @@
                 ].filter(Boolean);
 
                 targets.forEach(function(el) {
-                    el.addEventListener('change', onBaremeChange{{ rand }});
-                    el.addEventListener('input',  onBaremeChange{{ rand }});
+                    // Defer so GLPI's own onchange handler syncs the hidden actiontime input first.
+                    el.addEventListener('change', function() { setTimeout(onBaremeChange{{ rand }}, 0); });
+                    el.addEventListener('input',  function() { setTimeout(onBaremeChange{{ rand }}, 0); });
                 });
 
-                // Trigger once in case a barème is already selected when the form opens
                 onBaremeChange{{ rand }}();
             });
         </script>

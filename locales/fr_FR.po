@@ -289,3 +289,13 @@ msgstr "Illimité"
 #: inc/contract.class.php
 msgid "A points pool already exists for this contract."
 msgstr "Un contrat à points existe déjà pour ce contrat."
+
+#: inc/ticket.class.php
+#, php-format
+msgid "%1$d pts consumed — Task #%2$d / Ticket #%3$d"
+msgstr "%1$d pts consommés — Tâche #%2$d / Ticket #%3$d"
+
+#: inc/ticket.class.php
+#, php-format
+msgid "%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d"
+msgstr "%1$d pts supprimés — Tâche #%2$d / Ticket #%3$d"

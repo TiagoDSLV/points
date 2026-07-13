@@ -6,3 +6,4 @@ vendor/
 CLAUDE.md
 .claude/
 docs/
+compile_mo.py
