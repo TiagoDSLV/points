@@ -34,10 +34,30 @@
         <span>{{ __('Consumed credits for this ticket', 'credit') }}</span>
     </div>
 
+    {% if remaining_points is not null %}
+        <div class="alert alert-info py-2 mb-2">
+            <i class="ti ti-coin me-1"></i>
+            {{ __('Remaining points on contract', 'credit') }}: <strong>{{ remaining_points }}</strong>
+            {% if pool_name %}<span class="text-muted ms-2">({{ pool_name }})</span>{% endif %}
+        </div>
+    {% elseif pool_unlimited %}
+        <div class="alert alert-info py-2 mb-2">
+            <i class="ti ti-infinity me-1"></i>
+            {{ __('Unlimited points contract', 'credit') }}
+            {% if pool_name %}<span class="text-muted ms-2">({{ pool_name }})</span>{% endif %}
+        </div>
+    {% elseif entries is not empty %}
+        <div class="alert alert-warning py-2 mb-2">
+            <i class="ti ti-alert-triangle me-1"></i>
+            {{ __('No points contract linked to this ticket.', 'credit') }}
+        </div>
+    {% endif %}
+
     {% set columns = {
         'name': __('Contract', 'credit'),
         'date_creation': __('Date consumed', 'credit'),
         'users_id': __('User consumed', 'credit'),
+        'task_link': __('Task', 'credit'),
         'consumed': __('Quantity consumed', 'credit')
     } %}
 
@@ -52,6 +72,7 @@
             'consumed': 'raw_html',
             'date_creation': 'datetime',
             'users_id': 'raw_html',
+            'task_link': 'raw_html',
         },
         'entries': entries,
         'total_number': entries|length,
@@ -59,4 +80,10 @@
     } %}
 
     {{ include('components/datatable.html.twig', datatable_params, with_context = false) }}
+
+    {% if total_consumed > 0 %}
+        <div class="text-end fw-bold mt-2">
+            {{ __('Total consumed on this ticket', 'credit') }}: {{ total_consumed }} pts
+        </div>
+    {% endif %}
 </div>

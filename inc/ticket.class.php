@@ -202,12 +202,29 @@ class PluginCreditTicket extends CommonDBTM
             return false;
         }
 
-        $rand    = mt_rand();
-        $entries = [];
+        $rand           = mt_rand();
+        $entries        = [];
+        $total_consumed = 0;
+
+        $ticket = new Ticket();
+        $ticket->getFromDB($ID);
 
         foreach (self::getAllForTicket($ID) as $data) {
             $credit_contract = new PluginCreditContract();
             $credit_contract->getFromDB($data['plugin_credit_contracts_id']);
+
+            $total_consumed += (int) $data['consumed'];
+
+            $task_link = '';
+            if ((int) ($data['tickettasks_id'] ?? 0) > 0) {
+                $task_link = sprintf(
+                    '<a href="%s#TicketTask%d">%s #%d</a>',
+                    htmlspecialchars($ticket->getLinkURL()),
+                    (int) $data['tickettasks_id'],
+                    __('Task', 'credit'),
+                    (int) $data['tickettasks_id'],
+                );
+            }
 
             $entries[] = array_merge($data, [
                 'id'            => $data['id'],
@@ -217,14 +234,29 @@ class PluginCreditTicket extends CommonDBTM
                     ? getUserLink($data['users_id'])
                     : getUserName($data['users_id']),
                 'consumed'      => $data['consumed'],
+                'task_link'     => $task_link,
                 'itemtype'      => PluginCreditTicket::class,
             ]);
         }
 
+        $pool             = PluginCreditContract::getPoolForTicket($ID);
+        $remaining_points = null;
+        $pool_unlimited   = false;
+        $pool_name        = null;
+        if ($pool !== null) {
+            $remaining_points = $pool['remaining'];
+            $pool_unlimited   = $pool['unlimited'];
+            $pool_name        = $pool['contract_name'];
+        }
+
         TemplateRenderer::getInstance()->display('@credit/tickets/form.html.twig', [
-            'rand'      => $rand,
-            'type_name' => self::getTypeName(2),
-            'entries'   => $entries,
+            'rand'             => $rand,
+            'type_name'        => self::getTypeName(2),
+            'entries'          => $entries,
+            'total_consumed'   => $total_consumed,
+            'remaining_points' => $remaining_points,
+            'pool_unlimited'   => $pool_unlimited,
+            'pool_name'        => $pool_name,
         ]);
     }
 
