@@ -32,8 +32,6 @@
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QueryExpression;
 
-use function Safe\strtotime;
-
 class PluginCreditContract extends CommonDBTM
 {
     public static $rightname = 'contract';
@@ -438,94 +436,12 @@ class PluginCreditContract extends CommonDBTM
     public static function cronInfo($name)
     {
         switch ($name) {
-            case 'creditexpired':
-                return [
-                    'description' => __('Expiration date', 'credit'),
-                    'parameter'   => __('Notice (in days)', 'credit'),
-                ];
             case 'lowcredits':
                 return [
                     'description' => __('Low credits', 'credit'),
                 ];
         }
         return [];
-    }
-
-    public static function cronCreditExpired($task)
-    {
-        /**
-         * @var array $CFG_GLPI
-         * @var DBmysql $DB
-         */
-        global $CFG_GLPI, $DB;
-
-        if (!$CFG_GLPI['use_notifications']) {
-            return 0;
-        }
-
-        $notice_time = (int) $task->fields['param'];
-
-        $alert = new Alert();
-        $credits_iterator = $DB->request(
-            [
-                'SELECT'    => [
-                    self::getTable() . '.*',
-                ],
-                'FROM'      => self::getTable(),
-                'LEFT JOIN' => [
-                    'glpi_alerts' => [
-                        'ON' => [
-                            'glpi_alerts'      => 'items_id',
-                            self::getTable()   => 'id',
-                            [
-                                'AND' => [
-                                    'glpi_alerts.itemtype' => self::getType(),
-                                    'glpi_alerts.type'     => Alert::END,
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-                'WHERE'     => [
-                    'glpi_alerts.date'                  => null,
-                    self::getTable() . '.is_active'     => 1,
-                    ['NOT' => [self::getTable() . '.end_date' => null]],
-                    new QueryExpression(
-                        sprintf(
-                            'ADDDATE(NOW(), INTERVAL %s DAY) >= %s',
-                            $notice_time,
-                            $DB->quoteName(self::getTable() . '.end_date'),
-                        ),
-                    ),
-                ],
-            ],
-        );
-
-        foreach ($credits_iterator as $credit_data) {
-            $task->addVolume(1);
-            $task->log(
-                sprintf(
-                    'Credit %s expires on %s',
-                    $credit_data['name'],
-                    date('Y-m-d', strtotime($credit_data['end_date'])),
-                ),
-            );
-
-            $credit = new PluginCreditContract();
-            $credit->getFromDB($credit_data['id']);
-
-            NotificationEvent::raiseEvent('expired', $credit);
-
-            $input = [
-                'type'     => Alert::END,
-                'itemtype' => self::getType(),
-                'items_id' => $credit_data['id'],
-            ];
-            $alert->add($input);
-            unset($alert->fields['id']);
-        }
-
-        return 1;
     }
 
     public static function cronLowCredits($task)

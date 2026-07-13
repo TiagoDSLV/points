@@ -36,7 +36,6 @@
 
     {% set columns = {
         'name': __('Contract', 'credit'),
-        'plugin_credit_types_id': __('Voucher type', 'credit'),
         'date_creation': __('Date consumed', 'credit'),
         'users_id': __('User consumed', 'credit'),
         'consumed': __('Quantity consumed', 'credit')
@@ -50,7 +49,6 @@
         'columns': columns,
         'formatters': {
             'name': 'raw_html',
-            'plugin_credit_types_id': 'raw_html',
             'consumed': 'raw_html',
             'date_creation': 'datetime',
             'users_id': 'raw_html',

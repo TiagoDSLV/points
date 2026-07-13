@@ -72,7 +72,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
             'glpi_contracts',
             $this->obj->getField('contracts_id'),
         );
-        $this->data['##credit.type##'] = Dropdown::getDropdownName('glpi_plugin_credit_types', $this->obj->getField('plugin_credit_types_id'));
         $this->data['##lang.credit.begindate##']               = __('Begin date');
         $this->data['##lang.credit.enddate##']                 = __('End date', 'credit');
         $this->data['##lang.credit.quantity_remaining##']      = __('Quantity remaining', 'credit');
@@ -81,7 +80,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
         $this->data['##lang.credit.overconsumption_allowed##'] = __('Allow overconsumption', 'credit');
         $this->data['##lang.credit.quantity_consumed##']       = __('Quantity consumed', 'credit');
         $this->data['##lang.credit.contract##']                = Contract::getTypeName(1);
-        $this->data['##lang.credit.type##']                    = __('Type');
 
         $this->getTags();
         foreach ($this->tag_descriptions[NotificationTarget::TAG_LANGUAGE] as $tag => $values) {
@@ -102,7 +100,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
             'credit.quantity_consumed'       => __('Quantity consumed', 'credit'),
             'credit.contract'                => Contract::getTypeName(1),
             'credit.overconsumption_allowed' => __('Allow overconsumption', 'credit'),
-            'credit.type'                    => __('Type'),
         ];
 
         foreach ($tags as $tag => $label) {
@@ -149,87 +146,6 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
         $notification = new Notification();
         $n_n_template = new Notification_NotificationTemplate();
         $target       = new NotificationTarget();
-
-        $templates_id = false;
-        $result = $DB->request(
-            [
-                'SELECT' => 'id',
-                'FROM'   => 'glpi_notificationtemplates',
-                'WHERE'  => [
-                    'itemtype' => 'PluginCreditContract',
-                    'name'     => 'Credit expired',
-                ],
-            ],
-        );
-
-        if (count($result) > 0) {
-            $data = $result->current();
-            $templates_id = $data['id'];
-        } else {
-            $templates_id = $template->add(
-                [
-                    'name'     => 'Credit expired',
-                    'itemtype' => 'PluginCreditContract',
-                    'date_mod' => $_SESSION['glpi_currenttime'],
-                    'comment'  => '',
-                    'css'      => '',
-                ],
-            );
-        }
-
-        if ($templates_id) {
-            $tanslation_count = countElementsInTable(
-                $translation->getTable(),
-                ['notificationtemplates_id' => $templates_id],
-            );
-            if ($tanslation_count == 0) {
-                $translation->add(
-                    [
-                        'notificationtemplates_id' => $templates_id,
-                        'language'                 => '',
-                        'subject'                  => '##lang.credit.expired## : ##credit.name##',
-                        'content_text'             => '##lang.credit.expired.information##',
-                        'content_html'             => '##lang.credit.expired.information##',
-                    ],
-                );
-            }
-
-            $notifications_count = countElementsInTable(
-                $notification->getTable(),
-                ['itemtype' => 'PluginCreditContract', 'event' => 'expired'],
-            );
-
-            if ($notifications_count == 0) {
-                $notification_id = $notification->add(
-                    [
-                        'name'         => 'Credit expired',
-                        'entities_id'  => 0,
-                        'itemtype'     => 'PluginCreditContract',
-                        'event'        => 'expired',
-                        'comment'      => '',
-                        'is_recursive' => 1,
-                        'is_active'    => 1,
-                        'date_mod'     => $_SESSION['glpi_currenttime'],
-                    ],
-                );
-
-                $n_n_template->add(
-                    [
-                        'notifications_id'         => $notification_id,
-                        'mode'                     => Notification_NotificationTemplate::MODE_MAIL,
-                        'notificationtemplates_id' => $templates_id,
-                    ],
-                );
-
-                $target->add(
-                    [
-                        'notifications_id' => $notification_id,
-                        'type'             => Notification::USER_TYPE,
-                        'items_id'         => Notification::ENTITY_ADMINISTRATOR,
-                    ],
-                );
-            }
-        }
 
         $templates_id_quantity = false;
         $result_quantity = $DB->request(
