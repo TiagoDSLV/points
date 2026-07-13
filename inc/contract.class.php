@@ -40,7 +40,7 @@ class PluginCreditContract extends CommonDBTM
 
     public static function getTypeName($nb = 0)
     {
-        return _sn('Credit voucher', 'Credit vouchers', $nb, 'credit');
+        return _sn('Points', 'Points', $nb, 'credit');
     }
 
     public static function getIcon()
@@ -260,27 +260,15 @@ class PluginCreditContract extends CommonDBTM
             'itemtype'         => PluginCreditContract::class,
         ];
 
-        if ($canedit) {
-            TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
-                'form_url'            => self::getFormUrl(),
-                'credittypeclass'     => PluginCreditType::class,
-                'columns'             => $columns,
-                'contract_id'         => $ID,
-                'entries'             => $entries,
-                'canedit'             => $canedit,
-                'massiveactionparams' => $massiveactionparams,
-            ]);
-        } else {
-            TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
-                'form_url'            => self::getFormUrl(),
-                'credittypeclass'     => PluginCreditType::class,
-                'columns'             => $columns,
-                'contract_id'         => $ID,
-                'entries'             => $entries,
-                'canedit'             => $canedit,
-                'massiveactionparams' => $massiveactionparams,
-            ]);
-        }
+        TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
+            'form_url'            => self::getFormUrl(),
+            'credittypeclass'     => PluginCreditType::class,
+            'columns'             => $columns,
+            'contract_id'         => $ID,
+            'entries'             => $entries,
+            'canedit'             => $canedit,
+            'massiveactionparams' => $massiveactionparams,
+        ]);
     }
 
     /**

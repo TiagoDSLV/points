@@ -382,7 +382,7 @@ class PluginCreditNotificationTargetContract extends NotificationTarget
                 'FROM'   => $template->getTable(),
                 'WHERE'  => [
                     'itemtype' => 'PluginCreditContract',
-                    'name'     => 'lowcredits',
+                    'name'     => 'Low credits',
                 ],
             ],
         );
