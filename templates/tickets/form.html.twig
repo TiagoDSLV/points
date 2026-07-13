@@ -30,96 +30,6 @@
 {% import "components/form/fields_macros.html.twig" as fields %}
 
 <div class="credit_ticket_form">
-    {% if canedit %}
-        <div class="formblock">
-            <div class="hr-text mt-2">
-                <i class="fa-2x ti ti-coin"></i>
-                <span>{{ __('Add a voucher to the ticket', 'credit') }}</span>
-            </div>
-            <form name="creditcontract_form{{ rand }}" id="creditcontract_form{{ rand }}" method="post" action="{{ form_url }}">
-                <div class="row">
-                    <input type="hidden" name="tickets_id" value="{{ ID }}">
-                    <div class="col-1 col-sm-1"></div>
-                    {{ fields.dropdownField(
-                        creditentityclass,
-                        'plugin_credit_contracts_id',
-                        '',
-                        __('Voucher name', 'credit'),
-                        {
-                            'entity': entity_id,
-                            'condition': conditions,
-                            'on_change': 'getQuantityRemainingForm' ~ rand ~ '(this.value, this);',
-                            'field_class': 'col-4 col-sm-4',
-                        }
-                    ) }}
-                    <div class="col-1 col-sm-1"></div>
-
-                    {{ fields.numberField(
-                        'plugin_credit_quantity',
-                        1,
-                        __('Quantity consumed', 'credit'),
-                        {
-                            'entity': entity_id,
-                            'condition': conditions,
-                            'min': 1,
-                            'field_class': 'col-4 col-sm-4 d-none',
-                            'helper': __('Maximum consumable quantity', 'credit'),
-                        }
-                    ) }}
-
-                    <script>
-                        function getQuantityRemainingForm{{ rand }}(val, source) {
-                            var form = source ? source.closest('form') : document.getElementById('creditcontract_form{{ rand }}');
-                            if (!form) {
-                                return;
-                            }
-
-                            var quantity = form.querySelector('[id*="plugin_credit_quantity"]');
-                            var quantity_label = form.querySelector('[for*="plugin_credit_quantity"]');
-                            if (!quantity || !quantity_label) {
-                                return;
-                            }
-
-                            var form_help = quantity_label.querySelector('span.form-help');
-                            if (!form_help) {
-                                return;
-                            }
-
-                            if (val == 0) {
-                                quantity.value = 0;
-                                form_help.setAttribute('data-bs-title', __('Maximum consumable quantity', 'credit') + ' : 0 ');
-                                form_help.setAttribute('data-bs-content', __('Maximum consumable quantity', 'credit') + ' : 0 ');
-                            } else {
-                                quantity.closest('.form-field').classList.remove('d-none');
-                                $.ajax({
-                                    type: 'POST',
-                                    url: '{{ path('plugins/credit/ajax/dropdownQuantity.php') }}',
-                                    data: {
-                                        entity: val,
-                                    }
-                                }).done(function (data) {
-                                    quantity.max = data;
-                                    quantity.value = 1;
-                                    form_help.setAttribute('data-bs-title', __('Maximum consumable quantity', 'credit') + ' : <b>' + data);
-                                    form_help.setAttribute('data-bs-content', __('Maximum consumable quantity', 'credit') + ' : <b>' + data);
-                                });
-                            }
-                        }
-                    </script>
-                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}" />
-                    <div class="hstack gap-1">
-                        <div class="pe-5 ms-auto mb-2">
-                            <button class="btn btn-primary" type="submit" name="add" value="1">
-                                <i class="ti ti-device-floppy"></i>
-                                <span>{{ _x('button', 'Save') }}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </form>
-        </div>
-    {% endif %}
-
     <div class="spaced">
     <div class="hr-text mt-2">
         <i class="fa-2x ti ti-coins"></i>
@@ -127,7 +37,7 @@
     </div>
 
     {% set columns = {
-        'name': __('Voucher name', 'credit'),
+        'name': __('Contract', 'credit'),
         'plugin_credit_types_id': __('Voucher type', 'credit'),
         'date_creation': __('Date consumed', 'credit'),
         'users_id': __('User consumed', 'credit'),
@@ -150,8 +60,6 @@
         'entries': entries,
         'total_number': entries|length,
         'filtered_number': entries|length,
-        'showmassiveactions': canedit,
-        'massiveactionparams': massiveactionparams,
     } %}
 
     {{ include('components/datatable.html.twig', datatable_params, with_context = false) }}

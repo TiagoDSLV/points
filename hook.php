@@ -110,6 +110,9 @@ function plugin_credit_uninstall()
         }
     }
 
+    $migration->dropTable('glpi_plugin_credit_entity_configs');
+    $migration->dropTable('glpi_plugin_credit_ticket_configs');
+
     $migration->executeMigration();
 
     return true;

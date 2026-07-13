@@ -35,7 +35,7 @@ Html::header_nocache();
 /** @var DBmysql $DB */
 global $DB;
 
-if (isset($_POST["entity"])) {
-    $max = PluginCreditContract::getMaximumConsumptionForCredit($_POST["entity"]);
+if (isset($_POST["contract"])) {
+    $max = PluginCreditContract::getMaximumConsumptionForCredit((int)$_POST["contract"]);
     echo $max;
 }

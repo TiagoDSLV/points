@@ -197,7 +197,6 @@ class PluginCreditTicket extends CommonDBTM
      */
     public static function showForTicket(Ticket $ticket)
     {
-        /** @var DBmysql $DB */
         global $DB;
 
         $ID = $ticket->getField('id');
@@ -205,71 +204,37 @@ class PluginCreditTicket extends CommonDBTM
             return false;
         }
 
-        $canedit = false;
-        if (Session::haveRight(Entity::$rightname, UPDATE)) {
-            $canedit = true; // Entity admin has always right to update credits
-        } elseif (
-            $ticket->canEdit($ID)
-            && !in_array($ticket->fields['status'], array_merge(Ticket::getSolvedStatusArray(), Ticket::getClosedStatusArray()))
-        ) {
-            $canedit = true;
-        }
-
-        $number = self::countForItem($ticket);
-        $rand   = mt_rand();
-
+        $rand    = mt_rand();
         $entries = [];
 
-        if ($number) {
-            if ($canedit) {
-                $massiveactionparams = [
-                    'num_displayed'    => min($number, $_SESSION['glpilist_limit']),
-                    'container'        => 'mass' . self::class . $rand,
-                    'itemtype'         => PluginCreditTicket::class,
-                    'specific_actions' => [
-                        'update'    => _x('button', 'Update'),
-                        'purge'     => _x('button', 'Delete permanently'),
-                    ],
-                ];
-            }
-            foreach (self::getAllForTicket($ID) as $data) {
-                $credit_entity = new PluginCreditContract();
-                $credit_entity->getFromDB($data['plugin_credit_contracts_id']);
+        foreach (self::getAllForTicket($ID) as $data) {
+            $credit_contract = new PluginCreditContract();
+            $credit_contract->getFromDB($data['plugin_credit_contracts_id']);
 
-                if (!empty($data['plugin_credit_types_id'])) {
-                    $type = new PluginCreditType();
-                    $type = $type->getById($data['plugin_credit_types_id']);
-                    if ($type) {
-                        $data['plugin_credit_types_id'] = $type->getLink();
-                    }
-                } else {
-                    $data['plugin_credit_types_id'] = '';
-                }
-
-                $entries[] = array_merge($data, [
-                    'id'                        => $data['id'],
-                    'name'                      => $credit_entity->getName(),
-                    'plugin_credit_types_id'    => $data['plugin_credit_types_id'],
-                    'date_creation'             => $data['date_creation'],
-                    'users_id'                  => Session::haveRight('user', READ) == true ? getUserLink($data["users_id"]) : getUserName($data["users_id"]),
-                    'consumed'                  => $data['consumed'],
-                    'itemtype'                  => PluginCreditTicket::class,
-                ]);
+            if (!empty($data['plugin_credit_types_id'])) {
+                $type = (new PluginCreditType())->getById($data['plugin_credit_types_id']);
+                $data['plugin_credit_types_id'] = $type ? $type->getLink() : '';
+            } else {
+                $data['plugin_credit_types_id'] = '';
             }
+
+            $entries[] = array_merge($data, [
+                'id'                     => $data['id'],
+                'name'                   => $credit_contract->getName(),
+                'plugin_credit_types_id' => $data['plugin_credit_types_id'],
+                'date_creation'          => $data['date_creation'],
+                'users_id'               => Session::haveRight('user', READ)
+                    ? getUserLink($data['users_id'])
+                    : getUserName($data['users_id']),
+                'consumed'               => $data['consumed'],
+                'itemtype'               => PluginCreditTicket::class,
+            ]);
         }
-        PluginCreditTicketConfig::showForTicket($ticket);
 
         TemplateRenderer::getInstance()->display('@credit/tickets/form.html.twig', [
-            'rand'                  => $rand,
-            'entity_id'             => $ticket->getEntityID(),
-            'type_name'             => self::getTypeName(2),
-            'creditentityclass'     => PluginCreditContract::class,
-            'form_url'              => self::getFormUrl(),
-            'conditions'            => PluginCreditContract::getActiveFilter(),
-            'canedit'               => $canedit,
-            'ID'                    => $ID,
-            'entries'               => $entries,
-            'massiveactionparams'   => $massiveactionparams ?? [],
+            'rand'      => $rand,
+            'type_name' => self::getTypeName(2),
+            'entries'   => $entries,
         ]);
     }
 
@@ -284,91 +249,38 @@ class PluginCreditTicket extends CommonDBTM
     {
         $item = $params['item'];
 
-        if ($item instanceof Ticket) {
-            echo PluginCreditTicketConfig::showForTicket($item, true);
+        // Only inject on new TicketTask forms
+        if (!($item instanceof TicketTask) || !$item->isNewItem()) {
             return;
         }
 
-        if (
-            !($item instanceof ITILSolution)
-            && !($item instanceof TicketTask)
-            && !($item instanceof ITILFollowup)
-        ) {
+        // Find parent Ticket
+        $ticket = $params['options']['parent'] ?? null;
+        if (!($ticket instanceof Ticket)) {
             return;
         }
 
-        if (!$item->isNewItem()) {
-            // Do not display fields in item update form.
-            return;
-        }
-
-        $ticket = null;
-        if (
-            array_key_exists('parent', $params['options'])
-            && $params['options']['parent'] instanceof Ticket
-        ) {
-            // Ticket can be found in `parent` option for TicketTask.
-            $ticket = $params['options']['parent'];
-        } elseif (
-            array_key_exists('item', $params['options'])
-            && $params['options']['item'] instanceof Ticket
-        ) {
-            // Ticket can be found in `'item'` option for ITILFollowup and ITILSolution.
-            $ticket = $params['options']['item'];
-        }
-
-        // No parent of type Ticket found, parent might we might be an another
-        // type of CommonITILObject so we should exit here
-        if ($ticket === null) {
-            return;
-        }
-
-        $canedit = $ticket->canEdit($ticket->getID());
+        // Ticket must be open and editable
         if (
             in_array($ticket->fields['status'], Ticket::getSolvedStatusArray())
             || in_array($ticket->fields['status'], Ticket::getClosedStatusArray())
+            || !$ticket->canEdit($ticket->getID())
         ) {
-            $canedit = false;
+            return;
         }
 
-        $entity_config = new PluginCreditEntityConfig();
-        $entity_config->getFromDBByCrit(['entities_id' => $ticket->getEntityID()]);
-        $consume = false;
-        if ($item instanceof ITILSolution) {
-            $consume = $entity_config->fields['consume_voucher_for_solutions'] ?? 0;
-        } elseif ($item instanceof TicketTask) {
-            $consume = $entity_config->fields['consume_voucher_for_tasks'] ?? 0;
-        } else {
-            $consume = $entity_config->fields['consume_voucher_for_followups'] ?? 0;
-        }
-
-        $rand = mt_rand();
-
-        if ($canedit) {
-            //get default value for ticket
-            $default_credit = PluginCreditTicketConfig::getDefaultForTicket($ticket->getID(), $item->getType());
-            if ($default_credit == 0) {
-                //get default value for entity
-                $default_credit = PluginCreditEntityConfig::getDefaultForEntityAndType($ticket->getEntityID(), $item->getType());
-            }
-
-            if ($default_credit != 0) {
-                $max = PluginCreditContract::getMaximumConsumptionForCredit($default_credit);
-            }
-        }
+        $contracts = PluginCreditContract::getActiveContractsForEntity($ticket->getEntityID());
+        $baremes   = PluginCreditBareme::getAllBaremes();
 
         TemplateRenderer::getInstance()->display('@credit/tickets/consume.html.twig', [
-            'rand'                  => $rand,
-            'consume'               => $consume,
-            'default_credit'        => $default_credit ?? 0,
-            'default_credit_max'    => $max ?? 0,
-            'entity_id'             => $ticket->getEntityID(),
-            'type_name'             => self::getTypeName(2),
-            'condition'             => PluginCreditContract::getActiveFilter(),
-            'creditentityclass'     => PluginCreditContract::class,
-            'plugin_credit_geturl'  => plugin_credit_geturl(),
-            'is_task'               => $item instanceof TicketTask,
-            'baremes'               => PluginCreditBareme::getAllBaremes(),
+            'rand'                 => mt_rand(),
+            'consume'              => false,
+            'default_credit'       => 0,
+            'default_credit_max'   => 0,
+            'type_name'            => self::getTypeName(2),
+            'contracts'            => $contracts,
+            'baremes'              => $baremes,
+            'plugin_credit_geturl' => plugin_credit_geturl(),
         ]);
     }
 
