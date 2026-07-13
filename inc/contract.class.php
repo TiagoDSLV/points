@@ -268,6 +268,7 @@ class PluginCreditContract extends CommonDBTM
                 ],
             ],
             'WHERE' => [
+                $pool_table . '.is_deleted'     => 0,
                 'glpi_contracts.is_deleted'     => 0,
                 'glpi_contracts_items.itemtype' => 'Ticket',
                 'glpi_contracts_items.items_id' => $ticket_id,
@@ -292,47 +293,6 @@ class PluginCreditContract extends CommonDBTM
             'remaining'     => $remaining,
             'unlimited'     => $quantity === 0,
         ];
-    }
-
-    /**
-     * Get active contracts for a given GLPI entity, for use in the task form dropdown.
-     *
-     * @param int $entity_id GLPI entity ID
-     * @return array [pool_id => label, ...]
-     */
-    public static function getActiveContractsForEntity(int $entity_id): array
-    {
-        /** @var DBmysql $DB */
-        global $DB;
-        $iterator = $DB->request([
-            'SELECT' => [
-                self::getTable() . '.id AS pool_id',
-                self::getTable() . '.quantity',
-                'glpi_contracts.name AS contract_name',
-            ],
-            'FROM'      => self::getTable(),
-            'LEFT JOIN' => [
-                'glpi_contracts' => [
-                    'ON' => ['glpi_contracts' => 'id', self::getTable() => 'contracts_id'],
-                ],
-            ],
-            'WHERE' => [
-                'glpi_contracts.is_deleted'  => 0,
-                'glpi_contracts.entities_id' => $entity_id,
-            ],
-            'ORDER' => ['glpi_contracts.name ASC'],
-        ]);
-        $result = [];
-        foreach ($iterator as $row) {
-            $consumed  = self::getConsumedForCredit((int) $row['pool_id']);
-            $remaining = $row['quantity'] > 0 ? max(0, (int) $row['quantity'] - $consumed) : null;
-            $label     = $row['contract_name'];
-            if ($remaining !== null) {
-                $label .= ' (' . $remaining . ' pts restants)';
-            }
-            $result[(int) $row['pool_id']] = $label;
-        }
-        return $result;
     }
 
     public static function getMaximumConsumptionForCredit(int $credit_id)

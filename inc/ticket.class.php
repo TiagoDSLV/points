@@ -263,7 +263,6 @@ class PluginCreditTicket extends CommonDBTM
         $baremes = PluginCreditBareme::getAllBaremes();
 
         TemplateRenderer::getInstance()->display('@credit/tickets/consume.html.twig', [
-            'rand'      => mt_rand(),
             'consume'   => false,
             'type_name' => self::getTypeName(2),
             'pool'      => $pool,
