@@ -289,6 +289,15 @@ class PluginCreditContract extends CommonDBTM
         /** @var DBmysql $DB */
         global $DB;
 
+        // In GLPI 11, contracts are not explicitly linked to tickets via glpi_contracts_items.
+        // The "Contrats" tab on a ticket shows contracts matching the ticket's entity.
+        // We match the same way: find a pool whose contract belongs to the ticket's entity.
+        $ticket = new Ticket();
+        if (!$ticket->getFromDB($ticket_id)) {
+            return null;
+        }
+        $entity_id = (int) $ticket->fields['entities_id'];
+
         $pool_table = self::getTable();
         $iterator = $DB->request([
             'SELECT' => [
@@ -302,14 +311,10 @@ class PluginCreditContract extends CommonDBTM
                 'glpi_contracts' => [
                     'ON' => ['glpi_contracts' => 'id', $pool_table => 'contracts_id'],
                 ],
-                'glpi_contracts_items' => [
-                    'ON' => ['glpi_contracts_items' => 'contracts_id', 'glpi_contracts' => 'id'],
-                ],
             ],
             'WHERE' => [
-                'glpi_contracts.is_deleted'     => 0,
-                'glpi_contracts_items.itemtype' => 'Ticket',
-                'glpi_contracts_items.items_id' => $ticket_id,
+                'glpi_contracts.is_deleted'  => 0,
+                'glpi_contracts.entities_id' => $entity_id,
             ],
             'LIMIT' => 1,
         ]);
