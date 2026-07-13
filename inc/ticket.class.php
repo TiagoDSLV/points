@@ -420,6 +420,71 @@ class PluginCreditTicket extends CommonDBTM
         }
     }
 
+    /**
+     * Recalculate points when a TicketTask duration is updated.
+     *
+     * @param CommonDBTM $item Updated item
+     */
+    public static function onTaskUpdated(CommonDBTM $item): void
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        if (!($item instanceof TicketTask)) {
+            return;
+        }
+
+        // Only act if actiontime actually changed.
+        if (!isset($item->input['actiontime']) && !array_key_exists('actiontime', $item->oldvalues ?? [])) {
+            return;
+        }
+
+        $existing = $DB->request([
+            'FROM'  => self::getTable(),
+            'WHERE' => ['tickettasks_id' => $item->getID()],
+        ])->current();
+
+        if (!$existing) {
+            return;
+        }
+
+        $bareme_id = (int) $existing['plugin_credit_bareme_id'];
+        if ($bareme_id <= 0) {
+            return; // Manual entry — do not recalculate.
+        }
+
+        $new_duration = (int) ($item->fields['actiontime'] ?? 0);
+        if ($new_duration <= 0) {
+            return;
+        }
+
+        $new_points = PluginCreditBareme::calculatePoints($new_duration, $bareme_id);
+        if ($new_points <= 0) {
+            return;
+        }
+
+        $credit_ticket = new self();
+        $credit_ticket->update([
+            'id'       => (int) $existing['id'],
+            'consumed' => $new_points,
+        ]);
+    }
+
+    /**
+     * Delete point entry when a TicketTask is purged.
+     *
+     * @param CommonDBTM $item Purged item
+     */
+    public static function onTaskPurged(CommonDBTM $item): void
+    {
+        if (!($item instanceof TicketTask)) {
+            return;
+        }
+
+        $credit_ticket = new self();
+        $credit_ticket->deleteByCriteria(['tickettasks_id' => $item->getID()], true);
+    }
+
     public function rawSearchOptions()
     {
         $tab = parent::rawSearchOptions();
@@ -450,6 +515,41 @@ class PluginCreditTicket extends CommonDBTM
             'field'    => 'name',
             'name'     => PluginCreditContract::getTypeName(Session::getPluralNumber()),
             'datatype' => 'dropdown',
+        ];
+
+        $tab[] = [
+            'id'       => 884,
+            'table'    => PluginCreditBareme::getTable(),
+            'field'    => 'name',
+            'name'     => __('Rate scale', 'credit'),
+            'datatype' => 'dropdown',
+            'joinparams' => [
+                'jointype'   => 'child',
+                'foreignkey' => 'id',
+                'linkfield'  => 'plugin_credit_bareme_id',
+            ],
+        ];
+
+        $tab[] = [
+            'id'         => 885,
+            'table'      => 'glpi_tickets',
+            'field'      => 'id',
+            'name'       => __('Ticket'),
+            'datatype'   => 'itemlink',
+            'itemtype'   => 'Ticket',
+            'joinparams' => [
+                'jointype'   => 'child',
+                'foreignkey' => 'id',
+                'linkfield'  => 'tickets_id',
+            ],
+        ];
+
+        $tab[] = [
+            'id'       => 886,
+            'table'    => self::getTable(),
+            'field'    => 'tickettasks_id',
+            'name'     => __('Task'),
+            'datatype' => 'number',
         ];
 
         return $tab;

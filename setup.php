@@ -75,6 +75,9 @@ function plugin_init_credit()
             $PLUGIN_HOOKS['item_add']['credit'] = [
                 'TicketTask' => ['PluginCreditTicket', 'consumeVoucher'],
             ];
+
+            $PLUGIN_HOOKS['item_update']['credit']['TicketTask'] = ['PluginCreditTicket', 'onTaskUpdated'];
+            $PLUGIN_HOOKS['item_purge']['credit']['TicketTask']  = ['PluginCreditTicket', 'onTaskPurged'];
         }
         $PLUGIN_HOOKS['add_css']['credit'] = [
             'css/credit.css',
