@@ -1,3 +1,5 @@
+<?php
+
 /**
  * -------------------------------------------------------------------------
  * Credit plugin for GLPI
@@ -27,26 +29,23 @@
  * -------------------------------------------------------------------------
  */
 
-.modal-dialog.modal-xl-credit {
-    max-width: 95vw;
+header("Content-Type: application/json; charset=UTF-8");
+Html::header_nocache();
+
+/** @var DBmysql $DB */
+global $DB;
+
+if (!isset($_POST['tickettask_id']) || !is_numeric($_POST['tickettask_id'])) {
+    echo json_encode(['points' => 0]);
+    exit;
 }
 
-.modal-xl-credit iframe {
-    min-height: 80vh !important;
-}
+$taskId = (int) $_POST['tickettask_id'];
 
-.credit-consumed-details-table table {
-    min-width: 1100px;
-}
+$row = $DB->request([
+    'SELECT' => ['SUM' => 'consumed AS total'],
+    'FROM'   => 'glpi_plugin_credit_tickets',
+    'WHERE'  => ['tickettasks_id' => $taskId],
+])->current();
 
-.credit-consumed-details-table th,
-.credit-consumed-details-table td {
-    white-space: nowrap;
-}
-
-.credit-points-badge {
-    background-color: #6f42c1 !important;
-    color: #fff !important;
-    font-size: 0.75rem;
-    vertical-align: middle;
-}
+echo json_encode(['points' => (int) ($row['total'] ?? 0)]);

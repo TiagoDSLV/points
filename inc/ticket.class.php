@@ -441,6 +441,7 @@ class PluginCreditTicket extends CommonDBTM
         $input = [
             'tickets_id'                 => $ticket->getID(),
             'plugin_credit_contracts_id' => $item->input['plugin_credit_contracts_id'],
+            'tickettasks_id'             => ($item instanceof TicketTask) ? $item->getID() : 0,
             'consumed'                   => $quantity,
             'users_id'                   => Session::getLoginUserID(),
         ];
@@ -510,12 +511,14 @@ class PluginCreditTicket extends CommonDBTM
                     `id` int {$default_key_sign} NOT NULL auto_increment,
                     `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                     `plugin_credit_contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                    `tickettasks_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                     `date_creation` timestamp NULL DEFAULT NULL,
                     `consumed` int NOT NULL DEFAULT '0',
                     `users_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                     PRIMARY KEY (`id`),
                     KEY `tickets_id` (`tickets_id`),
                     KEY `plugin_credit_contracts_id` (`plugin_credit_contracts_id`),
+                    KEY `tickettasks_id` (`tickettasks_id`),
                     KEY `date_creation` (`date_creation`),
                     KEY `consumed` (`consumed`),
                     KEY `users_id` (`users_id`)
@@ -527,6 +530,9 @@ SQL;
             $migration->changeField($table, 'tickets_id', 'tickets_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
 
             $migration->changeField($table, 'users_id', 'users_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
+
+            $migration->addField($table, 'tickettasks_id', "int {$default_key_sign} NOT NULL DEFAULT 0", ['after' => 'plugin_credit_contracts_id']);
+            $migration->addKey($table, 'tickettasks_id');
 
             //execute the whole migration
             $migration->executeMigration();

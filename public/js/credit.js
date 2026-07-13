@@ -27,12 +27,65 @@
  * -------------------------------------------------------------------------
  */
 
-var PluginCredit = {
-    propagateDefaultVoucherValue: function (dropdown) {
-        var value = $(dropdown).val();
-        var text  = $(dropdown).find('option:selected').text();
-        $('select[name="plugin_credit_entities_id_followups"]').append(new Option(text, value, false, true)).trigger('change');
-        $('select[name="plugin_credit_entities_id_tasks"]').append(new Option(text, value, false, true)).trigger('change');
-        $('select[name="plugin_credit_entities_id_solutions"]').append(new Option(text, value, false, true)).trigger('change');
+(function () {
+    'use strict';
+
+    /**
+     * Inject a "X pts" badge into every TicketTask timeline card that has
+     * consumed points recorded. Cards are identified by id="TicketTask_{id}".
+     * Runs once on DOM ready, then re-runs whenever the timeline container
+     * gains new child nodes (GLPI sometimes refreshes the timeline via AJAX).
+     */
+    function injectPointsBadges(root) {
+        root = root || document;
+        root.querySelectorAll('[id^="TicketTask_"]:not([data-credit-badge-done])').forEach(function (card) {
+            var taskId = parseInt(card.id.replace('TicketTask_', ''), 10);
+            if (!taskId) return;
+
+            card.setAttribute('data-credit-badge-done', '1');
+
+            $.ajax({
+                type: 'POST',
+                url: CFG_GLPI.root_doc + '/plugins/credit/ajax/getTaskPoints.php',
+                data: { tickettask_id: taskId },
+                dataType: 'json',
+            }).done(function (data) {
+                if (!data || !data.points) return;
+
+                var badge = document.createElement('span');
+                badge.className = 'badge bg-purple credit-points-badge ms-1';
+                badge.title = 'Points consommés';
+                badge.innerHTML = '<i class="ti ti-coin me-1"></i>' + data.points + ' pts';
+
+                // Try to inject near the duration badge (usually in .card-header or .b-card-header)
+                var target = card.querySelector('.card-header .badge')
+                          || card.querySelector('.b-card-header .badge')
+                          || card.querySelector('.card-header')
+                          || card.querySelector('.b-card-header')
+                          || card;
+                target.insertAdjacentElement('afterend', badge);
+            });
+        });
     }
-};
+
+    function setupObserver() {
+        // Re-run on timeline mutations (GLPI refreshes timeline asynchronously)
+        var timeline = document.querySelector('.itil-timeline')
+                    || document.querySelector('#timeline-content')
+                    || document.querySelector('.timeline-content');
+
+        if (timeline) {
+            new MutationObserver(function () {
+                injectPointsBadges(timeline);
+            }).observe(timeline, { childList: true, subtree: true });
+        }
+
+        injectPointsBadges();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupObserver);
+    } else {
+        setupObserver();
+    }
+})();
