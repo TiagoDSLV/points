@@ -434,6 +434,7 @@ class PluginCreditTicket extends CommonDBTM
             'tickets_id'                 => $ticket->getID(),
             'plugin_credit_contracts_id' => $item->input['plugin_credit_contracts_id'],
             'tickettasks_id'             => ($item instanceof TicketTask) ? $item->getID() : 0,
+            'plugin_credit_bareme_id'    => (int) ($item->input['plugin_credit_bareme_id'] ?? 0),
             'consumed'                   => $quantity,
             'users_id'                   => Session::getLoginUserID(),
         ];
@@ -503,6 +504,7 @@ class PluginCreditTicket extends CommonDBTM
                 `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                 `plugin_credit_contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                 `tickettasks_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `plugin_credit_bareme_id` int {$default_key_sign} NOT NULL DEFAULT '0',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `consumed` int NOT NULL DEFAULT '0',
                 `users_id` int {$default_key_sign} NOT NULL DEFAULT '0',
@@ -510,6 +512,7 @@ class PluginCreditTicket extends CommonDBTM
                 KEY `tickets_id` (`tickets_id`),
                 KEY `plugin_credit_contracts_id` (`plugin_credit_contracts_id`),
                 KEY `tickettasks_id` (`tickettasks_id`),
+                KEY `plugin_credit_bareme_id` (`plugin_credit_bareme_id`),
                 KEY `date_creation` (`date_creation`),
                 KEY `consumed` (`consumed`),
                 KEY `users_id` (`users_id`)
@@ -528,6 +531,8 @@ SQL;
             $migration->changeField($table, 'users_id', 'users_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
             $migration->addField($table, 'tickettasks_id', "int {$default_key_sign} NOT NULL DEFAULT 0", ['after' => 'plugin_credit_contracts_id']);
             $migration->addKey($table, 'tickettasks_id');
+            $migration->addField($table, 'plugin_credit_bareme_id', "int {$default_key_sign} NOT NULL DEFAULT 0", ['after' => 'tickettasks_id']);
+            $migration->addKey($table, 'plugin_credit_bareme_id');
             $migration->executeMigration();
         }
 
