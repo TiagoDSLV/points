@@ -209,7 +209,7 @@ class PluginCreditContract extends CommonDBTM
                 'FROM'      => $tickets_table,
                 'LEFT JOIN' => [
                     'glpi_users' => [
-                        'ON' => ['glpi_users' => 'id', $tickets_table => 'users_id_tech'],
+                        'ON' => ['glpi_users' => 'id', $tickets_table => 'users_id'],
                     ],
                     'glpi_tickettasks' => [
                         'ON' => ['glpi_tickettasks' => 'id', $tickets_table => 'tickettasks_id'],
