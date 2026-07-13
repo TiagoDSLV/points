@@ -505,36 +505,37 @@ class PluginCreditTicket extends CommonDBTM
 
         $table = self::getTable();
 
-        if (!$DB->tableExists($table)) {
-            $query = <<<SQL
-                CREATE TABLE IF NOT EXISTS `$table` (
-                    `id` int {$default_key_sign} NOT NULL auto_increment,
-                    `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    `plugin_credit_contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    `tickettasks_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    `date_creation` timestamp NULL DEFAULT NULL,
-                    `consumed` int NOT NULL DEFAULT '0',
-                    `users_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                    PRIMARY KEY (`id`),
-                    KEY `tickets_id` (`tickets_id`),
-                    KEY `plugin_credit_contracts_id` (`plugin_credit_contracts_id`),
-                    KEY `tickettasks_id` (`tickettasks_id`),
-                    KEY `date_creation` (`date_creation`),
-                    KEY `consumed` (`consumed`),
-                    KEY `users_id` (`users_id`)
-                ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;
+        $create_sql = <<<SQL
+            CREATE TABLE IF NOT EXISTS `$table` (
+                `id` int {$default_key_sign} NOT NULL auto_increment,
+                `tickets_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `plugin_credit_contracts_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `tickettasks_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `date_creation` timestamp NULL DEFAULT NULL,
+                `consumed` int NOT NULL DEFAULT '0',
+                `users_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                PRIMARY KEY (`id`),
+                KEY `tickets_id` (`tickets_id`),
+                KEY `plugin_credit_contracts_id` (`plugin_credit_contracts_id`),
+                KEY `tickettasks_id` (`tickettasks_id`),
+                KEY `date_creation` (`date_creation`),
+                KEY `consumed` (`consumed`),
+                KEY `users_id` (`users_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;
 SQL;
-            $DB->doQuery($query);
+
+        if (!$DB->tableExists($table)) {
+            $DB->doQuery($create_sql);
+        } elseif (!$DB->fieldExists($table, 'plugin_credit_contracts_id')) {
+            // Old schema used `plugin_credit_entities_id` — incompatible, recreate clean.
+            $DB->doQuery("DROP TABLE `{$table}`");
+            $DB->doQuery($create_sql);
         } else {
             // Fix #1 in 1.0.1 : change tinyint to int for tickets_id
             $migration->changeField($table, 'tickets_id', 'tickets_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
-
             $migration->changeField($table, 'users_id', 'users_id', "int {$default_key_sign} NOT NULL DEFAULT 0");
-
             $migration->addField($table, 'tickettasks_id', "int {$default_key_sign} NOT NULL DEFAULT 0", ['after' => 'plugin_credit_contracts_id']);
             $migration->addKey($table, 'tickettasks_id');
-
-            //execute the whole migration
             $migration->executeMigration();
         }
 
