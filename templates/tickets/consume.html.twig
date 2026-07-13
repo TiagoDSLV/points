@@ -37,34 +37,47 @@
         <span>{{ type_name }}</span>
     </div>
 
-    {{ fields.sliderField(
-        'plugin_credit_consumed_voucher',
-        consume,
-        __('Consume a voucher ?', 'credit'),
-        {
-            'additional_attributes': {
-                'onchange': 'showCreditDiv' ~ rand ~ '(this.value)',
-            },
-            'rand': rand,
-        }
-    ) }}
+    {% if pool is null %}
+        <div class="alert alert-secondary mt-2">
+            <i class="ti ti-info-circle me-2"></i>{{ __('No points contract linked to this ticket.', 'credit') }}
+        </div>
+    {% else %}
 
-    <div id="creditvoucherblock{{ rand }}" style="display: {% if consume == 1 %}block{% else %}none{% endif %}">
-        <div class="row">
-            {{ fields.dropdownArrayField(
-                'plugin_credit_contracts_id',
-                contracts,
-                __('Contract', 'credit'),
-                {
-                    'value': default_credit,
-                    'on_change': 'getQuantityRemaining' ~ rand ~ '(this.value);',
-                    'field_class': 'col-6 col-sm-6',
-                    'rand': rand,
-                    'no_value': __('-- Select a contract --', 'credit'),
-                }
-            ) }}
+        {{ fields.sliderField(
+            'plugin_credit_consumed_voucher',
+            consume,
+            __('Consume a voucher ?', 'credit'),
+            {
+                'additional_attributes': {
+                    'onchange': 'showCreditDiv' ~ rand ~ '(this.value)',
+                },
+                'rand': rand,
+            }
+        ) }}
 
-            {# Bareme dropdown #}
+        <div id="creditvoucherblock{{ rand }}" style="display: {% if consume == 1 %}block{% else %}none{% endif %}">
+            <div class="row">
+
+                {# Contract info (read-only) #}
+                <div class="col-6 col-sm-6">
+                    <div class="row mb-2">
+                        <label class="col-xxl-5 col-form-label">
+                            {{ __('Contract', 'credit') }}
+                        </label>
+                        <div class="col-xxl-7 d-flex align-items-center gap-2">
+                            <span class="fw-semibold">{{ pool.contract_name }}</span>
+                            <span class="badge bg-secondary">
+                                {% if pool.unlimited %}
+                                    {{ __('Unlimited', 'credit') }}
+                                {% else %}
+                                    {{ pool.remaining }} pts restants
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {# Bareme dropdown #}
                 <div class="col-6 col-sm-6">
                     <div class="row mb-2">
                         <label class="col-xxl-5 col-form-label">
@@ -97,158 +110,90 @@
                     </div>
                 </div>
 
-            {{ fields.numberField(
-                'plugin_credit_quantity',
-                1,
-                __('Quantity consumed', 'credit'),
-                {
-                    'max': default_credit_max,
-                    'min': 1,
-                    'disabled': not consume or not default_credit,
-                    'helper': __('Maximum consumable quantity', 'credit') ~ ' : <b>' ~ default_credit_max,
-                    'field_class': 'col-6 col-sm-6' ~ (not default_credit ? ' d-none' : ''),
-                    'input_class': 'col-xxl-5',
-                    'label_class': 'col-xxl-7',
-                    'rand': rand,
-                }
-            ) }}
+            </div>
         </div>
-    </div>
 
-    <script>
-        function showCreditDiv{{ rand }}() {
-            const creditVoucherBlock = document.getElementById('creditvoucherblock{{ rand }}');
-            if (creditVoucherBlock) {
-                const isHidden = creditVoucherBlock.style.display !== 'none';
-                creditVoucherBlock.style.display = isHidden ? 'none' : 'block';
-                var consumeblock = document.querySelector('[name="credit_consume_{{ rand }}"]');
-                var quantity = consumeblock.querySelector('[id*="plugin_credit_quantity_{{ rand }}"]');
-                if (quantity) {
-                    quantity.disabled = isHidden;
+        <script>
+            function showCreditDiv{{ rand }}() {
+                const creditVoucherBlock = document.getElementById('creditvoucherblock{{ rand }}');
+                if (creditVoucherBlock) {
+                    const isHidden = creditVoucherBlock.style.display !== 'none';
+                    creditVoucherBlock.style.display = isHidden ? 'none' : 'block';
                 }
             }
-        }
 
-        function getQuantityRemaining{{ rand }}(val) {
-            var consumeblock = document.querySelector('[name="credit_consume_{{ rand }}"]');
-            var quantity = consumeblock.querySelector('[id*="plugin_credit_quantity_{{ rand }}"]');
-            var quantity_field = quantity.closest('.col-6');
-            var quantity_label = consumeblock.querySelector('[for*="plugin_credit_quantity_{{ rand }}"]');
-            if (val == 0) {
-                quantity_field.classList.add('d-none');
-                quantity.disabled = true;
-                quantity.max = 0;
-                quantity.value = 0;
-                quantity_label.querySelector('span.form-help').setAttribute('data-bs-title', __('Maximum consumable quantity', 'credit') + ' : 0 ');
-                quantity_label.querySelector('span.form-help').setAttribute('data-bs-content', __('Maximum consumable quantity', 'credit') + ' : 0 ');
-            } else {
-                quantity_field.classList.remove('d-none');
-                quantity.disabled = false;
+            function getTaskDurationSeconds{{ rand }}() {
+                // GLPI 11 showTimestampForm() renders selects named "_actiontime_hours" /
+                // "_actiontime_minutes" (leading underscore, plural). Try these first because
+                // they reflect the user's current selection immediately on change.
+                var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
+                var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
+                if (hourSel && minuteSel) {
+                    return (parseInt(hourSel.value) || 0) * 3600
+                         + (parseInt(minuteSel.value) || 0) * 60;
+                }
 
-                $.ajax({
-                    type: 'POST',
-                    url: '{{ path('plugins/credit/ajax/dropdownQuantity.php') }}',
-                    data: {
-                        contract: val,
-                    }
-                }).done(function (data) {
-                    quantity.max = data;
-                    quantity.value = 1;
-                    quantity_label.querySelector('span.form-help').setAttribute('data-bs-title', __('Maximum consumable quantity', 'credit') + ' : <b>' + data);
-                    quantity_label.querySelector('span.form-help').setAttribute('data-bs-content', __('Maximum consumable quantity', 'credit') + ' : <b>' + data);
-                    // Recalculate if bareme is selected
-                    onBaremeChange{{ rand }}();
+                // Fallback (older GLPI or after JS has synced): hidden input in seconds
+                var hidden = document.querySelector('input[name="actiontime"]');
+                if (hidden && parseInt(hidden.value) > 0) {
+                    return parseInt(hidden.value);
+                }
+
+                return 0;
+            }
+
+            function onBaremeChange{{ rand }}() {
+                var baremeSelect = document.getElementById('plugin_credit_bareme_id_{{ rand }}');
+                var autoBlock    = document.getElementById('credit_auto_calc_block_{{ rand }}');
+                var autoDetail   = document.getElementById('credit_auto_calc_detail_{{ rand }}');
+
+                if (!baremeSelect) return;
+
+                var baremeId = parseInt(baremeSelect.value) || 0;
+
+                if (baremeId === 0) {
+                    // Manual mode: hide auto-calc block
+                    if (autoBlock) autoBlock.style.display = 'none';
+                    return;
+                }
+
+                if (autoBlock) autoBlock.style.display = 'block';
+
+                var durationSeconds = getTaskDurationSeconds{{ rand }}();
+                if (durationSeconds <= 0) {
+                    if (autoDetail) autoDetail.textContent = '{{ __('Duration not set yet', 'credit') }}';
+                    return;
+                }
+
+                var durationMinutes = durationSeconds / 60;
+                var tranches        = Math.ceil(durationMinutes / 15);
+                var selectedOption  = baremeSelect.options[baremeSelect.selectedIndex];
+                var ptsPerTranche   = parseInt(selectedOption.getAttribute('data-points')) || 0;
+                var points          = tranches * ptsPerTranche;
+
+                if (autoDetail) {
+                    autoDetail.textContent = points + ' pts'
+                        + ' (' + tranches + ' × ' + ptsPerTranche + ' pts)';
+                }
+            }
+
+            // Defer listener attachment until after GLPI's own form JS has initialized
+            // the duration picker (avoids querySelector returning null at parse time).
+            requestAnimationFrame(function watchDuration{{ rand }}() {
+                var targets = [
+                    document.querySelector('select[name="_actiontime_hours"]'),
+                    document.querySelector('select[name="_actiontime_minutes"]'),
+                    document.querySelector('input[name="actiontime"]'),
+                ].filter(Boolean);
+
+                targets.forEach(function(el) {
+                    el.addEventListener('change', onBaremeChange{{ rand }});
+                    el.addEventListener('input',  onBaremeChange{{ rand }});
                 });
-            }
-        }
 
-        function getTaskDurationSeconds{{ rand }}() {
-            // GLPI 11 showTimestampForm() renders selects named "_actiontime_hours" /
-            // "_actiontime_minutes" (leading underscore, plural). Try these first because
-            // they reflect the user's current selection immediately on change.
-            var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
-            var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
-            if (hourSel && minuteSel) {
-                return (parseInt(hourSel.value) || 0) * 3600
-                     + (parseInt(minuteSel.value) || 0) * 60;
-            }
-
-            // Fallback (older GLPI or after JS has synced): hidden input in seconds
-            var hidden = document.querySelector('input[name="actiontime"]');
-            if (hidden && parseInt(hidden.value) > 0) {
-                return parseInt(hidden.value);
-            }
-
-            return 0;
-        }
-
-        function onBaremeChange{{ rand }}() {
-            var baremeSelect = document.getElementById('plugin_credit_bareme_id_{{ rand }}');
-            var autoBlock    = document.getElementById('credit_auto_calc_block_{{ rand }}');
-            var autoDetail   = document.getElementById('credit_auto_calc_detail_{{ rand }}');
-            var consumeblock = document.querySelector('[name="credit_consume_{{ rand }}"]');
-            var quantityInput = consumeblock
-                ? consumeblock.querySelector('[id*="plugin_credit_quantity_{{ rand }}"]')
-                : null;
-
-            if (!baremeSelect) return;
-
-            var baremeId = parseInt(baremeSelect.value) || 0;
-
-            if (baremeId === 0) {
-                // Manual mode: hide auto-calc block, re-enable quantity field
-                if (autoBlock)    autoBlock.style.display = 'none';
-                if (quantityInput) {
-                    quantityInput.removeAttribute('readonly');
-                    quantityInput.classList.remove('bg-secondary-subtle');
-                }
-                return;
-            }
-
-            // Auto-calc mode: make quantity field read-only (server will override anyway)
-            if (quantityInput) {
-                quantityInput.setAttribute('readonly', 'readonly');
-                quantityInput.classList.add('bg-secondary-subtle');
-            }
-            if (autoBlock) autoBlock.style.display = 'block';
-
-            var durationSeconds = getTaskDurationSeconds{{ rand }}();
-            if (durationSeconds <= 0) {
-                if (autoDetail) autoDetail.textContent = '{{ __('Duration not set yet', 'credit') }}';
-                return;
-            }
-
-            var durationMinutes = durationSeconds / 60;
-            var tranches        = Math.ceil(durationMinutes / 15);
-            var selectedOption  = baremeSelect.options[baremeSelect.selectedIndex];
-            var ptsPerTranche   = parseInt(selectedOption.getAttribute('data-points')) || 0;
-            var points          = tranches * ptsPerTranche;
-
-            if (autoDetail) {
-                autoDetail.textContent = points + ' pts'
-                    + ' (' + tranches + ' × ' + ptsPerTranche + ' pts)';
-            }
-            if (quantityInput && !isNaN(points)) {
-                quantityInput.value = points;
-            }
-        }
-
-        // Defer listener attachment until after GLPI's own form JS has initialized
-        // the duration picker (avoids querySelector returning null at parse time).
-        requestAnimationFrame(function watchDuration{{ rand }}() {
-            var targets = [
-                document.querySelector('select[name="_actiontime_hours"]'),
-                document.querySelector('select[name="_actiontime_minutes"]'),
-                document.querySelector('input[name="actiontime"]'),
-            ].filter(Boolean);
-
-            targets.forEach(function(el) {
-                el.addEventListener('change', onBaremeChange{{ rand }});
-                el.addEventListener('input',  onBaremeChange{{ rand }});
+                // Trigger once in case a barème is already selected when the form opens
+                onBaremeChange{{ rand }}();
             });
-
-            // Trigger once in case a barème is already selected when the form opens
-            onBaremeChange{{ rand }}();
-        });
-    </script>
+        </script>
+    {% endif %}
 </div>

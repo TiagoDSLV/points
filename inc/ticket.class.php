@@ -259,18 +259,15 @@ class PluginCreditTicket extends CommonDBTM
             return;
         }
 
-        $contracts = PluginCreditContract::getActiveContractsForEntity($ticket->getEntityID());
-        $baremes   = PluginCreditBareme::getAllBaremes();
+        $pool    = PluginCreditContract::getPoolForTicket($ticket->getID());
+        $baremes = PluginCreditBareme::getAllBaremes();
 
         TemplateRenderer::getInstance()->display('@credit/tickets/consume.html.twig', [
-            'rand'                 => mt_rand(),
-            'consume'              => false,
-            'default_credit'       => 0,
-            'default_credit_max'   => 0,
-            'type_name'            => self::getTypeName(2),
-            'contracts'            => $contracts,
-            'baremes'              => $baremes,
-            'plugin_credit_geturl' => plugin_credit_geturl(),
+            'rand'      => mt_rand(),
+            'consume'   => false,
+            'type_name' => self::getTypeName(2),
+            'pool'      => $pool,
+            'baremes'   => $baremes,
         ]);
     }
 
@@ -368,28 +365,22 @@ class PluginCreditTicket extends CommonDBTM
             return;
         }
 
-        if (
-            !isset($item->input['plugin_credit_contracts_id'])
-            || $item->input['plugin_credit_contracts_id'] == 0
-        ) {
-            Session::addMessageAfterRedirect(
-                __s('You must provide a credit voucher', 'credit'),
-                true,
-                ERROR,
-            );
-            return;
+        $pool = PluginCreditContract::getPoolForTicket((int) $ticketId);
+        if ($pool === null) {
+            return; // no points contract linked to this ticket
         }
+        $pool_id = $pool['pool_id'];
 
         $credit_ticket = new self();
 
         $credit_entity = new PluginCreditContract();
-        $credit_entity->getFromDB($item->input['plugin_credit_contracts_id']);
+        $credit_entity->getFromDB($pool_id);
 
         $quantity_sold      = (int) $credit_entity->fields['quantity'];
-        $quantity_consumed  = $credit_ticket->getConsumedForCreditContract($item->input['plugin_credit_contracts_id']);
+        $quantity_consumed  = $credit_ticket->getConsumedForCreditContract($pool_id);
         $quantity_remaining = max(0, $quantity_sold - $quantity_consumed);
 
-        if (0 !== $quantity_sold && $quantity_remaining < $item->input['plugin_credit_quantity']) {
+        if (0 !== $quantity_sold && $quantity_remaining < ($item->input['plugin_credit_quantity'] ?? 1)) {
             if ($credit_entity->getField('overconsumption_allowed')) {
                 Session::addMessageAfterRedirect(
                     sprintf(
@@ -432,7 +423,7 @@ class PluginCreditTicket extends CommonDBTM
 
         $input = [
             'tickets_id'                 => $ticket->getID(),
-            'plugin_credit_contracts_id' => $item->input['plugin_credit_contracts_id'],
+            'plugin_credit_contracts_id' => $pool_id,
             'tickettasks_id'             => ($item instanceof TicketTask) ? $item->getID() : 0,
             'plugin_credit_bareme_id'    => (int) ($item->input['plugin_credit_bareme_id'] ?? 0),
             'consumed'                   => $quantity,

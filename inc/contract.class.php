@@ -240,6 +240,61 @@ class PluginCreditContract extends CommonDBTM
     }
 
     /**
+     * Get the points pool linked to a ticket (via glpi_contracts_items).
+     *
+     * @param int $ticket_id Ticket ID
+     * @return array{pool_id: int, contract_name: string, remaining: int|null, unlimited: bool}|null
+     */
+    public static function getPoolForTicket(int $ticket_id): ?array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $pool_table = self::getTable();
+        $iterator = $DB->request([
+            'SELECT' => [
+                $pool_table . '.id AS pool_id',
+                $pool_table . '.quantity',
+                $pool_table . '.overconsumption_allowed',
+                'glpi_contracts.name AS contract_name',
+            ],
+            'FROM'       => $pool_table,
+            'INNER JOIN' => [
+                'glpi_contracts' => [
+                    'ON' => ['glpi_contracts' => 'id', $pool_table => 'contracts_id'],
+                ],
+                'glpi_contracts_items' => [
+                    'ON' => ['glpi_contracts_items' => 'contracts_id', 'glpi_contracts' => 'id'],
+                ],
+            ],
+            'WHERE' => [
+                'glpi_contracts.is_deleted'     => 0,
+                'glpi_contracts_items.itemtype' => 'Ticket',
+                'glpi_contracts_items.items_id' => $ticket_id,
+            ],
+            'LIMIT' => 1,
+        ]);
+
+        $row = $iterator->current();
+        if (!$row) {
+            return null;
+        }
+
+        $pool_id  = (int) $row['pool_id'];
+        $quantity = (int) $row['quantity'];
+
+        $consumed  = self::getConsumedForCredit($pool_id);
+        $remaining = $quantity > 0 ? max(0, $quantity - $consumed) : null;
+
+        return [
+            'pool_id'       => $pool_id,
+            'contract_name' => $row['contract_name'],
+            'remaining'     => $remaining,
+            'unlimited'     => $quantity === 0,
+        ];
+    }
+
+    /**
      * Get active contracts for a given GLPI entity, for use in the task form dropdown.
      *
      * @param int $entity_id GLPI entity ID
