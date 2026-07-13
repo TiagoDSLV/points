@@ -37,7 +37,7 @@ if (isset($_POST["add"])) {
     $PluginCreditContract->check(-1, CREATE, $_POST);
     if ($PluginCreditContract->add($_POST)) {
         Event::log(
-            $_POST["plugin_credit_types_id"],
+            $PluginCreditContract->getID(),
             "contract",
             4,
             "setup",
