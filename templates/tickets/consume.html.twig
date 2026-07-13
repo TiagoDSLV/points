@@ -162,28 +162,21 @@
             }
         }
 
-        /**
-         * Read the current task duration in seconds from the GLPI task form.
-         * GLPI 11 uses a hidden input named "actiontime" (seconds) fed by
-         * a duration picker (hours + minutes selects or a time input).
-         * We also try to reconstruct from named sub-fields if present.
-         */
         function getTaskDurationSeconds{{ rand }}() {
-            // Primary source: hidden actiontime (seconds) used by GLPI 11 task forms
-            var actiontimeInput = document.querySelector('input[name="actiontime"]')
-                               || document.querySelector('[name="actiontime"]');
-            if (actiontimeInput && parseInt(actiontimeInput.value) > 0) {
-                return parseInt(actiontimeInput.value);
+            // GLPI 11 showTimestampForm() renders selects named "_actiontime_hours" /
+            // "_actiontime_minutes" (leading underscore, plural). Try these first because
+            // they reflect the user's current selection immediately on change.
+            var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
+            var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
+            if (hourSel && minuteSel) {
+                return (parseInt(hourSel.value) || 0) * 3600
+                     + (parseInt(minuteSel.value) || 0) * 60;
             }
 
-            // Fallback: reconstruct from "actiontime_hour" + "actiontime_minute" selects
-            // (some GLPI versions render duration as separate hour/minute fields)
-            var hourSel   = document.querySelector('select[name="actiontime_hour"]');
-            var minuteSel = document.querySelector('select[name="actiontime_minute"]');
-            if (hourSel && minuteSel) {
-                var h = parseInt(hourSel.value) || 0;
-                var m = parseInt(minuteSel.value) || 0;
-                return (h * 3600) + (m * 60);
+            // Fallback (older GLPI or after JS has synced): hidden input in seconds
+            var hidden = document.querySelector('input[name="actiontime"]');
+            if (hidden && parseInt(hidden.value) > 0) {
+                return parseInt(hidden.value);
             }
 
             return 0;
@@ -240,19 +233,22 @@
             }
         }
 
-        // Watch duration field changes so the preview updates automatically.
-        (function watchDuration{{ rand }}() {
+        // Defer listener attachment until after GLPI's own form JS has initialized
+        // the duration picker (avoids querySelector returning null at parse time).
+        requestAnimationFrame(function watchDuration{{ rand }}() {
             var targets = [
+                document.querySelector('select[name="_actiontime_hours"]'),
+                document.querySelector('select[name="_actiontime_minutes"]'),
                 document.querySelector('input[name="actiontime"]'),
-                document.querySelector('[name="actiontime"]'),
-                document.querySelector('select[name="actiontime_hour"]'),
-                document.querySelector('select[name="actiontime_minute"]'),
             ].filter(Boolean);
 
             targets.forEach(function(el) {
                 el.addEventListener('change', onBaremeChange{{ rand }});
                 el.addEventListener('input',  onBaremeChange{{ rand }});
             });
-        })();
+
+            // Trigger once in case a barème is already selected when the form opens
+            onBaremeChange{{ rand }}();
+        });
     </script>
 </div>
