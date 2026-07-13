@@ -31,7 +31,7 @@
 
 use function Safe\define;
 
-define('PLUGIN_CREDIT_VERSION', '1.15.5-points.6');
+define('PLUGIN_CREDIT_VERSION', '1.15.5-points.8');
 
 // Minimal GLPI version, inclusive
 define("PLUGIN_CREDIT_MIN_GLPI", "11.0.0");
@@ -83,7 +83,7 @@ function plugin_init_credit()
             'css/credit.css',
         ];
         $PLUGIN_HOOKS['add_javascript']['credit'] = [
-            'js/credit.js',
+            'public/js/credit.js',
         ];
         $PLUGIN_HOOKS['item_get_datas']['credit'] = ['NotificationTargetTicket' => 'plugin_credit_get_datas'];
 

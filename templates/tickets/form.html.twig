@@ -58,6 +58,8 @@
         'date_creation': __('Date consumed', 'credit'),
         'users_id': __('User consumed', 'credit'),
         'task_link': __('Task', 'credit'),
+        'bareme_name': __('Rate scale', 'credit'),
+        'task_duration': __('Duration', 'credit'),
         'consumed': __('Quantity consumed', 'credit')
     } %}
 
@@ -73,6 +75,8 @@
             'date_creation': 'datetime',
             'users_id': 'raw_html',
             'task_link': 'raw_html',
+            'bareme_name': 'raw_html',
+            'task_duration': 'raw_html',
         },
         'entries': entries,
         'total_number': entries|length,

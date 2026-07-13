@@ -29,6 +29,7 @@
 
 {% import "components/form/fields_macros.html.twig" as fields %}
 {% set rand = random() %}
+{% set existing_bareme_id = existing_bareme_id ?? 0 %}
 
 <div name="credit_consume_{{ rand }}">
 
@@ -88,9 +89,11 @@
                                     name="plugin_credit_bareme_id"
                                     class="form-select"
                                     onchange="onBaremeChange{{ rand }}()">
-                                <option value="0">{{ __('-- Manual entry --', 'credit') }}</option>
+                                <option value="0" {% if existing_bareme_id == 0 %}selected{% endif %}>{{ __('-- Manual entry --', 'credit') }}</option>
                                 {% for id, bareme in baremes %}
-                                    <option value="{{ id }}" data-points="{{ bareme.points_par_tranche }}">
+                                    <option value="{{ id }}"
+                                            data-points="{{ bareme.points_par_tranche }}"
+                                            {% if id == existing_bareme_id %}selected{% endif %}>
                                         {{ bareme.name }} ({{ bareme.points_par_tranche }} pts / 15 min)
                                     </option>
                                 {% endfor %}

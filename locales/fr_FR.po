@@ -257,3 +257,35 @@ msgstr "Points calculés automatiquement"
 #: templates/tickets/consume.html.twig
 msgid "Duration not set yet"
 msgstr "Durée non encore définie"
+
+#: templates/tickets/consume.html.twig templates/tickets/form.html.twig
+msgid "No points contract linked to this ticket."
+msgstr "Aucun contrat à points lié à ce ticket."
+
+#: templates/tickets/form.html.twig
+msgid "Remaining points on contract"
+msgstr "Points restants sur le contrat"
+
+#: templates/tickets/form.html.twig
+msgid "Unlimited points contract"
+msgstr "Contrat à points illimité"
+
+#: templates/tickets/form.html.twig
+msgid "Total consumed on this ticket"
+msgstr "Total consommé sur ce ticket"
+
+#: templates/tickets/form.html.twig templates/tickets/consume.html.twig
+msgid "Contract"
+msgstr "Contrat"
+
+#: templates/tickets/form.html.twig
+msgid "Duration"
+msgstr "Durée"
+
+#: templates/tickets/consume.html.twig
+msgid "Unlimited"
+msgstr "Illimité"
+
+#: inc/contract.class.php
+msgid "A points pool already exists for this contract."
+msgstr "Un contrat à points existe déjà pour ce contrat."

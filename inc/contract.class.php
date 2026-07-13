@@ -395,6 +395,45 @@ class PluginCreditContract extends CommonDBTM
     {
         $tab = parent::rawSearchOptions();
 
+        // Replace the generic name (ID=1 from parent, points to our table's "name" column
+        // which doesn't exist) with a join on glpi_contracts.name.
+        foreach ($tab as $key => $option) {
+            if (($option['id'] ?? 0) == 1) {
+                $tab[$key] = [
+                    'id'         => 1,
+                    'table'      => 'glpi_contracts',
+                    'field'      => 'name',
+                    'name'       => _n('Contract', 'Contracts', 1),
+                    'datatype'   => 'itemlink',
+                    'itemtype'   => 'Contract',
+                    'joinparams' => [
+                        'jointype'  => '',
+                        'linkfield' => 'contracts_id',
+                    ],
+                ];
+                break;
+            }
+        }
+
+        $tab[] = [
+            'id'         => 993,
+            'table'      => 'glpi_entities',
+            'field'      => 'completename',
+            'name'       => Entity::getTypeName(1),
+            'datatype'   => 'dropdown',
+            'joinparams' => [
+                'jointype'   => '',
+                'linkfield'  => 'entities_id',
+                'beforejoin' => [
+                    'table'      => 'glpi_contracts',
+                    'joinparams' => [
+                        'jointype'  => '',
+                        'linkfield' => 'contracts_id',
+                    ],
+                ],
+            ],
+        ];
+
         $tab[] = [
             'id'       => 994,
             'table'    => self::getTable(),

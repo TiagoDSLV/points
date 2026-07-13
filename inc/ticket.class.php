@@ -226,6 +226,25 @@ class PluginCreditTicket extends CommonDBTM
                 );
             }
 
+            $bareme_name = '';
+            if ((int) ($data['plugin_credit_bareme_id'] ?? 0) > 0) {
+                $bareme = new PluginCreditBareme();
+                if ($bareme->getFromDB($data['plugin_credit_bareme_id'])) {
+                    $bareme_name = $bareme->getName();
+                }
+            }
+
+            $task_duration = '';
+            if ((int) ($data['tickettasks_id'] ?? 0) > 0) {
+                $task = new TicketTask();
+                if ($task->getFromDB($data['tickettasks_id'])) {
+                    $actiontime = (int) $task->fields['actiontime'];
+                    if ($actiontime > 0) {
+                        $task_duration = Html::timestampToString($actiontime, false);
+                    }
+                }
+            }
+
             $entries[] = array_merge($data, [
                 'id'            => $data['id'],
                 'name'          => $credit_contract->getName(),
@@ -235,6 +254,8 @@ class PluginCreditTicket extends CommonDBTM
                     : getUserName($data['users_id']),
                 'consumed'      => $data['consumed'],
                 'task_link'     => $task_link,
+                'bareme_name'   => $bareme_name,
+                'task_duration' => $task_duration,
                 'itemtype'      => PluginCreditTicket::class,
             ]);
         }
@@ -269,20 +290,20 @@ class PluginCreditTicket extends CommonDBTM
      */
     public static function displayVoucherInTicketProcessingForm($params)
     {
+        /** @var DBmysql $DB */
+        global $DB;
+
         $item = $params['item'];
 
-        // Only inject on new TicketTask forms
-        if (!($item instanceof TicketTask) || !$item->isNewItem()) {
+        if (!($item instanceof TicketTask)) {
             return;
         }
 
-        // Find parent Ticket
         $ticket = $params['options']['parent'] ?? null;
         if (!($ticket instanceof Ticket)) {
             return;
         }
 
-        // Ticket must be open and editable
         if (
             in_array($ticket->fields['status'], Ticket::getSolvedStatusArray())
             || in_array($ticket->fields['status'], Ticket::getClosedStatusArray())
@@ -294,11 +315,26 @@ class PluginCreditTicket extends CommonDBTM
         $pool    = PluginCreditContract::getPoolForTicket($ticket->getID());
         $baremes = PluginCreditBareme::getAllBaremes();
 
+        $existing_bareme_id = 0;
+        $has_consumption    = false;
+        if (!$item->isNewItem()) {
+            $existing = $DB->request([
+                'SELECT' => ['plugin_credit_bareme_id', 'consumed'],
+                'FROM'   => self::getTable(),
+                'WHERE'  => ['tickettasks_id' => $item->getID()],
+            ])->current();
+            if ($existing) {
+                $has_consumption    = true;
+                $existing_bareme_id = (int) $existing['plugin_credit_bareme_id'];
+            }
+        }
+
         TemplateRenderer::getInstance()->display('@credit/tickets/consume.html.twig', [
-            'consume'   => false,
-            'type_name' => self::getTypeName(2),
-            'pool'      => $pool,
-            'baremes'   => $baremes,
+            'consume'            => $has_consumption ? 1 : false,
+            'type_name'          => self::getTypeName(2),
+            'pool'               => $pool,
+            'baremes'            => $baremes,
+            'existing_bareme_id' => $existing_bareme_id,
         ]);
     }
 
@@ -434,9 +470,11 @@ class PluginCreditTicket extends CommonDBTM
             return;
         }
 
-        // Only act if actiontime actually changed.
-        if (!isset($item->input['actiontime'])) {
-            return; // actiontime not part of this update
+        $has_actiontime = isset($item->input['actiontime']);
+        $has_bareme     = isset($item->input['plugin_credit_bareme_id']);
+
+        if (!$has_actiontime && !$has_bareme) {
+            return;
         }
 
         $existing = $DB->request([
@@ -448,20 +486,33 @@ class PluginCreditTicket extends CommonDBTM
             return;
         }
 
-        $bareme_id = (int) $existing['plugin_credit_bareme_id'];
+        $bareme_id = $has_bareme
+            ? (int) $item->input['plugin_credit_bareme_id']
+            : (int) $existing['plugin_credit_bareme_id'];
+
+        $new_duration = (int) $item->fields['actiontime'];
+
         if ($bareme_id <= 0) {
-            return; // Manual entry — do not recalculate.
+            if ($has_bareme) {
+                // User switched to manual mode — clear the barème but keep points as-is.
+                $credit_ticket = new self();
+                $credit_ticket->update([
+                    'id'                     => (int) $existing['id'],
+                    'plugin_credit_bareme_id' => 0,
+                ]);
+            }
+            return;
         }
 
-        $new_duration = (int) ($item->fields['actiontime'] ?? 0);
-        $new_points   = $new_duration > 0
+        $new_points = $new_duration > 0
             ? PluginCreditBareme::calculatePoints($new_duration, $bareme_id)
-            : 0;
+            : (int) $existing['consumed'];
 
         $credit_ticket = new self();
         $credit_ticket->update([
-            'id'       => (int) $existing['id'],
-            'consumed' => $new_points,
+            'id'                     => (int) $existing['id'],
+            'consumed'               => $new_points,
+            'plugin_credit_bareme_id' => $bareme_id,
         ]);
     }
 

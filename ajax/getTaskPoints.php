@@ -29,6 +29,9 @@
  * -------------------------------------------------------------------------
  */
 
+include_once('../../../inc/includes.php');
+Session::checkLoginUser();
+
 header("Content-Type: application/json; charset=UTF-8");
 Html::header_nocache();
 
