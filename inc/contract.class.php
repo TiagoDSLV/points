@@ -174,6 +174,9 @@ class PluginCreditContract extends CommonDBTM
      */
     public static function showForContract(Contract $contract)
     {
+        /** @var DBmysql $DB */
+        global $DB;
+
         $ID = $contract->getField('id');
         if (!$contract->can($ID, READ)) {
             return;
@@ -181,61 +184,97 @@ class PluginCreditContract extends CommonDBTM
 
         $canedit = $contract->canEdit($ID);
 
-        $columns = [
-            'quantity'                => __('Quantity sold', 'credit'),
-            'quantity_consumed'       => __('Quantity consumed', 'credit'),
-            'quantity_remaining'      => __('Quantity remaining', 'credit'),
-            'overconsumption_allowed' => __('Allow overconsumption', 'credit'),
-            'low_credit_alert'        => __('Low credits alert', 'credit'),
-        ];
-
-        $entries = [];
-        foreach (self::getAllForContract($ID) as $data) {
-            $quantity_sold = (int) $data['quantity'];
-            if (0 === $quantity_sold) {
-                $quantity_sold = __('Unlimited');
-            }
-
-            $item = new self();
-            $item = $item->getById($data['id']);
-
-            $modal = Ajax::createIframeModalWindow(
-                'displaycreditconsumed_' . $data["id"],
-                plugin_credit_geturl() . "front/ticket.php?plugcreditcontract=" . $data["id"],
-                ['title'         => __('Consumed details', 'credit'),
-                    'reloadonclose' => false,
-                    'display'       => false,
-                    'dialog_class'  => 'modal-xl-credit',
-                ],
-            );
-
-            $link = "<a href='#' data-bs-toggle='modal' data-bs-target='#displaycreditconsumed_{$data["id"]}' title='" . __('Consumed details', 'credit') . "' alt='" . __('Consumed details', 'credit') . "'>" . PluginCreditContract::getConsumedForCredit($data['id']) . "</a>";
-
-            $entries[] = array_merge($data, [
-                'name'                    => $item->getLink(),
-                'quantity'                => $quantity_sold,
-                'itemtype'                => PluginCreditContract::class,
-                'low_credit_alert'        => $data['low_credit_alert'] == -1 ? __('Disabled') : $data['low_credit_alert'] . '%',
-                'quantity_consumed'       => $modal . $link,
-                'quantity_remaining'      => $data['quantity'] > 0 ? $data['quantity'] - PluginCreditContract::getConsumedForCredit($data['id']) : 'Unlimited',
-            ]);
+        // Find the pool for this contract.
+        $pool = null;
+        $pool_iterator = $DB->request([
+            'SELECT' => '*',
+            'FROM'   => self::getTable(),
+            'WHERE'  => ['contracts_id' => $ID],
+            'LIMIT'  => 1,
+        ]);
+        if (count($pool_iterator) > 0) {
+            $pool = $pool_iterator->current();
         }
 
-        $rand  = mt_rand();
-        $nb = count($entries);
-        $massiveactionparams = [
-            'num_displayed'    => min($nb, $_SESSION['glpilist_limit']),
-            'container'        => 'mass' . self::class . $rand,
-            'itemtype'         => PluginCreditContract::class,
-        ];
+        // Load consumption entries if pool exists.
+        $consumed_entries = [];
+        if ($pool !== null) {
+            $tickets_table = PluginCreditTicket::getTable();
+            $iterator = $DB->request([
+                'SELECT' => [
+                    $tickets_table . '.*',
+                    'glpi_users.name AS tech_name',
+                    'glpi_tickettasks.date AS task_date',
+                ],
+                'FROM'      => $tickets_table,
+                'LEFT JOIN' => [
+                    'glpi_users' => [
+                        'ON' => ['glpi_users' => 'id', $tickets_table => 'users_id_tech'],
+                    ],
+                    'glpi_tickettasks' => [
+                        'ON' => ['glpi_tickettasks' => 'id', $tickets_table => 'tickettasks_id'],
+                    ],
+                ],
+                'WHERE' => ['plugin_credit_contracts_id' => (int) $pool['id']],
+                'ORDER' => [$tickets_table . '.id DESC'],
+            ]);
+
+            foreach ($iterator as $data) {
+                $ticket      = new Ticket();
+                $ticket_link = '';
+                if ($ticket->getFromDB($data['tickets_id'])) {
+                    $ticket_link = sprintf(
+                        '<a href="%s">%s</a>',
+                        htmlspecialchars($ticket->getLinkURL()),
+                        htmlspecialchars($ticket->getNameID()),
+                    );
+                }
+
+                $task_link = '';
+                if ((int) ($data['tickettasks_id'] ?? 0) > 0) {
+                    $task_link = sprintf(
+                        '<a href="%s#TicketTask%d">%s #%d</a>',
+                        htmlspecialchars($ticket->getLinkURL()),
+                        (int) $data['tickettasks_id'],
+                        __('Task', 'credit'),
+                        (int) $data['tickettasks_id'],
+                    );
+                }
+
+                $bareme_name = '';
+                if ((int) ($data['plugin_credit_bareme_id'] ?? 0) > 0) {
+                    $bareme = new PluginCreditBareme();
+                    if ($bareme->getFromDB($data['plugin_credit_bareme_id'])) {
+                        $bareme_name = $bareme->getName();
+                    }
+                }
+
+                $consumed_entries[] = [
+                    'id'          => (int) $data['id'],
+                    'ticket_link' => $ticket_link,
+                    'task_link'   => $task_link,
+                    'date'        => $data['task_date'] ?? $data['date_mod'] ?? '',
+                    'tech_name'   => $data['tech_name'] ?? '',
+                    'bareme_name' => $bareme_name,
+                    'consumed'    => (int) $data['consumed'],
+                ];
+            }
+        }
+
+        // Compute stats.
+        $total_consumed = array_sum(array_column($consumed_entries, 'consumed'));
+        $quantity       = (int) ($pool['quantity'] ?? 0);
+        $remaining      = ($pool !== null && $quantity > 0) ? max(0, $quantity - $total_consumed) : null;
 
         TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
-            'form_url'            => self::getFormUrl(),
-            'columns'             => $columns,
-            'contract_id'         => $ID,
-            'entries'             => $entries,
-            'canedit'             => $canedit,
-            'massiveactionparams' => $massiveactionparams,
+            'item'             => $contract,
+            'pool'             => $pool,
+            'consumed_entries' => $consumed_entries,
+            'total_consumed'   => $total_consumed,
+            'remaining'        => $remaining,
+            'canedit'          => $canedit,
+            'form_url'         => self::getFormUrl(),
+            'ticket_form_url'  => plugin_credit_geturl() . 'front/ticket.form.php',
         ]);
     }
 

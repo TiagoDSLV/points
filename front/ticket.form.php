@@ -32,6 +32,13 @@
 use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\BadRequestHttpException;
 
+if (isset($_POST['purge'])) {
+    $credit_ticket = new PluginCreditTicket();
+    $credit_ticket->check((int) $_POST['id'], PURGE);
+    $credit_ticket->delete(['id' => (int) $_POST['id']], true);
+    Html::back();
+}
+
 Session::checkRight("ticket", UPDATE);
 Session::checkRightsOr(PluginCreditTicketConfig::$rightname, [PluginCreditTicketConfig::TICKET_TAB, PluginCreditTicketConfig::TICKET_TAB]);
 

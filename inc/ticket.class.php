@@ -271,55 +271,6 @@ class PluginCreditTicket extends CommonDBTM
     }
 
     /**
-     * Display the detailled list of tickets on which consumption is declared.
-     *
-     * @param int $ID plugin_credit_contracts_id
-     */
-    public static function displayConsumed($ID)
-    {
-        $consumed_credits = self::getConsumedForCreditContract($ID);
-        $tickets_data = [];
-
-        if ($consumed_credits > 0) {
-            foreach (self::getAllForCreditContract($ID) as $data) {
-                $Ticket = new Ticket();
-                $Ticket->getFromDB($data['tickets_id']);
-
-                $itilcat = new ITILCategory();
-                $category = __('None');
-                if ($itilcat->getFromDB($Ticket->fields['itilcategories_id'])) {
-                    $category = $itilcat->getName(['comments' => true]);
-                }
-
-                $showuserlink = Session::haveRight('user', READ) ? 1 : 0;
-
-                $ticket_url = $Ticket->getLinkURL();
-                $ticket_name = $Ticket->getNameID();
-                $username = $showuserlink !== 0 ? getUserLink($data['users_id']) : getUserName($data['users_id']);
-
-                $tickets_data[] = [
-                    'ticket_link' => sprintf(
-                        '<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>',
-                        htmlescape($ticket_url),
-                        htmlescape($ticket_name),
-                    ),
-                    'status' => Ticket::getStatus($Ticket->fields['status']),
-                    'type' => Ticket::getTicketTypeName($Ticket->fields['type']),
-                    'category' => $category,
-                    'date_creation' => $data["date_creation"],
-                    'username' => $username,
-                    'consumed' => $data['consumed'],
-                ];
-            }
-        }
-
-        TemplateRenderer::getInstance()->display('@credit/tickets/consumed_details.html.twig', [
-            'consumed_credits' => $consumed_credits,
-            'tickets_data' => $tickets_data,
-        ]);
-    }
-
-    /**
      * Test if consumed voucher is selected and add them.
      *
      * @param CommonDBTM $item Created item
