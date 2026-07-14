@@ -31,7 +31,7 @@
 
 use function Safe\define;
 
-define('PLUGIN_CREDIT_VERSION', '1.15.5-points.10');
+define('PLUGIN_CREDIT_VERSION', '1.15.5-points.11');
 
 // Minimal GLPI version, inclusive
 define("PLUGIN_CREDIT_MIN_GLPI", "11.0.0");
@@ -63,6 +63,7 @@ function plugin_init_credit()
         );
 
         Plugin::registerClass('PluginCreditBareme');
+        Plugin::registerClass('PluginCreditAddition');
 
         if (Session::haveRightsOr('ticket', [Ticket::STEAL, Ticket::OWN])) {
             Plugin::registerClass('PluginCreditTicket', ['addtabon' => 'Ticket']);

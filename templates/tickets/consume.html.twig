@@ -32,18 +32,16 @@
 
 <div name="credit_consume_{{ rand }}">
 
-    {# Section header with contract info as subtitle #}
+    {# Section header #}
     <div class="hr-text mt-2">
         <i class="fa-2x ti ti-coin"></i>
         <span>{{ type_name }}</span>
-        {% if pool is not null %}
-            <br><small class="fw-normal text-muted" style="font-size:0.78em; text-transform:none; letter-spacing:normal;">
-                {{ pool.contract_name }}
-                &nbsp;·&nbsp;
-                {% if pool.unlimited %}{{ __('Unlimited', 'credit') }}{% else %}{{ pool.remaining }} pts restants{% endif %}
-            </small>
-        {% endif %}
     </div>
+    {% if pool is not null %}
+        <div class="text-center text-muted mb-1" style="font-size:0.82em;">
+            <small>{{ pool.contract_name }}&nbsp;&middot;&nbsp;{% if pool.unlimited %}{{ __('Unlimited', 'credit') }}{% else %}{{ pool.remaining }} pts restants{% endif %}</small>
+        </div>
+    {% endif %}
 
     {% if pool is null %}
         <div class="alert alert-secondary mt-2">
@@ -190,24 +188,40 @@
                 }
             }
 
-            requestAnimationFrame(function watchDuration{{ rand }}() {
-                var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
-                var scope = container ? (container.closest('form') || document) : document;
+            (function () {
+                var _attached{{ rand }} = false;
 
-                var targets = [
-                    scope.querySelector('select[name="_actiontime_hours"]'),
-                    scope.querySelector('select[name="_actiontime_minutes"]'),
-                    scope.querySelector('input[name="actiontime"]'),
-                ].filter(Boolean);
+                function _tryAttach{{ rand }}() {
+                    if (_attached{{ rand }}) return;
 
-                targets.forEach(function(el) {
-                    // Defer so GLPI's own onchange handler syncs actiontime first.
-                    el.addEventListener('change', function() { setTimeout(onBaremeChange{{ rand }}, 0); });
-                    el.addEventListener('input',  function() { setTimeout(onBaremeChange{{ rand }}, 0); });
-                });
+                    var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
+                    var scope = container ? (container.closest('form') || document) : document;
 
-                onBaremeChange{{ rand }}();
-            });
+                    var targets = [
+                        scope.querySelector('select[name="_actiontime_hours"]'),
+                        scope.querySelector('select[name="_actiontime_minutes"]'),
+                        scope.querySelector('input[name="actiontime"]'),
+                    ].filter(Boolean);
+
+                    if (!targets.length) return;
+
+                    _attached{{ rand }} = true;
+                    _creditObs{{ rand }}.disconnect();
+
+                    targets.forEach(function(el) {
+                        el.addEventListener('change', function() { setTimeout(onBaremeChange{{ rand }}, 0); });
+                        el.addEventListener('input',  function() { setTimeout(onBaremeChange{{ rand }}, 0); });
+                    });
+
+                    onBaremeChange{{ rand }}();
+                }
+
+                var _creditObs{{ rand }} = new MutationObserver(_tryAttach{{ rand }});
+                _creditObs{{ rand }}.observe(document.body, { childList: true, subtree: true });
+
+                _tryAttach{{ rand }}();
+                setTimeout(function() { _creditObs{{ rand }}.disconnect(); }, 15000);
+            })();
         </script>
     {% endif %}
 </div>

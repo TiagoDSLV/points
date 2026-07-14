@@ -53,17 +53,21 @@
                 if (!data || !data.points) return;
 
                 var badge = document.createElement('span');
-                badge.className = 'badge bg-purple credit-points-badge ms-1';
-                badge.title = 'Points consommés';
-                badge.innerHTML = '<i class="ti ti-coin me-1"></i>' + data.points + ' pts';
+                // Use same classes as the "Créé :" / "Dernière mise à jour :" badges
+                badge.className = 'badge user-select-auto text-wrap ms-1 d-none d-md-flex align-items-center flex-wrap credit-pts-meta';
+                badge.innerHTML = '<i class="ti ti-coin me-1"></i>Pts : <strong class="ms-1">' + data.points + '</strong>';
 
-                // Try to inject near the duration badge (usually in .card-header or .b-card-header)
-                var target = card.querySelector('.card-header .badge')
-                          || card.querySelector('.b-card-header .badge')
-                          || card.querySelector('.card-header')
-                          || card.querySelector('.b-card-header')
-                          || card;
-                target.insertAdjacentElement('afterend', badge);
+                // GLPI 11 task cards: metadata lives in .d-flex.creator inside .timeline-header
+                var creator = card.querySelector('.d-flex.creator');
+                if (creator) {
+                    creator.appendChild(badge);
+                } else {
+                    // Fallback for unexpected DOM structure
+                    var target = card.querySelector('.timeline-header')
+                              || card.querySelector('.card-body')
+                              || card;
+                    target.appendChild(badge);
+                }
             });
         });
     }

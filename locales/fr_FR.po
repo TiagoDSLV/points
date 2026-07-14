@@ -292,15 +292,87 @@ msgstr "Un contrat à points existe déjà pour ce contrat."
 
 #: inc/ticket.class.php
 #, php-format
-msgid "%1$d pts consumed — Task #%2$d / Ticket #%3$d"
-msgstr "%1$d pts consommés — Tâche #%2$d / Ticket #%3$d"
+msgid "%1$d pts consumed (Task #%2$d / Ticket #%3$d)"
+msgstr "%1$d pts consommés (Tâche #%2$d / Ticket #%3$d)"
 
 #: inc/ticket.class.php
 #, php-format
-msgid "%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d"
-msgstr "%1$d pts supprimés — Tâche #%2$d / Ticket #%3$d"
+msgid "%1$d pts deleted (Task #%2$d / Ticket #%3$d)"
+msgstr "%1$d pts supprimés (Tâche #%2$d / Ticket #%3$d)"
 
 #: inc/ticket.class.php
 #, php-format
-msgid "%1$d pts → %2$d pts — Task #%3$d / Ticket #%4$d"
-msgstr "%1$d pts → %2$d pts — Tâche #%3$d / Ticket #%4$d"
+msgid "%1$d pts > %2$d pts (Task #%3$d / Ticket #%4$d)"
+msgstr "%1$d pts > %2$d pts (Tâche #%3$d / Ticket #%4$d)"
+
+#: templates/creditcontract.html.twig
+msgid "Points pool"
+msgstr "Cagnotte de points"
+
+#: templates/creditcontract.html.twig
+msgid "Sold"
+msgstr "Initiaux"
+
+#: templates/creditcontract.html.twig
+msgid "Consumed"
+msgstr "Consommés"
+
+#: templates/creditcontract.html.twig
+msgid "Remaining"
+msgstr "Restants"
+
+#: templates/creditcontract.html.twig
+msgid "Rate schedule"
+msgstr "Barème"
+
+#: templates/creditcontract.html.twig
+msgid "Consumption history"
+msgstr "Historique des consommations"
+
+#: templates/creditcontract.html.twig
+msgid "No consumption recorded."
+msgstr "Aucune consommation enregistrée."
+
+#: templates/creditcontract.html.twig
+msgid "No points pool configured for this contract."
+msgstr "Aucune cagnotte de points configurée pour ce contrat."
+
+#: templates/creditcontract.html.twig inc/addition.class.php
+msgid "Add points"
+msgstr "Ajouter des points"
+
+#: templates/creditcontract.html.twig inc/addition.class.php
+msgid "Order number"
+msgstr "Numéro de commande"
+
+#: templates/creditcontract.html.twig
+msgid "Points to add"
+msgstr "Points à ajouter"
+
+#: inc/addition.class.php
+msgid "Points addition"
+msgid_plural "Points additions"
+msgstr[0] "Ajout de points"
+msgstr[1] "Ajouts de points"
+msgstr[2] "Ajouts de points"
+
+#: inc/addition.class.php front/addition.form.php
+#, php-format
+msgid "%1$d pts added (Order: %2$s)"
+msgstr "%1$d pts ajoutés (Commande : %2$s)"
+
+#: front/addition.form.php
+msgid "Points added successfully."
+msgstr "Points ajoutés avec succès."
+
+#: front/addition.form.php
+msgid "Invalid input: quantity and order number are required."
+msgstr "Saisie invalide : la quantité et le numéro de commande sont obligatoires."
+
+#: templates/creditcontract.html.twig
+msgid "Addition"
+msgstr "Ajout"
+
+#: templates/creditcontract.html.twig
+msgid "Reference"
+msgstr "Référence"

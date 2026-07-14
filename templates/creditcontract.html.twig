@@ -90,16 +90,21 @@
     {% else %}
 
       {# ---- Pool stats badges ---- #}
-      <div class="d-flex gap-3 mb-3 flex-wrap">
+      <div class="d-flex gap-3 mb-3 flex-wrap align-items-center">
         <span class="badge bg-secondary fs-6">
-          {{ __('Sold', 'credit') }}: {{ pool.quantity > 0 ? pool.quantity : __('Unlimited') }}
+          {{ __('Sold', 'credit') }} : {{ pool.quantity > 0 ? pool.quantity : __('Unlimited') }}
         </span>
+        {% if additions_total > 0 %}
+          <span class="badge bg-primary fs-6">
+            + {{ additions_total }}
+          </span>
+        {% endif %}
         <span class="badge bg-warning text-dark fs-6">
-          {{ __('Consumed', 'credit') }}: {{ total_consumed }}
+          {{ __('Consumed', 'credit') }} : {{ total_consumed }}
         </span>
         {% if remaining is not null %}
           <span class="badge bg-success fs-6">
-            {{ __('Remaining', 'credit') }}: {{ remaining }}
+            {{ __('Remaining', 'credit') }} : {{ remaining }}
           </span>
         {% else %}
           <span class="badge bg-info fs-6">{{ __('Unlimited', 'credit') }}</span>
@@ -113,18 +118,6 @@
         <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
 
         <div class="row">
-          {{ fields.dropdownNumberField(
-            'quantity',
-            pool.quantity,
-            __('Quantity sold', 'credit'),
-            {
-              'min': 1,
-              'max': 1000000,
-              'step': 1,
-              'toadd': {'0': __('Unlimited')},
-            }
-          ) }}
-
           {{ fields.dropdownYesNo(
             'overconsumption_allowed',
             pool.overconsumption_allowed,
@@ -151,17 +144,48 @@
           </button>
         </div>
       </form>
+
+      {# ---- Add points form ---- #}
+      <div class="card border-success mb-3">
+        <div class="card-header text-success fw-semibold">
+          <i class="ti ti-plus-circle me-1"></i>{{ __('Add points', 'credit') }}
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ addition_form_url }}">
+            <input type="hidden" name="plugin_credit_contracts_id" value="{{ pool.id }}">
+            <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+            <div class="row g-3 align-items-end">
+              <div class="col-sm-4">
+                <label class="form-label">{{ __('Order number', 'credit') }}</label>
+                <input type="text" name="order_number" class="form-control form-control-sm"
+                       placeholder="{{ __('Order number', 'credit') }}" required>
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">{{ __('Points to add', 'credit') }}</label>
+                <input type="number" name="quantity" class="form-control form-control-sm"
+                       min="1" value="1" required>
+              </div>
+              <div class="col-sm-auto">
+                <button type="submit" name="add_points" value="1" class="btn btn-success btn-sm">
+                  <i class="ti ti-plus me-1"></i>{{ __('Add points', 'credit') }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
       {% endif %}
 
-      {# ---- Consumption history table ---- #}
+      {# ---- Consumption / additions history table ---- #}
       <h5 class="mt-4">{{ __('Consumption history', 'credit') }}</h5>
 
-      {% if consumed_entries is empty %}
+      {% if consumed_entries is empty and additions is empty %}
         <p class="text-muted">{{ __('No consumption recorded.', 'credit') }}</p>
       {% else %}
         <table class="table table-sm table-striped table-hover">
           <thead>
             <tr>
+              <th>{{ __('Reference', 'credit') }}</th>
               <th>{{ __('Ticket') }}</th>
               <th>{{ __('Task') }}</th>
               <th>{{ __('Date') }}</th>
@@ -172,8 +196,27 @@
             </tr>
           </thead>
           <tbody>
+            {# Additions (green rows) #}
+            {% for addition in additions %}
+            <tr class="table-success">
+              <td>
+                <span class="badge bg-success">{{ __('Addition', 'credit') }}</span>
+                <small class="ms-1 text-muted">{{ addition.order_number }}</small>
+              </td>
+              <td></td>
+              <td></td>
+              <td>{{ addition.date_creation ? addition.date_creation|date('Y-m-d H:i') : '' }}</td>
+              <td>{{ addition.tech_name ?? '' }}</td>
+              <td></td>
+              <td><strong class="text-success">+{{ addition.quantity }}</strong></td>
+              {% if canedit %}<td></td>{% endif %}
+            </tr>
+            {% endfor %}
+
+            {# Consumptions #}
             {% for entry in consumed_entries %}
             <tr>
+              <td></td>
               <td>{{ entry.ticket_link|raw }}</td>
               <td>{{ entry.task_link|raw }}</td>
               <td>{{ entry.date ? entry.date|date('Y-m-d H:i') : '' }}</td>
@@ -198,7 +241,7 @@
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="5" class="text-end fw-bold">{{ __('Total') }}</td>
+              <td colspan="6" class="text-end fw-bold">{{ __('Total consumed') }}</td>
               <td><strong>{{ total_consumed }}</strong></td>
               {% if canedit %}<td></td>{% endif %}
             </tr>

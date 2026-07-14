@@ -262,19 +262,25 @@ class PluginCreditContract extends CommonDBTM
         }
 
         // Compute stats.
-        $total_consumed = array_sum(array_column($consumed_entries, 'consumed'));
-        $quantity       = (int) ($pool['quantity'] ?? 0);
-        $remaining      = ($pool !== null && $quantity > 0) ? max(0, $quantity - $total_consumed) : null;
+        $total_consumed  = array_sum(array_column($consumed_entries, 'consumed'));
+        $quantity        = (int) ($pool['quantity'] ?? 0);
+        $additions       = ($pool !== null) ? PluginCreditAddition::getForPool((int) $pool['id']) : [];
+        $additions_total = array_sum(array_column($additions, 'quantity'));
+        $total_available = $quantity + $additions_total;
+        $remaining       = ($pool !== null && $total_available > 0) ? max(0, $total_available - $total_consumed) : null;
 
         TemplateRenderer::getInstance()->display('@credit/creditcontract.html.twig', [
             'item'             => $contract,
             'pool'             => $pool,
             'consumed_entries' => $consumed_entries,
+            'additions'        => $additions,
+            'additions_total'  => $additions_total,
             'total_consumed'   => $total_consumed,
             'remaining'        => $remaining,
             'canedit'          => $canedit,
             'form_url'         => self::getFormUrl(),
             'ticket_form_url'  => plugin_credit_geturl() . 'front/ticket.form.php',
+            'addition_form_url' => plugin_credit_geturl() . 'front/addition.form.php',
         ]);
     }
 
@@ -327,14 +333,16 @@ class PluginCreditContract extends CommonDBTM
         $pool_id  = (int) $row['pool_id'];
         $quantity = (int) $row['quantity'];
 
-        $consumed  = self::getConsumedForCredit($pool_id);
-        $remaining = $quantity > 0 ? max(0, $quantity - $consumed) : null;
+        $consumed        = self::getConsumedForCredit($pool_id);
+        $additions_total = PluginCreditAddition::getTotalForPool($pool_id);
+        $total_available = $quantity + $additions_total;
+        $remaining       = $total_available > 0 ? max(0, $total_available - $consumed) : null;
 
         return [
             'pool_id'       => $pool_id,
             'contract_name' => $row['contract_name'],
             'remaining'     => $remaining,
-            'unlimited'     => $quantity === 0,
+            'unlimited'     => $quantity === 0 && $additions_total === 0,
         ];
     }
 

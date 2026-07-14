@@ -455,7 +455,7 @@ class PluginCreditTicket extends CommonDBTM
             );
             $task_id = ($item instanceof TicketTask) ? $item->getID() : 0;
             $log_msg = sprintf(
-                __('%1$d pts consumed — Task #%2$d / Ticket #%3$d', 'credit'),
+                __('%1$d pts consumed (Task #%2$d / Ticket #%3$d)', 'credit'),
                 $quantity,
                 $task_id,
                 $ticket->getID(),
@@ -464,15 +464,15 @@ class PluginCreditTicket extends CommonDBTM
                 (int) $credit_entity->fields['contracts_id'],
                 Contract::class,
                 [0, '', $log_msg],
-                '',
-                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                PluginCreditTicket::class,
+                Log::HISTORY_ADD_SUBITEM,
             );
             Log::history(
                 (int) $ticket->getID(),
                 Ticket::class,
                 [0, '', $log_msg],
-                '',
-                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                PluginCreditTicket::class,
+                Log::HISTORY_ADD_SUBITEM,
             );
         }
     }
@@ -542,7 +542,7 @@ class PluginCreditTicket extends CommonDBTM
         if ($old_points !== $new_points) {
             $ticket_id = (int) ($item->fields['tickets_id'] ?? 0);
             $log_msg   = sprintf(
-                __('%1$d pts → %2$d pts — Task #%3$d / Ticket #%4$d', 'credit'),
+                __('%1$d pts > %2$d pts (Task #%3$d / Ticket #%4$d)', 'credit'),
                 $old_points,
                 $new_points,
                 $item->getID(),
@@ -554,8 +554,8 @@ class PluginCreditTicket extends CommonDBTM
                     (int) $pool->fields['contracts_id'],
                     Contract::class,
                     [0, '', $log_msg],
-                    '',
-                    Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                    PluginCreditTicket::class,
+                    Log::HISTORY_ADD_SUBITEM,
                 );
             }
             if ($ticket_id > 0) {
@@ -563,8 +563,8 @@ class PluginCreditTicket extends CommonDBTM
                     $ticket_id,
                     Ticket::class,
                     [0, '', $log_msg],
-                    '',
-                    Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                    PluginCreditTicket::class,
+                    Log::HISTORY_ADD_SUBITEM,
                 );
             }
         }
@@ -581,7 +581,7 @@ class PluginCreditTicket extends CommonDBTM
         $ticket_id = (int) $this->fields['tickets_id'];
 
         $log_msg = sprintf(
-            __('%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d', 'credit'),
+            __('%1$d pts deleted (Task #%2$d / Ticket #%3$d)', 'credit'),
             $consumed,
             $task_id,
             $ticket_id,
@@ -593,8 +593,8 @@ class PluginCreditTicket extends CommonDBTM
                 (int) $pool->fields['contracts_id'],
                 Contract::class,
                 [0, '', $log_msg],
-                '',
-                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                PluginCreditTicket::class,
+                Log::HISTORY_DELETE_SUBITEM,
             );
         }
 
@@ -603,8 +603,8 @@ class PluginCreditTicket extends CommonDBTM
                 $ticket_id,
                 Ticket::class,
                 [0, '', $log_msg],
-                '',
-                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                PluginCreditTicket::class,
+                Log::HISTORY_DELETE_SUBITEM,
             );
         }
     }
