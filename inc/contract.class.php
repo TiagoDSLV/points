@@ -460,18 +460,6 @@ class PluginCreditContract extends CommonDBTM
         ];
 
         $tab[] = [
-            'id'         => 992,
-            'table'      => 'glpi_contracts',
-            'field'      => 'end_date',
-            'name'       => __('End date', 'credit'),
-            'datatype'   => 'date',
-            'joinparams' => [
-                'jointype'  => '',
-                'linkfield' => 'contracts_id',
-            ],
-        ];
-
-        $tab[] = [
             'id'       => 994,
             'table'    => self::getTable(),
             'field'    => 'quantity',

@@ -453,19 +453,25 @@ class PluginCreditTicket extends CommonDBTM
                 true,
                 INFO,
             );
+            $task_id = ($item instanceof TicketTask) ? $item->getID() : 0;
+            $log_msg = sprintf(
+                __('%1$d pts consumed — Task #%2$d / Ticket #%3$d', 'credit'),
+                $quantity,
+                $task_id,
+                $ticket->getID(),
+            );
             Log::history(
                 (int) $credit_entity->fields['contracts_id'],
                 Contract::class,
-                [
-                    0,
-                    '',
-                    sprintf(
-                        __('%1$d pts consumed — Task #%2$d / Ticket #%3$d', 'credit'),
-                        $quantity,
-                        ($item instanceof TicketTask) ? $item->getID() : 0,
-                        $ticket->getID(),
-                    ),
-                ],
+                [0, '', $log_msg],
+                '',
+                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+            );
+            Log::history(
+                (int) $ticket->getID(),
+                Ticket::class,
+                [0, '', $log_msg],
+                '',
                 Log::HISTORY_LOG_SIMPLE_MESSAGE,
             );
         }
@@ -521,9 +527,10 @@ class PluginCreditTicket extends CommonDBTM
             return;
         }
 
+        $old_points = (int) $existing['consumed'];
         $new_points = $new_duration > 0
             ? PluginCreditBareme::calculatePoints($new_duration, $bareme_id)
-            : (int) $existing['consumed'];
+            : $old_points;
 
         $credit_ticket = new self();
         $credit_ticket->update([
@@ -531,6 +538,36 @@ class PluginCreditTicket extends CommonDBTM
             'consumed'               => $new_points,
             'plugin_credit_bareme_id' => $bareme_id,
         ]);
+
+        if ($old_points !== $new_points) {
+            $ticket_id = (int) ($item->fields['tickets_id'] ?? 0);
+            $log_msg   = sprintf(
+                __('%1$d pts → %2$d pts — Task #%3$d / Ticket #%4$d', 'credit'),
+                $old_points,
+                $new_points,
+                $item->getID(),
+                $ticket_id,
+            );
+            $pool = new PluginCreditContract();
+            if ($pool->getFromDB((int) $existing['plugin_credit_contracts_id'])) {
+                Log::history(
+                    (int) $pool->fields['contracts_id'],
+                    Contract::class,
+                    [0, '', $log_msg],
+                    '',
+                    Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                );
+            }
+            if ($ticket_id > 0) {
+                Log::history(
+                    $ticket_id,
+                    Ticket::class,
+                    [0, '', $log_msg],
+                    '',
+                    Log::HISTORY_LOG_SIMPLE_MESSAGE,
+                );
+            }
+        }
     }
 
     /**
@@ -539,21 +576,34 @@ class PluginCreditTicket extends CommonDBTM
      */
     public function post_purgeItem(): void
     {
+        $consumed  = (int) $this->fields['consumed'];
+        $task_id   = (int) $this->fields['tickettasks_id'];
+        $ticket_id = (int) $this->fields['tickets_id'];
+
+        $log_msg = sprintf(
+            __('%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d', 'credit'),
+            $consumed,
+            $task_id,
+            $ticket_id,
+        );
+
         $pool = new PluginCreditContract();
         if ($pool->getFromDB((int) $this->fields['plugin_credit_contracts_id'])) {
             Log::history(
                 (int) $pool->fields['contracts_id'],
                 Contract::class,
-                [
-                    0,
-                    '',
-                    sprintf(
-                        __('%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d', 'credit'),
-                        (int) $this->fields['consumed'],
-                        (int) $this->fields['tickettasks_id'],
-                        (int) $this->fields['tickets_id'],
-                    ),
-                ],
+                [0, '', $log_msg],
+                '',
+                Log::HISTORY_LOG_SIMPLE_MESSAGE,
+            );
+        }
+
+        if ($ticket_id > 0) {
+            Log::history(
+                $ticket_id,
+                Ticket::class,
+                [0, '', $log_msg],
+                '',
                 Log::HISTORY_LOG_SIMPLE_MESSAGE,
             );
         }

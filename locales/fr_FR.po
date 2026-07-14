@@ -299,3 +299,8 @@ msgstr "%1$d pts consommés — Tâche #%2$d / Ticket #%3$d"
 #, php-format
 msgid "%1$d pts consumption deleted — Task #%2$d / Ticket #%3$d"
 msgstr "%1$d pts supprimés — Tâche #%2$d / Ticket #%3$d"
+
+#: inc/ticket.class.php
+#, php-format
+msgid "%1$d pts → %2$d pts — Task #%3$d / Ticket #%4$d"
+msgstr "%1$d pts → %2$d pts — Tâche #%3$d / Ticket #%4$d"

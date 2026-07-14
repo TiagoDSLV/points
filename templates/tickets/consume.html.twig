@@ -27,15 +27,22 @@
  # -------------------------------------------------------------------------
  #}
 
-{% import "components/form/fields_macros.html.twig" as fields %}
 {% set rand = random() %}
 {% set existing_bareme_id = existing_bareme_id ?? 0 %}
 
 <div name="credit_consume_{{ rand }}">
 
+    {# Section header with contract info as subtitle #}
     <div class="hr-text mt-2">
         <i class="fa-2x ti ti-coin"></i>
         <span>{{ type_name }}</span>
+        {% if pool is not null %}
+            <br><small class="fw-normal text-muted" style="font-size:0.78em; text-transform:none; letter-spacing:normal;">
+                {{ pool.contract_name }}
+                &nbsp;·&nbsp;
+                {% if pool.unlimited %}{{ __('Unlimited', 'credit') }}{% else %}{{ pool.remaining }} pts restants{% endif %}
+            </small>
+        {% endif %}
     </div>
 
     {% if pool is null %}
@@ -44,34 +51,36 @@
         </div>
     {% else %}
 
-        {{ fields.sliderField(
-            'plugin_credit_consumed_voucher',
-            consume,
-            __('Consume a voucher ?', 'credit'),
-            {
-                'additional_attributes': {
-                    'onchange': 'showCreditDiv' ~ rand ~ '(this.value)',
-                },
-                'rand': rand,
-            }
-        ) }}
+        {# Single row: toggle + barème side by side #}
+        <div class="d-flex align-items-center gap-4 mt-2 mb-1" style="flex-wrap: wrap;">
 
-        <div id="creditvoucherblock{{ rand }}" style="display: {% if consume == 1 %}block{% else %}none{% endif %}">
+            {# Toggle: Consommation de points #}
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-check-label text-nowrap" for="toggle_credit_{{ rand }}">
+                    {{ __('Consommation de points', 'credit') }}
+                </label>
+                <input type="hidden" name="plugin_credit_consumed_voucher" value="0">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input ms-0" type="checkbox" role="switch"
+                           id="toggle_credit_{{ rand }}"
+                           name="plugin_credit_consumed_voucher"
+                           value="1"
+                           {% if consume == 1 %}checked{% endif %}
+                           onchange="showCreditDiv{{ rand }}(this.checked)">
+                </div>
+            </div>
 
-            {# Contract info (read-only) using GLPI native field layout #}
-            {% set contract_badge %}
-                <strong>{{ pool.contract_name }}</strong>
-                <span class="badge bg-secondary ms-2">
-                    {% if pool.unlimited %}{{ __('Unlimited', 'credit') }}{% else %}{{ pool.remaining }} pts restants{% endif %}
-                </span>
-            {% endset %}
-            {{ fields.htmlField('', contract_badge, __('Contract', 'credit')) }}
+            {# Barème + manual quantity, hidden when toggle OFF #}
+            <div id="creditvoucherblock{{ rand }}"
+                 style="display: {% if consume == 1 %}flex{% else %}none{% endif %}; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
 
-            {# Barème dropdown using GLPI native field layout #}
-            {% set bareme_select %}
+                <label class="form-label mb-0 text-nowrap" style="font-size:0.875rem;">
+                    {{ __('Barème tarifaire', 'credit') }}
+                </label>
                 <select id="plugin_credit_bareme_id_{{ rand }}"
                         name="plugin_credit_bareme_id"
-                        class="form-select"
+                        class="form-select form-select-sm"
+                        style="max-width: 230px;"
                         onchange="onBaremeChange{{ rand }}()">
                     <option value="0" {% if existing_bareme_id == 0 %}selected{% endif %}>{{ __('-- Manual entry --', 'credit') }}</option>
                     {% for id, bareme in baremes %}
@@ -82,48 +91,60 @@
                         </option>
                     {% endfor %}
                 </select>
-            {% endset %}
-            {{ fields.htmlField('plugin_credit_bareme_id', bareme_select, __('Rate scale', 'credit')) }}
 
-            {# Auto-calculation preview #}
-            <div id="credit_auto_calc_block_{{ rand }}" style="display:none;" class="mb-2">
-                <div class="row">
-                    <div class="col-xxl-5"></div>
-                    <div class="col-xxl-7">
-                        <div class="alert alert-info py-2 px-3 mb-0 d-flex align-items-center gap-2">
-                            <i class="ti ti-calculator"></i>
-                            <span>
-                                {{ __('Auto-calculated points', 'credit') }} :
-                                <strong id="credit_auto_calc_detail_{{ rand }}">—</strong>
-                            </span>
-                        </div>
-                    </div>
+                {# Manual quantity input, shown only when no barème selected #}
+                <div id="credit_manual_qty_{{ rand }}"
+                     style="display: {% if existing_bareme_id == 0 %}flex{% else %}none{% endif %}; align-items: center; gap: 0.5rem;">
+                    <label class="form-label mb-0 text-nowrap" style="font-size:0.875rem;">Points</label>
+                    <input type="number" name="plugin_credit_quantity"
+                           value="1" min="1"
+                           class="form-control form-control-sm"
+                           style="max-width: 80px;">
                 </div>
-            </div>
 
+            </div>
+        </div>
+
+        {# Auto-calculation preview (shown when barème selected and duration known) #}
+        <div id="credit_auto_calc_block_{{ rand }}" style="display:none;" class="mb-2 mt-1">
+            <div class="alert alert-info py-2 px-3 mb-0 d-flex align-items-center gap-2" style="font-size:0.875rem;">
+                <i class="ti ti-calculator flex-shrink-0"></i>
+                <span>
+                    {{ __('Auto-calculated points', 'credit') }} :
+                    <strong id="credit_auto_calc_detail_{{ rand }}">—</strong>
+                </span>
+            </div>
         </div>
 
         <script>
-            function showCreditDiv{{ rand }}() {
-                var creditVoucherBlock = document.getElementById('creditvoucherblock{{ rand }}');
-                if (creditVoucherBlock) {
-                    var isHidden = creditVoucherBlock.style.display !== 'none';
-                    creditVoucherBlock.style.display = isHidden ? 'none' : 'block';
+            function showCreditDiv{{ rand }}(checked) {
+                var block = document.getElementById('creditvoucherblock{{ rand }}');
+                if (block) {
+                    block.style.display = checked ? 'flex' : 'none';
+                }
+                if (checked) {
+                    onBaremeChange{{ rand }}();
+                } else {
+                    var autoBlock = document.getElementById('credit_auto_calc_block_{{ rand }}');
+                    if (autoBlock) autoBlock.style.display = 'none';
                 }
             }
 
             function getTaskDurationSeconds{{ rand }}() {
+                // Scope to the form that contains our consume block so we don't
+                // read duration fields from a different task form on the page.
+                var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
+                var scope = container ? (container.closest('form') || document) : document;
+
                 // Primary: hidden actiontime input that GLPI keeps synced (value in seconds).
-                // GLPI's own onchange handler updates this before our deferred callback runs.
-                var hidden = document.querySelector('input[name="actiontime"]');
+                var hidden = scope.querySelector('input[name="actiontime"]');
                 if (hidden && parseInt(hidden.value) > 0) {
                     return parseInt(hidden.value);
                 }
 
-                // Fallback: GLPI 11 showTimestampForm select values are already in seconds —
-                // hour select = hours×3600, minute select = minutes×60. Just add them.
-                var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
-                var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
+                // Fallback: GLPI 11 showTimestampForm selects — values already in seconds.
+                var hourSel   = scope.querySelector('select[name="_actiontime_hours"]');
+                var minuteSel = scope.querySelector('select[name="_actiontime_minutes"]');
                 if (hourSel && minuteSel) {
                     return (parseInt(hourSel.value) || 0)
                          + (parseInt(minuteSel.value) || 0);
@@ -136,10 +157,13 @@
                 var baremeSelect = document.getElementById('plugin_credit_bareme_id_{{ rand }}');
                 var autoBlock    = document.getElementById('credit_auto_calc_block_{{ rand }}');
                 var autoDetail   = document.getElementById('credit_auto_calc_detail_{{ rand }}');
+                var manualBlock  = document.getElementById('credit_manual_qty_{{ rand }}');
 
                 if (!baremeSelect) return;
 
                 var baremeId = parseInt(baremeSelect.value) || 0;
+
+                if (manualBlock) manualBlock.style.display = (baremeId === 0) ? 'flex' : 'none';
 
                 if (baremeId === 0) {
                     if (autoBlock) autoBlock.style.display = 'none';
@@ -167,14 +191,17 @@
             }
 
             requestAnimationFrame(function watchDuration{{ rand }}() {
+                var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
+                var scope = container ? (container.closest('form') || document) : document;
+
                 var targets = [
-                    document.querySelector('select[name="_actiontime_hours"]'),
-                    document.querySelector('select[name="_actiontime_minutes"]'),
-                    document.querySelector('input[name="actiontime"]'),
+                    scope.querySelector('select[name="_actiontime_hours"]'),
+                    scope.querySelector('select[name="_actiontime_minutes"]'),
+                    scope.querySelector('input[name="actiontime"]'),
                 ].filter(Boolean);
 
                 targets.forEach(function(el) {
-                    // Defer so GLPI's own onchange handler syncs the hidden actiontime input first.
+                    // Defer so GLPI's own onchange handler syncs actiontime first.
                     el.addEventListener('change', function() { setTimeout(onBaremeChange{{ rand }}, 0); });
                     el.addEventListener('input',  function() { setTimeout(onBaremeChange{{ rand }}, 0); });
                 });

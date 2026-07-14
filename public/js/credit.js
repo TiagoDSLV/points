@@ -68,19 +68,21 @@
         });
     }
 
+    var _creditBadgeTimeout = null;
+    function _debouncedInject() {
+        if (_creditBadgeTimeout) clearTimeout(_creditBadgeTimeout);
+        _creditBadgeTimeout = setTimeout(injectPointsBadges, 150);
+    }
+
     function setupObserver() {
-        // Re-run on timeline mutations (GLPI refreshes timeline asynchronously)
-        var timeline = document.querySelector('.itil-timeline')
-                    || document.querySelector('#timeline-content')
-                    || document.querySelector('.timeline-content');
+        // Observe the whole body so we catch the timeline even when it loads
+        // asynchronously after DOMContentLoaded (common in GLPI 11).
+        new MutationObserver(_debouncedInject)
+            .observe(document.body, { childList: true, subtree: true });
 
-        if (timeline) {
-            new MutationObserver(function () {
-                injectPointsBadges(timeline);
-            }).observe(timeline, { childList: true, subtree: true });
-        }
-
+        // Run immediately and once more after a short delay for already-rendered cards.
         injectPointsBadges();
+        setTimeout(injectPointsBadges, 800);
     }
 
     if (document.readyState === 'loading') {
