@@ -377,6 +377,10 @@ msgstr "Saisie invalide : la quantité et le numéro de commande sont obligatoir
 msgid "Addition"
 msgstr "Ajout"
 
+#: inc/contract.class.php
+msgid "Additions"
+msgstr "Ajouts"
+
 #: templates/creditcontract.html.twig
 msgid "Reference"
 msgstr "Référence"
