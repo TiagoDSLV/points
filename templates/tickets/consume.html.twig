@@ -134,13 +134,19 @@
                 var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
                 var scope = container ? (container.closest('form') || document) : document;
 
-                // Primary: hidden actiontime input that GLPI keeps synced (value in seconds).
+                // GLPI 11: single Select2 widget — value in seconds.
+                var actiontimeSel = scope.querySelector('select[name="actiontime"]');
+                if (actiontimeSel && parseInt(actiontimeSel.value) > 0) {
+                    return parseInt(actiontimeSel.value);
+                }
+
+                // Legacy hidden input kept in sync by GLPI.
                 var hidden = scope.querySelector('input[name="actiontime"]');
                 if (hidden && parseInt(hidden.value) > 0) {
                     return parseInt(hidden.value);
                 }
 
-                // Fallback: GLPI 11 showTimestampForm selects — values already in seconds.
+                // Legacy two-select form (older GLPI).
                 var hourSel   = scope.querySelector('select[name="_actiontime_hours"]');
                 var minuteSel = scope.querySelector('select[name="_actiontime_minutes"]');
                 if (hourSel && minuteSel) {
@@ -198,7 +204,8 @@
                     var scope = container ? (container.closest('form') || document) : document;
 
                     var targets = [
-                        scope.querySelector('select[name="_actiontime_hours"]'),
+                        scope.querySelector('select[name="actiontime"]'),          // GLPI 11 Select2
+                        scope.querySelector('select[name="_actiontime_hours"]'),   // legacy
                         scope.querySelector('select[name="_actiontime_minutes"]'),
                         scope.querySelector('input[name="actiontime"]'),
                     ].filter(Boolean);

@@ -199,10 +199,7 @@
             {# Additions (green rows) #}
             {% for addition in additions %}
             <tr class="table-success">
-              <td>
-                <span class="badge bg-success">{{ __('Addition', 'credit') }}</span>
-                <small class="ms-1 text-muted">{{ addition.order_number }}</small>
-              </td>
+              <td><small class="text-muted">{{ addition.order_number }}</small></td>
               <td></td>
               <td></td>
               <td>{{ addition.date_creation ? addition.date_creation|date('Y-m-d H:i') : '' }}</td>
@@ -222,7 +219,7 @@
               <td>{{ entry.date ? entry.date|date('Y-m-d H:i') : '' }}</td>
               <td>{{ entry.tech_name }}</td>
               <td>{{ entry.bareme_name }}</td>
-              <td><strong>{{ entry.consumed }}</strong></td>
+              <td><strong class="text-danger">-{{ entry.consumed }}</strong></td>
               {% if canedit %}
               <td>
                 <form method="post" action="{{ ticket_form_url }}"

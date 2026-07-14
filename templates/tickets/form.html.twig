@@ -38,13 +38,21 @@
         <div class="alert alert-info py-2 mb-2">
             <i class="ti ti-coin me-1"></i>
             {{ __('Remaining points on contract', 'credit') }}: <strong>{{ remaining_points }}</strong>
-            {% if pool_name %}<span class="text-muted ms-2">({{ pool_name }})</span>{% endif %}
+            {% if pool_name %}
+                <span class="text-muted ms-2">
+                    {% if contract_url %}<a href="{{ contract_url }}" class="text-muted">{{ pool_name }}</a>{% else %}{{ pool_name }}{% endif %}
+                </span>
+            {% endif %}
         </div>
     {% elseif pool_unlimited %}
         <div class="alert alert-info py-2 mb-2">
             <i class="ti ti-infinity me-1"></i>
             {{ __('Unlimited points contract', 'credit') }}
-            {% if pool_name %}<span class="text-muted ms-2">({{ pool_name }})</span>{% endif %}
+            {% if pool_name %}
+                <span class="text-muted ms-2">
+                    {% if contract_url %}<a href="{{ contract_url }}" class="text-muted">{{ pool_name }}</a>{% else %}{{ pool_name }}{% endif %}
+                </span>
+            {% endif %}
         </div>
     {% elseif entries is not empty %}
         <div class="alert alert-warning py-2 mb-2">

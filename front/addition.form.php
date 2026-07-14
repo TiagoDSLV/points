@@ -69,7 +69,7 @@ if ($addition->add($input)) {
         (int) $pool->fields['contracts_id'],
         Contract::class,
         [0, '', $log_msg],
-        PluginCreditAddition::class,
+        PluginCreditTicket::class,
         Log::HISTORY_ADD_SUBITEM,
     );
     Session::addMessageAfterRedirect(

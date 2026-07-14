@@ -264,10 +264,12 @@ class PluginCreditTicket extends CommonDBTM
         $remaining_points = null;
         $pool_unlimited   = false;
         $pool_name        = null;
+        $contract_url     = null;
         if ($pool !== null) {
             $remaining_points = $pool['remaining'];
             $pool_unlimited   = $pool['unlimited'];
             $pool_name        = $pool['contract_name'];
+            $contract_url     = Contract::getFormURLWithID((int) $pool['contracts_id']);
         }
 
         TemplateRenderer::getInstance()->display('@credit/tickets/form.html.twig', [
@@ -278,6 +280,7 @@ class PluginCreditTicket extends CommonDBTM
             'remaining_points' => $remaining_points,
             'pool_unlimited'   => $pool_unlimited,
             'pool_name'        => $pool_name,
+            'contract_url'     => $contract_url,
         ]);
     }
 

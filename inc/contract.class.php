@@ -309,6 +309,7 @@ class PluginCreditContract extends CommonDBTM
             'SELECT' => [
                 $pool_table . '.id AS pool_id',
                 $pool_table . '.quantity',
+                $pool_table . '.contracts_id',
                 $pool_table . '.overconsumption_allowed',
                 'glpi_contracts.name AS contract_name',
             ],
@@ -340,6 +341,7 @@ class PluginCreditContract extends CommonDBTM
 
         return [
             'pool_id'       => $pool_id,
+            'contracts_id'  => (int) $row['contracts_id'],
             'contract_name' => $row['contract_name'],
             'remaining'     => $remaining,
             'unlimited'     => $quantity === 0 && $additions_total === 0,

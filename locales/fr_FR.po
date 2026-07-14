@@ -282,6 +282,10 @@ msgstr "Contrat"
 msgid "Duration"
 msgstr "Durée"
 
+#: templates/tickets/form.html.twig inc/ticket.class.php
+msgid "Task"
+msgstr "Tâche"
+
 #: templates/tickets/consume.html.twig
 msgid "Unlimited"
 msgstr "Illimité"
