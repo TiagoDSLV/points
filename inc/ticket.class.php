@@ -245,9 +245,16 @@ class PluginCreditTicket extends CommonDBTM
                 }
             }
 
+            $entry_contract_url = !empty($credit_contract->fields['contracts_id'])
+                ? Contract::getFormURLWithID((int) $credit_contract->fields['contracts_id'])
+                : '';
+            $name_html = $entry_contract_url
+                ? '<a href="' . htmlspecialchars($entry_contract_url) . '">' . htmlspecialchars($credit_contract->getName()) . '</a>'
+                : htmlspecialchars($credit_contract->getName());
+
             $entries[] = array_merge($data, [
                 'id'            => $data['id'],
-                'name'          => $credit_contract->getName(),
+                'name'          => $name_html,
                 'date_creation' => $data['date_creation'],
                 'users_id'      => Session::haveRight('user', READ)
                     ? getUserLink($data['users_id'])

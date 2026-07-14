@@ -129,26 +129,20 @@
             }
 
             function getTaskDurationSeconds{{ rand }}() {
-                // Scope to the form that contains our consume block so we don't
-                // read duration fields from a different task form on the page.
-                var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
-                var scope = container ? (container.closest('form') || document) : document;
-
-                // GLPI 11: single Select2 widget — value in seconds.
-                var actiontimeSel = scope.querySelector('select[name="actiontime"]');
+                // No scope restriction: only one task form is open at a time,
+                // and post_item_form hooks may render outside the <form> element.
+                var actiontimeSel = document.querySelector('select[name="actiontime"]');
                 if (actiontimeSel && parseInt(actiontimeSel.value) > 0) {
                     return parseInt(actiontimeSel.value);
                 }
 
-                // Legacy hidden input kept in sync by GLPI.
-                var hidden = scope.querySelector('input[name="actiontime"]');
+                var hidden = document.querySelector('input[name="actiontime"]');
                 if (hidden && parseInt(hidden.value) > 0) {
                     return parseInt(hidden.value);
                 }
 
-                // Legacy two-select form (older GLPI).
-                var hourSel   = scope.querySelector('select[name="_actiontime_hours"]');
-                var minuteSel = scope.querySelector('select[name="_actiontime_minutes"]');
+                var hourSel   = document.querySelector('select[name="_actiontime_hours"]');
+                var minuteSel = document.querySelector('select[name="_actiontime_minutes"]');
                 if (hourSel && minuteSel) {
                     return (parseInt(hourSel.value) || 0)
                          + (parseInt(minuteSel.value) || 0);
@@ -200,14 +194,13 @@
                 function _tryAttach{{ rand }}() {
                     if (_attached{{ rand }}) return;
 
-                    var container = document.querySelector('[name="credit_consume_{{ rand }}"]');
-                    var scope = container ? (container.closest('form') || document) : document;
-
+                    // No scope restriction: post_item_form hooks render outside <form>,
+                    // and only one task form is ever open at a time.
                     var targets = [
-                        scope.querySelector('select[name="actiontime"]'),          // GLPI 11 Select2
-                        scope.querySelector('select[name="_actiontime_hours"]'),   // legacy
-                        scope.querySelector('select[name="_actiontime_minutes"]'),
-                        scope.querySelector('input[name="actiontime"]'),
+                        document.querySelector('select[name="actiontime"]'),
+                        document.querySelector('select[name="_actiontime_hours"]'),
+                        document.querySelector('select[name="_actiontime_minutes"]'),
+                        document.querySelector('input[name="actiontime"]'),
                     ].filter(Boolean);
 
                     if (!targets.length) return;
@@ -218,7 +211,22 @@
                     targets.forEach(function(el) {
                         el.addEventListener('change', function() { setTimeout(onBaremeChange{{ rand }}, 0); });
                         el.addEventListener('input',  function() { setTimeout(onBaremeChange{{ rand }}, 0); });
+                        if (window.jQuery) {
+                            // Select2 fires jQuery events; listen on both channels
+                            jQuery(el).on('change select2:select select2:unselect', function() {
+                                setTimeout(onBaremeChange{{ rand }}, 0);
+                            });
+                        }
                     });
+
+                    // Poll briefly in case Select2 sets its value after our initial call
+                    var _poll = setInterval(function() {
+                        if (getTaskDurationSeconds{{ rand }}() > 0) {
+                            onBaremeChange{{ rand }}();
+                            clearInterval(_poll);
+                        }
+                    }, 250);
+                    setTimeout(function() { clearInterval(_poll); }, 5000);
 
                     onBaremeChange{{ rand }}();
                 }
