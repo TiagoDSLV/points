@@ -59,6 +59,9 @@ function plugin_credit_install()
 
     $migration->executeMigration();
 
+    // Remove stale cron task from upstream plugin (PluginCreditEntity no longer exists).
+    CronTask::unregister('PluginCreditEntity');
+
     CronTask::register(
         'PluginCreditContract',
         'lowcredits',

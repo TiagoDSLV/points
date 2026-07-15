@@ -31,7 +31,7 @@
 
 use function Safe\define;
 
-define('PLUGIN_CREDIT_VERSION', '1.15.5-points.16');
+define('PLUGIN_CREDIT_VERSION', '1.15.5-points.17');
 
 // Minimal GLPI version, inclusive
 define("PLUGIN_CREDIT_MIN_GLPI", "11.0.0");
