@@ -510,49 +510,53 @@ class PluginCreditContract extends CommonDBTM
             'datatype'      => 'date',
             'nosearch'      => true,
             'massiveaction' => false,
-            'computation'   => 'DATE_ADD([TABLE].`begin_date`, INTERVAL [TABLE].`duration` MONTH)',
+            'computation'   => 'DATE_ADD(`glpi_contracts`.`begin_date`, INTERVAL `glpi_contracts`.`duration` MONTH)',
             'joinparams'    => [
                 'jointype'  => '',
                 'linkfield' => 'contracts_id',
             ],
         ];
 
+        $pool_table    = self::getTable();
+        $ticket_table  = PluginCreditTicket::getTable();
+        $addition_table = PluginCreditAddition::getTable();
+
         $tab[] = [
             'id'            => 995,
-            'table'         => self::getTable(),
+            'table'         => $pool_table,
             'field'         => 'quantity',
             'name'          => __('Consumed', 'credit'),
             'datatype'      => 'number',
             'nosearch'      => true,
             'massiveaction' => false,
             'nometa'        => true,
-            'computation'   => 'COALESCE((SELECT SUM(`tc`.`consumed`) FROM `' . PluginCreditTicket::getTable() . '` `tc` WHERE `tc`.`plugin_credit_contracts_id` = [TABLE].`id`), 0)',
+            'computation'   => 'COALESCE((SELECT SUM(`tc`.`consumed`) FROM `' . $ticket_table . '` `tc` WHERE `tc`.`plugin_credit_contracts_id` = `' . $pool_table . '`.`id`), 0)',
         ];
 
         $tab[] = [
             'id'            => 998,
-            'table'         => self::getTable(),
+            'table'         => $pool_table,
             'field'         => 'quantity',
             'name'          => __('Additions', 'credit'),
             'datatype'      => 'number',
             'nosearch'      => true,
             'massiveaction' => false,
             'nometa'        => true,
-            'computation'   => 'COALESCE((SELECT SUM(`ta`.`quantity`) FROM `' . PluginCreditAddition::getTable() . '` `ta` WHERE `ta`.`plugin_credit_contracts_id` = [TABLE].`id`), 0)',
+            'computation'   => 'COALESCE((SELECT SUM(`ta`.`quantity`) FROM `' . $addition_table . '` `ta` WHERE `ta`.`plugin_credit_contracts_id` = `' . $pool_table . '`.`id`), 0)',
         ];
 
         $tab[] = [
             'id'            => 999,
-            'table'         => self::getTable(),
+            'table'         => $pool_table,
             'field'         => 'quantity',
             'name'          => __('Remaining', 'credit'),
             'datatype'      => 'number',
             'nosearch'      => true,
             'massiveaction' => false,
             'nometa'        => true,
-            'computation'   => '([TABLE].`quantity`'
-                . ' + COALESCE((SELECT SUM(`ta`.`quantity`) FROM `' . PluginCreditAddition::getTable() . '` `ta` WHERE `ta`.`plugin_credit_contracts_id` = [TABLE].`id`), 0)'
-                . ' - COALESCE((SELECT SUM(`tc`.`consumed`) FROM `' . PluginCreditTicket::getTable() . '` `tc` WHERE `tc`.`plugin_credit_contracts_id` = [TABLE].`id`), 0))',
+            'computation'   => '(`' . $pool_table . '`.`quantity`'
+                . ' + COALESCE((SELECT SUM(`ta`.`quantity`) FROM `' . $addition_table . '` `ta` WHERE `ta`.`plugin_credit_contracts_id` = `' . $pool_table . '`.`id`), 0)'
+                . ' - COALESCE((SELECT SUM(`tc`.`consumed`) FROM `' . $ticket_table . '` `tc` WHERE `tc`.`plugin_credit_contracts_id` = `' . $pool_table . '`.`id`)  , 0))',
         ];
 
         return $tab;
