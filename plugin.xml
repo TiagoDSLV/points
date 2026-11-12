@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<root>
+    <name>Points</name>
+    <key>points</key>
+    <state>development</state>
+    <logo></logo>
+    <description>
+        <short>
+            <en>Prepaid points management for GLPI contracts</en>
+            <fr>Gestion de points prépayés sur les contrats GLPI</fr>
+        </short>
+        <long>
+            <en>Points are bought in dated envelopes attached to a native contract; interventions consume them according to a price grid; an append-only ledger justifies every balance.</en>
+            <fr>Les points s'achètent par enveloppes datées rattachées à un contrat natif ; les interventions les consomment selon une grille de prix ; un registre en ajout seul justifie chaque solde.</fr>
+        </long>
+    </description>
+    <homepage>https://github.com/TiagoDSLV/Points</homepage>
+    <license>GPL v3+</license>
+    <versions>
+        <version>
+            <num>0.1.0</num>
+            <compatibility>~12.0.0</compatibility>
+        </version>
+    </versions>
+    <authors>
+        <author>Athéo</author>
+    </authors>
+    <langs>
+        <lang>fr_FR</lang>
+        <lang>en_GB</lang>
+    </langs>
+</root>

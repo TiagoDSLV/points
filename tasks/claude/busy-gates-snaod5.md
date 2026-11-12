@@ -19,8 +19,8 @@ Plan validé par le prompt du responsable du 2026-11-12, tant qu'il reste dans c
 
 | Lot | Contenu | État |
 |---|---|---|
-| 0 | Plan, cahier des charges (`docs/cahier-des-charges.md`), conception (`docs/conception.md`) | en cours |
-| a | Socle : setup, install / uninstall rejouables, droits, config, banc GLPI 12 | à faire |
+| 0 | Plan, cahier des charges (`docs/cahier-des-charges.md`), conception (`docs/conception.md`) | fait |
+| a | Socle : setup, install / uninstall rejouables, droits, config, banc GLPI 12 | fait (relu, banc vert) |
 | b | Enveloppes, journal, expiration (tâche auto), report, limite 2 ans | à faire |
 | c | Décompte des tâches : quart d'heure, grilles versionnées, types de jour (calendrier natif), moment du débit | à faire |
 | d | Forfaits : chiffrage, validation Responsable BU, validation native du client, montant figé | à faire |

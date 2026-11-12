@@ -1,0 +1,51 @@
+{# Configuration du plugin Points. GLPI 12 : pas de jeton CSRF. #}
+{% import 'components/form/fields_macros.html.twig' as fields %}
+{% import 'components/form/basic_inputs_macros.html.twig' as inputs %}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Points settings', 'points') }}</h3>
+    </div>
+    {% if can_edit %}
+        <form method="post" action="{{ form_url }}" data-track-changes="true">
+    {% endif %}
+    <div class="card-body">
+        <div class="row">
+            {{ fields.dropdownField('ContractType', 'contracttypes', config.contracttypes, __('Contract types carrying points', 'points'), {
+                multiple: true,
+                disabled: not can_edit
+            }) }}
+            {{ fields.dropdownArrayField('debit_moment', config.debit_moment, debit_moments, __('Debit moment', 'points'), {
+                disabled: not can_edit
+            }) }}
+            {{ fields.numberField('default_alert_threshold', config.default_alert_threshold, __('Default alert threshold (%)', 'points'), {
+                min: 1,
+                max: 100,
+                disabled: not can_edit
+            }) }}
+            {{ fields.dropdownArrayField('allow_overdraft', config.allow_overdraft, overdraft_choices, __('Overdraft', 'points'), {
+                disabled: not can_edit
+            }) }}
+            {{ fields.dropdownField('Calendar', 'calendars_id', config.calendars_id, __('Calendar for day types (empty: entity calendar)', 'points'), {
+                disabled: not can_edit
+            }) }}
+            {{ fields.dropdownArrayField('default_interventiontypes_id', config.default_interventiontypes_id, intervention_types, __('Default intervention type', 'points'), {
+                disabled: not can_edit
+            }) }}
+            {{ fields.numberField('retention_months', config.retention_months, __('Maximum lifetime of a point (months, 24 at most)', 'points'), {
+                min: 1,
+                max: max_retention,
+                disabled: not can_edit
+            }) }}
+        </div>
+    </div>
+    {% if can_edit %}
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('update', _x('button', 'Save'), 1, {
+                class: 'btn btn-primary',
+                icon: 'ti ti-device-floppy'
+            }) }}
+        </div>
+        </form>
+    {% endif %}
+</div>

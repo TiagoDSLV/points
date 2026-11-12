@@ -1,0 +1,90 @@
+# Points plugin for GLPI 12 (domain "points").
+# English (United Kingdom) translation.
+msgid ""
+msgstr ""
+"Project-Id-Version: points 0.1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_GB\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Points"
+msgstr "Points"
+
+msgid "Points settings"
+msgstr "Points settings"
+
+msgid "Settings saved"
+msgstr "Settings saved"
+
+msgid "Read"
+msgstr "Read"
+
+msgid "Update"
+msgstr "Update"
+
+msgid "Create"
+msgstr "Create"
+
+msgid "Purge"
+msgstr "Purge"
+
+msgid "Validate"
+msgstr "Validate"
+
+msgid "Balances, envelopes and ledger"
+msgstr "Balances, envelopes and ledger"
+
+msgid "Points settings of a ticket"
+msgstr "Points settings of a ticket"
+
+msgid "Envelopes, credits, corrections, carry-overs and import"
+msgstr "Envelopes, credits, corrections, carry-overs and import"
+
+msgid "Flat rates (Validate = business unit approval)"
+msgstr "Flat rates (Validate = business unit approval)"
+
+msgid "Reviews"
+msgstr "Reviews"
+
+msgid "Compensations (Create = request, Validate = decide)"
+msgstr "Compensations (Create = request, Validate = decide)"
+
+msgid "Grids and intervention types"
+msgstr "Grids and intervention types"
+
+msgid "When the ticket is closed"
+msgstr "When the ticket is closed"
+
+msgid "When the task is added"
+msgstr "When the task is added"
+
+msgid "Allowed and reported"
+msgstr "Allowed and reported"
+
+msgid "Refused"
+msgstr "Refused"
+
+msgid "Contract types carrying points"
+msgstr "Contract types carrying points"
+
+msgid "Debit moment"
+msgstr "Debit moment"
+
+msgid "Default alert threshold (%)"
+msgstr "Default alert threshold (%)"
+
+msgid "Overdraft"
+msgstr "Overdraft"
+
+msgid "Calendar for day types (empty: entity calendar)"
+msgstr "Calendar for day types (empty: entity calendar)"
+
+msgid "Default intervention type"
+msgstr "Default intervention type"
+
+msgid "Maximum lifetime of a point (months, 24 at most)"
+msgstr "Maximum lifetime of a point (months, 24 at most)"
+
+msgid "Invalid value for the setting \"%s\": nothing was saved"
+msgstr "Invalid value for the setting \"%s\": nothing was saved"

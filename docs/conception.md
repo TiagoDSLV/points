@@ -34,8 +34,8 @@ Aucune reprise du code, des tables ni des droits du plugin `credit` ; aucune mig
 
 ## Modèle de données
 
-Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recursive` = 0) pour le cloisonnement
-natif. Montants : `DECIMAL(12,2)`. Dates métier : `DATE` ou `TIMESTAMP` selon le champ.
+Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recursive` = 0 ; grilles, versions, coûts et types d'intervention : globaux,
+`is_recursive` = 1) pour le cloisonnement natif. Montants : `DECIMAL(12,2)`. Dates métier : `DATE` ou `TIMESTAMP` selon le champ.
 
 | Table | Rôle | Champs principaux |
 |---|---|---|
@@ -56,6 +56,10 @@ natif. Montants : `DECIMAL(12,2)`. Dates métier : `DATE` ou `TIMESTAMP` selon l
 
 Types d'opération : `credit`, `import`, `debit_task`, `debit_flatrate`, `expiry`, `carryover_out`, `carryover_in`,
 `correction`, `review_adjustment`, `compensation`.
+
+Valeurs codées (`varchar(30)`) : forfait `draft`, `submitted`, `bu_refused`, `proposed`, `approved`,
+`client_refused`, `debited`, `cancelled` ; review `to_review`, `confirmed`, `adjusted` ; raison de review `saturday`,
+`sunday`, `holiday`, `off_hours` (plusieurs séparées par une virgule) ; compensation `pending`, `approved`, `rejected`.
 
 Invariants (contrôlés par les tests et par `points:check` en console) : somme des `amount` d'une opération = somme de
 ses affectations ; reste d'un lot ≥ 0, sauf dépassement autorisé sur le lot de dépassement ; solde du contrat =
@@ -107,6 +111,8 @@ Tous à 0 à l'installation, sauf Super-Admin (tout). Bits natifs : READ 1, UPDA
 | `plugin_points_compensation` : demander (CREATE), décider (VALIDATE) | READ, CREATE, VALIDATE | 0 | 0 | 1 | 1029 | 1 |
 | `plugin_points_grid` : grilles, types d'intervention | READ, CREATE, UPDATE, PURGE | 0 | 1 | 1 | 1 | 23 |
 | `plugin_points_config` : paramétrage | READ, UPDATE | 0 | 0 | 0 | 0 | 3 |
+
+À l'installation, tous les bits aux profils ayant le droit config en écriture, 0 ailleurs ; Assist écrit ensuite les droits en dur.
 
 Valeurs proposées pour `deploy/config/profils-cibles-valeurs.sql` d'atheo-assist (non appliquées). Le Demandeur et
 les comptes de service : 0 partout.
