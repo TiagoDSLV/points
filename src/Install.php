@@ -137,7 +137,7 @@ final class Install
                     'contracts_id'         => $fk,
                     'type'                 => $state(''),
                     'amount'               => $amt, // signé : + crédit, - débit
-                    'date'                 => $ts, // date métier
+                    'date'                 => $date, // date métier (DATE) ; l'heure éventuelle va dans `details`
                     'tickets_id'           => $fk,
                     'itemtype'             => 'varchar(255) DEFAULT NULL',
                     'items_id'             => $fk,
@@ -309,11 +309,30 @@ final class Install
         }
         $migration->executeMigration();
 
+        // operations.date a été un TIMESTAMP : converti en DATE au rejeu (l'heure est perdue, elle n'a jamais été écrite)
+        $dateType = $DB->listFields('glpi_plugin_points_operations', false)['date']['Type'] ?? 'date';
+        if (stripos((string) $dateType, 'timestamp') !== false || stripos((string) $dateType, 'datetime') !== false) {
+            $DB->doQuery('ALTER TABLE `glpi_plugin_points_operations` MODIFY `date` date DEFAULT NULL');
+        }
+
         $assistance = self::seedInterventionTypes();
         self::seedConfig($assistance);
         self::seedRights();
+        self::registerCronTasks();
 
         return true;
+    }
+
+    /**
+     * Actions automatiques : `pointsexpire` (quotidienne). Rejouable : CronTask::register ne recrée pas une tâche
+     * existante (src/CronTask.php:1084 en 12.0.1 : doublon évité, renvoie false), et ne touche pas à ses réglages.
+     */
+    private static function registerCronTasks(): void
+    {
+        CronTask::register(Cron::class, Cron::EXPIRE, DAY_TIMESTAMP, [
+            'comment' => 'Expire or carry over the points of ended lots (docs/conception.md, rule 8)',
+            'state'   => CronTask::STATE_WAITING,
+        ]);
     }
 
     /**

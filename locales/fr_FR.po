@@ -88,3 +88,210 @@ msgstr "Durée de vie maximale d'un point (mois, 24 au plus)"
 
 msgid "Invalid value for the setting \"%s\": nothing was saved"
 msgstr "Valeur invalide pour le paramètre \"%s\" : rien n'a été enregistré"
+
+msgid "Allocation"
+msgstr "Affectation"
+
+msgid "Points contract"
+msgstr "Contrat à points"
+
+msgid "The balance and the link to the contract cannot be changed"
+msgstr "Le solde et le lien avec le contrat ne peuvent pas être modifiés"
+
+msgid "The alert threshold must be between 1 and 100"
+msgstr "Le seuil d'alerte doit être compris entre 1 et 100"
+
+msgid "Unknown grid"
+msgstr "Grille inconnue"
+
+msgid "Balance"
+msgstr "Solde"
+
+msgid "Credited"
+msgstr "Crédité"
+
+msgid "Consumed"
+msgstr "Consommé"
+
+msgid "Alert threshold (%)"
+msgstr "Seuil d'alerte (%)"
+
+msgid "The amount or the date is not valid"
+msgstr "Le montant ou la date n'est pas valide"
+
+msgid "Expire or carry over the points of ended lots"
+msgstr "Expirer ou reporter les points des lots échus"
+
+msgid "Envelope"
+msgstr "Enveloppe"
+
+msgid "An envelope is created with its initial credit from the contract page"
+msgstr "Une enveloppe se crée avec son crédit initial depuis la fiche du contrat"
+
+msgid "The dates, the initial credit and the contract of an envelope cannot be changed"
+msgstr "Les dates, le crédit initial et le contrat d'une enveloppe ne peuvent pas être modifiés"
+
+msgid "Initial credit"
+msgstr "Crédit initial"
+
+msgid "Carried over when it ends"
+msgstr "Reportable à son échéance"
+
+msgid "The amount is not valid"
+msgstr "Le montant n'est pas valide"
+
+msgid "A date is not valid"
+msgstr "Une date n'est pas valide"
+
+msgid "The envelope begin date must not be after its end date"
+msgstr "Le début de l'enveloppe ne doit pas être après sa fin"
+
+msgid "An envelope cannot last more than 24 months"
+msgstr "Une enveloppe ne peut pas durer plus de 24 mois"
+
+msgid "No envelope is valid at this date"
+msgstr "Aucune enveloppe n'est valide à cette date"
+
+msgid "Not enough points available"
+msgstr "Pas assez de points disponibles"
+
+msgid "The amount exceeds what the original debit can give back"
+msgstr "Le montant dépasse ce que le débit d'origine peut rendre"
+
+msgid "A reason is required"
+msgstr "Un motif est obligatoire"
+
+msgid "Unknown contract"
+msgstr "Contrat inconnu"
+
+msgid "Unknown envelope for this contract"
+msgstr "Enveloppe inconnue pour ce contrat"
+
+msgid "Unknown operation for this contract"
+msgstr "Opération inconnue pour ce contrat"
+
+msgid "The target envelope is not valid for a carry-over"
+msgstr "L'enveloppe cible ne convient pas pour un report"
+
+msgid "Operation type not allowed here"
+msgstr "Type d'opération non autorisé ici"
+
+msgid "The purchase date must be inside the envelope"
+msgstr "La date d'achat doit être comprise dans l'enveloppe"
+
+msgid "Lot"
+msgstr "Lot"
+
+msgid "Purchase date"
+msgstr "Date d'achat"
+
+msgid "Expiry date"
+msgstr "Date d'échéance"
+
+msgid "Initial points"
+msgstr "Points initiaux"
+
+msgid "Operation"
+msgstr "Opération"
+
+msgid "Credit"
+msgstr "Crédit"
+
+msgid "Import"
+msgstr "Import"
+
+msgid "Task debit"
+msgstr "Débit de tâche"
+
+msgid "Flat rate debit"
+msgstr "Débit de forfait"
+
+msgid "Expiry"
+msgstr "Expiration"
+
+msgid "Carry-over out"
+msgstr "Report sortant"
+
+msgid "Carry-over in"
+msgstr "Report entrant"
+
+msgid "Correction"
+msgstr "Correction"
+
+msgid "Review adjustment"
+msgstr "Ajustement de contrôle"
+
+msgid "Compensation"
+msgstr "Compensation"
+
+msgid "%1$s points carried over (%2$d lot(s)); %3$d lot(s) cannot be carried over"
+msgstr "%1$s points reportés (%2$d lot(s)) ; %3$d lot(s) non reportable(s)"
+
+msgid "Carry-over done"
+msgstr "Report effectué"
+
+msgid "Correction recorded"
+msgstr "Correction enregistrée"
+
+msgid "Credit added"
+msgstr "Crédit ajouté"
+
+msgid "Envelope created"
+msgstr "Enveloppe créée"
+
+msgid "Points settings of the contract"
+msgstr "Réglage Points du contrat"
+
+msgid "Grid"
+msgstr "Grille"
+
+msgid "Envelopes"
+msgstr "Enveloppes"
+
+msgid "Remaining"
+msgstr "Reste"
+
+msgid "No envelope"
+msgstr "Aucune enveloppe"
+
+msgid "New envelope"
+msgstr "Nouvelle enveloppe"
+
+msgid "Add a credit to an envelope"
+msgstr "Ajouter un crédit à une enveloppe"
+
+msgid "Original operation"
+msgstr "Opération d'origine"
+
+msgid "Points (negative: debit, positive: give back)"
+msgstr "Points (négatif : débit, positif : remboursement)"
+
+msgid "Reason"
+msgstr "Motif"
+
+msgid "Manual carry-over"
+msgstr "Report manuel"
+
+msgid "From envelope"
+msgstr "De l'enveloppe"
+
+msgid "To envelope"
+msgstr "Vers l'enveloppe"
+
+msgid "Carry over"
+msgstr "Reporter"
+
+msgid "Ledger"
+msgstr "Registre"
+
+msgid "No operation"
+msgstr "Aucune opération"
+
+msgid "The envelope is already over: no credit can be added"
+msgstr "L'enveloppe est terminée : aucun crédit ne peut y être ajouté"
+
+msgid "The source envelope is not marked as carried over"
+msgstr "L'enveloppe source n'est pas marquée comme reportable"
+
+msgid "Only a debit can be given back or corrected upwards"
+msgstr "Seul un débit peut être remboursé ou corrigé à la hausse"

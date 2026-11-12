@@ -23,6 +23,8 @@ function plugin_init_points(): void
 
     // Onglet « Points » sur la fiche Profile (src/Plugin.php:1679 registerClass, 'addtabon')
     Plugin::registerClass(Profile::class, ['addtabon' => \Profile::class]);
+    // Onglet « Points » sur la fiche Contract (le contrat du cœur est \Contract ; celui du plugin porte le même nom court)
+    Plugin::registerClass(\GlpiPlugin\Points\Contract::class, ['addtabon' => \Contract::class]);
 
     if (!Plugin::isPluginActive('points')) {
         return;

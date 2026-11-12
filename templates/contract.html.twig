@@ -1,0 +1,200 @@
+{# Onglet « Points » de la fiche Contract. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun |raw). #}
+{% import 'components/form/fields_macros.html.twig' as fields %}
+{% import 'components/form/basic_inputs_macros.html.twig' as inputs %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Balance', 'points') }}</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4"><strong>{{ __('Balance', 'points') }}</strong> : <span id="points-balance">{{ balance }}</span></div>
+            <div class="col-md-4"><strong>{{ __('Credited', 'points') }}</strong> : {{ credited }}</div>
+            <div class="col-md-4"><strong>{{ __('Consumed', 'points') }}</strong> : {{ consumed }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Points settings of the contract', 'points') }}</h3>
+    </div>
+    {% if can_settings %}
+        <form method="post" action="{{ base_url }}contract.form.php">
+            {{ fields.hiddenField('contracts_id', contracts_id) }}
+    {% endif %}
+    <div class="card-body">
+        <div class="row">
+            {{ fields.dropdownArrayField('plugin_points_grids_id', setting.plugin_points_grids_id, grids, __('Grid', 'points'), {
+                disabled: not can_settings
+            }) }}
+            {{ fields.numberField('alert_threshold', setting.alert_threshold, __('Alert threshold (%)', 'points'), {
+                min: 1,
+                max: 100,
+                disabled: not can_settings
+            }) }}
+            {{ fields.dropdownYesNo('is_active', setting.is_active, __('Active'), {
+                disabled: not can_settings
+            }) }}
+        </div>
+    </div>
+    {% if can_settings %}
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('update', _x('button', 'Save'), 1, {class: 'btn btn-primary', icon: 'ti ti-device-floppy'}) }}
+        </div>
+        </form>
+    {% endif %}
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Envelopes', 'points') }}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-envelopes">
+            <thead>
+                <tr>
+                    <th>{{ __('Name') }}</th>
+                    <th>{{ __('Begin date') }}</th>
+                    <th>{{ __('End date') }}</th>
+                    <th>{{ __('Initial credit', 'points') }}</th>
+                    <th>{{ __('Remaining', 'points') }}</th>
+                    <th>{{ __('Carried over when it ends', 'points') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for envelope in envelopes %}
+                    <tr>
+                        <td>{{ envelope.name }}</td>
+                        <td>{{ envelope.begin }}</td>
+                        <td>{{ envelope.end }}</td>
+                        <td>{{ envelope.credit }}</td>
+                        <td>{{ envelope.remaining }}</td>
+                        <td>{{ envelope.carryover ? __('Yes') : __('No') }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="text-muted">{{ __('No envelope', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if can_create %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('New envelope', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}envelope.form.php">
+        {{ fields.hiddenField('contracts_id', contracts_id) }}
+        <div class="card-body">
+            <div class="row">
+                {{ fields.textField('name', '', __('Name')) }}
+                {{ fields.textField('credit', '', __('Initial credit', 'points'), {required: true}) }}
+                {{ fields.dateField('begin_date', '', __('Begin date'), {required: true}) }}
+                {{ fields.dateField('end_date', '', __('End date'), {required: true}) }}
+                {{ fields.dropdownYesNo('is_carryover', 0, __('Carried over when it ends', 'points')) }}
+                {{ fields.textareaField('comment', '', __('Comments')) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+        </div>
+    </form>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Add a credit to an envelope', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}credit.form.php">
+        {{ fields.hiddenField('contracts_id', contracts_id) }}
+        <div class="card-body">
+            <div class="row">
+                {{ fields.dropdownArrayField('envelopes_id', 0, envelope_choices, __('Envelope', 'points'), {required: true}) }}
+                {{ fields.textField('amount', '', __('Points', 'points'), {required: true}) }}
+                {{ fields.dateField('origin_date', '', __('Purchase date', 'points')) }}
+                {{ fields.textareaField('comment', '', __('Comments')) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if can_update %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Correction', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}correction.form.php">
+        {{ fields.hiddenField('contracts_id', contracts_id) }}
+        <div class="card-body">
+            <div class="row">
+                {{ fields.dropdownArrayField('operations_id', 0, operation_choices, __('Original operation', 'points'), {required: true}) }}
+                {{ fields.textField('amount', '', __('Points (negative: debit, positive: give back)', 'points'), {required: true}) }}
+                {{ fields.textareaField('reason', '', __('Reason', 'points'), {required: true}) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+        </div>
+    </form>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Manual carry-over', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}carryover.form.php">
+        {{ fields.hiddenField('contracts_id', contracts_id) }}
+        <div class="card-body">
+            <div class="row">
+                {{ fields.dropdownArrayField('from_envelopes_id', 0, envelope_choices, __('From envelope', 'points'), {required: true}) }}
+                {{ fields.dropdownArrayField('to_envelopes_id', 0, envelope_choices, __('To envelope', 'points'), {required: true}) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add', __('Carry over', 'points'), 1, {class: 'btn btn-primary', icon: 'ti ti-arrow-right'}) }}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Ledger', 'points') }}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-ledger">
+            <thead>
+                <tr>
+                    <th>{{ __('ID') }}</th>
+                    <th>{{ __('Date') }}</th>
+                    <th>{{ __('Type') }}</th>
+                    <th>{{ __('Points', 'points') }}</th>
+                    <th>{{ __('Ticket') }}</th>
+                    <th>{{ __('Comments') }}</th>
+                    <th>{{ __('User') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for operation in operations %}
+                    <tr>
+                        <td>{{ operation.id }}</td>
+                        <td>{{ operation.date }}</td>
+                        <td>{{ operation.type }}</td>
+                        <td>{{ operation.amount }}</td>
+                        <td>{{ operation.ticket > 0 ? operation.ticket : '' }}</td>
+                        <td>{{ operation.comment }}</td>
+                        <td>{{ operation.user }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="text-muted">{{ __('No operation', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

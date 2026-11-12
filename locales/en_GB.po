@@ -88,3 +88,210 @@ msgstr "Maximum lifetime of a point (months, 24 at most)"
 
 msgid "Invalid value for the setting \"%s\": nothing was saved"
 msgstr "Invalid value for the setting \"%s\": nothing was saved"
+
+msgid "Allocation"
+msgstr "Allocation"
+
+msgid "Points contract"
+msgstr "Points contract"
+
+msgid "The balance and the link to the contract cannot be changed"
+msgstr "The balance and the link to the contract cannot be changed"
+
+msgid "The alert threshold must be between 1 and 100"
+msgstr "The alert threshold must be between 1 and 100"
+
+msgid "Unknown grid"
+msgstr "Unknown grid"
+
+msgid "Balance"
+msgstr "Balance"
+
+msgid "Credited"
+msgstr "Credited"
+
+msgid "Consumed"
+msgstr "Consumed"
+
+msgid "Alert threshold (%)"
+msgstr "Alert threshold (%)"
+
+msgid "The amount or the date is not valid"
+msgstr "The amount or the date is not valid"
+
+msgid "Expire or carry over the points of ended lots"
+msgstr "Expire or carry over the points of ended lots"
+
+msgid "Envelope"
+msgstr "Envelope"
+
+msgid "An envelope is created with its initial credit from the contract page"
+msgstr "An envelope is created with its initial credit from the contract page"
+
+msgid "The dates, the initial credit and the contract of an envelope cannot be changed"
+msgstr "The dates, the initial credit and the contract of an envelope cannot be changed"
+
+msgid "Initial credit"
+msgstr "Initial credit"
+
+msgid "Carried over when it ends"
+msgstr "Carried over when it ends"
+
+msgid "The amount is not valid"
+msgstr "The amount is not valid"
+
+msgid "A date is not valid"
+msgstr "A date is not valid"
+
+msgid "The envelope begin date must not be after its end date"
+msgstr "The envelope begin date must not be after its end date"
+
+msgid "An envelope cannot last more than 24 months"
+msgstr "An envelope cannot last more than 24 months"
+
+msgid "No envelope is valid at this date"
+msgstr "No envelope is valid at this date"
+
+msgid "Not enough points available"
+msgstr "Not enough points available"
+
+msgid "The amount exceeds what the original debit can give back"
+msgstr "The amount exceeds what the original debit can give back"
+
+msgid "A reason is required"
+msgstr "A reason is required"
+
+msgid "Unknown contract"
+msgstr "Unknown contract"
+
+msgid "Unknown envelope for this contract"
+msgstr "Unknown envelope for this contract"
+
+msgid "Unknown operation for this contract"
+msgstr "Unknown operation for this contract"
+
+msgid "The target envelope is not valid for a carry-over"
+msgstr "The target envelope is not valid for a carry-over"
+
+msgid "Operation type not allowed here"
+msgstr "Operation type not allowed here"
+
+msgid "The purchase date must be inside the envelope"
+msgstr "The purchase date must be inside the envelope"
+
+msgid "Lot"
+msgstr "Lot"
+
+msgid "Purchase date"
+msgstr "Purchase date"
+
+msgid "Expiry date"
+msgstr "Expiry date"
+
+msgid "Initial points"
+msgstr "Initial points"
+
+msgid "Operation"
+msgstr "Operation"
+
+msgid "Credit"
+msgstr "Credit"
+
+msgid "Import"
+msgstr "Import"
+
+msgid "Task debit"
+msgstr "Task debit"
+
+msgid "Flat rate debit"
+msgstr "Flat rate debit"
+
+msgid "Expiry"
+msgstr "Expiry"
+
+msgid "Carry-over out"
+msgstr "Carry-over out"
+
+msgid "Carry-over in"
+msgstr "Carry-over in"
+
+msgid "Correction"
+msgstr "Correction"
+
+msgid "Review adjustment"
+msgstr "Review adjustment"
+
+msgid "Compensation"
+msgstr "Compensation"
+
+msgid "%1$s points carried over (%2$d lot(s)); %3$d lot(s) cannot be carried over"
+msgstr "%1$s points carried over (%2$d lot(s)); %3$d lot(s) cannot be carried over"
+
+msgid "Carry-over done"
+msgstr "Carry-over done"
+
+msgid "Correction recorded"
+msgstr "Correction recorded"
+
+msgid "Credit added"
+msgstr "Credit added"
+
+msgid "Envelope created"
+msgstr "Envelope created"
+
+msgid "Points settings of the contract"
+msgstr "Points settings of the contract"
+
+msgid "Grid"
+msgstr "Grid"
+
+msgid "Envelopes"
+msgstr "Envelopes"
+
+msgid "Remaining"
+msgstr "Remaining"
+
+msgid "No envelope"
+msgstr "No envelope"
+
+msgid "New envelope"
+msgstr "New envelope"
+
+msgid "Add a credit to an envelope"
+msgstr "Add a credit to an envelope"
+
+msgid "Original operation"
+msgstr "Original operation"
+
+msgid "Points (negative: debit, positive: give back)"
+msgstr "Points (negative: debit, positive: give back)"
+
+msgid "Reason"
+msgstr "Reason"
+
+msgid "Manual carry-over"
+msgstr "Manual carry-over"
+
+msgid "From envelope"
+msgstr "From envelope"
+
+msgid "To envelope"
+msgstr "To envelope"
+
+msgid "Carry over"
+msgstr "Carry over"
+
+msgid "Ledger"
+msgstr "Ledger"
+
+msgid "No operation"
+msgstr "No operation"
+
+msgid "The envelope is already over: no credit can be added"
+msgstr "The envelope is already over: no credit can be added"
+
+msgid "The source envelope is not marked as carried over"
+msgstr "The source envelope is not marked as carried over"
+
+msgid "Only a debit can be given back or corrected upwards"
+msgstr "Only a debit can be given back or corrected upwards"
