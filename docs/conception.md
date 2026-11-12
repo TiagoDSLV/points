@@ -111,6 +111,13 @@ ni supprimée (pas de `date_mod`).
 9. **Forfait** : statuts brouillon → soumis au Responsable BU → refusé BU (retour brouillon) | proposé au client
    (validation native créée) → approuvé (montant figé) | refusé client → débité. Tant qu'un forfait non refusé ni
    annulé existe sur le ticket, ses tâches ne sont pas débitées. Débit du montant approuvé au moment du débit choisi.
+   Précisions (lot d) : un seul forfait en cours par ticket, et aucun forfait sur un ticket dont des tâches sont déjà
+   débitées ; montant modifiable en brouillon seulement ; proposition = validation native de ticket adressée au
+   valideur choisi (défaut : demandeur), qui doit avoir le droit natif de validation ; la validation liée ne peut pas
+   être supprimée tant que le forfait est proposé, approuvé ou débité ; date métier du débit = date de la réponse du
+   client ; historique des états dans l'historique natif (`glpi_logs`) ; le Responsable BU ne valide pas un forfait
+   qu'il a lui-même chiffré (question 8 du cahier des charges, réglage par défaut) ; à la fusion de tickets, les
+   forfaits du ticket source ne suivent pas (à traiter, plan).
 10. **Review** : créée pour tout débit de tâche hors créneau (calendrier) ou de type de jour 2 ou 3 ; confirmée, ou
     ajustée par une opération `review_adjustment` liée.
 11. **Compensation** : motif obligatoire ; montant approuvé ≤ débit visé − compensations déjà approuvées ; crédit lié

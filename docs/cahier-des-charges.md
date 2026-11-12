@@ -110,3 +110,5 @@ Chaque question a une valeur par défaut déjà réglable dans le plugin ; rien 
 6. **Nom définitif du plugin** : « Points » ou autre ?
 7. **Dépassement** (question nouvelle) : si l'enveloppe est vide quand un ticket est débité, (a) le solde passe en
    négatif et le dépassement est signalé — *défaut* ; (b) le débit est bloqué jusqu'à un nouveau crédit.
+8. **Contrôle croisé des forfaits** (question nouvelle) : un Responsable BU qui chiffre lui-même un forfait peut-il le
+   valider ? (a) non, un autre Responsable BU doit valider — *défaut* ; (b) oui.
