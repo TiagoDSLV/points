@@ -75,7 +75,10 @@ ni supprimée (pas de `date_mod`).
 ## Règles de calcul
 
 1. **Durée comptée** : `ceil(minutes saisies / 15) × 15` ; 0 minute = 0 point.
-2. **Date d'une tâche** : début planifié (`begin`) s'il existe, sinon `date`.
+2. **Date d'une tâche** : début planifié (`begin`) s'il existe, sinon `date`, lue dans le **fuseau de référence**
+   (fuseau global de GLPI, jamais celui de l'utilisateur ni du processus de la tâche automatique) avant tout calcul de
+   type de jour, de créneau, de version de grille et de lot. Durée et dates prises après le calcul de GLPI (modèle de
+   tâche compris).
 3. **Type de jour** : jour férié du calendrier ou dimanche → 3 ; samedi → 2 ; sinon 1. Calendrier : paramètre
    `calendars_id` du plugin, sinon calendrier de l'entité du ticket (stratégie native d'héritage).
 4. **Coût** : version de la grille du contrat applicable à la date de la tâche ; coût (type d'intervention du ticket,
@@ -88,9 +91,15 @@ ni supprimée (pas de `date_mod`).
    point à la fois expiré et débité. Points reportés : le lot reçu garde son origine, il reste valide à la date de la
    tâche et le FIFO le prend normalement. Sans dépassement autorisé, le contrôle porte sur le solde réel des lots
    valides (restes négatifs compris).
-6. **Garde-fous** : tâche refusée (ticket facturable) s'il n'existe aucune enveloppe valide à sa date ; durée et date
+6. **Garde-fous** : tâche refusée (ticket facturable), à l'ajout comme à la modification d'une tâche non débitée, s'il
+   n'existe aucun point valide à sa date (lot dont l'origine ≤ date ≤ échéance : un crédit daté du 01/03 ne couvre pas
+   une tâche du 15/02) ; durée et date
    d'une tâche débitée verrouillées (modification et suppression refusées) ; un ajustement à la baisse (débit en plus)
    exige un solde suffisant.
+   Une tâche débitée l'est **définitivement** : un remboursement ou une compensation ne la rend jamais débitable une
+   seconde fois (même règle pour un forfait). Une tâche recopiée par la fusion de tickets (`sourceitems_id`) depuis
+   une tâche débitée est enregistrée verrouillée, sans nouveau débit. Une clôture impossible laisse le ticket Résolu
+   (avec un message, et une trace pour la clôture automatique), jamais dans un état intermédiaire.
 7. **Moment du débit** (paramètre `debit_moment`) : `closure` (défaut, ticket passé à Clos) ou `task` (à l'ajout de
    la tâche). Une tâche ajoutée après une réouverture est débitée à la clôture suivante.
 8. **Expiration** (action automatique quotidienne `pointsexpire`) : pour chaque lot échu au reste > 0 : si son
