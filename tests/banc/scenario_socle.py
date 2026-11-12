@@ -52,7 +52,7 @@ def reinstaller(force=True):
 
 def lire_log(nom):
     """Lignes du journal GLPI contenant « points » (sans casse) ; journal absent = aucune."""
-    p = shell_app(f"cat files/_log/{nom} 2>/dev/null; true")
+    p = shell_app(f"cat /var/glpi/logs/{nom} 2>/dev/null; true")
     return [l for l in p.stdout.splitlines() if re.search("points", l, re.I)]
 
 
@@ -126,10 +126,10 @@ console("list")
 console("plugin:list")
 for nom in ("php-errors.log", "sql-errors.log"):
     v(f"(vi) {nom} : aucune erreur du plugin après les commandes console", lire_log(nom), [])
-shell_app("echo '[2026-01-01 00:00:00] glpiphplog.WARNING: témoin plugins/points/setup.php' >> files/_log/php-errors.log")
+shell_app("echo '[2026-01-01 00:00:00] glpiphplog.WARNING: témoin plugins/points/setup.php' >> /var/glpi/logs/php-errors.log")
 v("(vi) témoin positif : une ligne « points » injectée est détectée", len(lire_log("php-errors.log")), 1)
-shell_app("grep -v 'témoin plugins/points' files/_log/php-errors.log > files/_log/php-errors.tmp; "
-          "mv files/_log/php-errors.tmp files/_log/php-errors.log")
+shell_app("grep -v 'témoin plugins/points' /var/glpi/logs/php-errors.log > /var/glpi/logs/php-errors.tmp; "
+          "mv /var/glpi/logs/php-errors.tmp /var/glpi/logs/php-errors.log")
 v("(vi) témoin retiré", lire_log("php-errors.log"), [])
 
 # --- web : onglet de profil et page de configuration

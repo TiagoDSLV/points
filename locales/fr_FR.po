@@ -295,3 +295,243 @@ msgstr "L'enveloppe source n'est pas marquée comme reportable"
 
 msgid "Only a debit can be given back or corrected upwards"
 msgstr "Seul un débit peut être remboursé ou corrigé à la hausse"
+
+msgid "Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable"
+msgstr "Plusieurs contrats Points sont liés à ce ticket : choisissez celui à débiter dans l'onglet Points, ou marquez le ticket comme non facturable"
+
+msgid "Task %1$d: %2$s"
+msgstr "Tâche %1$d : %2$s"
+
+msgid "The tasks cannot be debited: %s"
+msgstr "Les tâches ne peuvent pas être débitées : %s"
+
+msgid "The contract has no price grid"
+msgstr "Le contrat n'a pas de grille de prix"
+
+msgid "No grid version applies at the date of the task"
+msgstr "Aucune version de grille ne s'applique à la date de la tâche"
+
+msgid "The grid has no price for this intervention type and day type"
+msgstr "La grille n'a pas de prix pour ce type d'intervention et ce type de jour"
+
+msgid "Price grid"
+msgstr "Grille de prix"
+
+msgid "A name is required"
+msgstr "Un nom est obligatoire"
+
+msgid "The price unit must be 60 minutes (per hour) or 15 minutes (per quarter of an hour)"
+msgstr "L'unité de prix doit être 60 minutes (par heure) ou 15 minutes (par quart d'heure)"
+
+msgid "The scope of a grid cannot be changed"
+msgstr "La portée d'une grille ne peut pas être modifiée"
+
+msgid "The price unit cannot change: a version of this grid is already used by an operation"
+msgstr "L'unité de prix ne peut plus changer : une version de cette grille est déjà utilisée par une opération"
+
+msgid "This grid is used by a contract or an operation: it cannot be deleted"
+msgstr "Cette grille est utilisée par un contrat ou une opération : elle ne peut pas être supprimée"
+
+msgid "Price unit (minutes)"
+msgstr "Unité de prix (minutes)"
+
+msgid "Week"
+msgstr "Semaine"
+
+msgid "Saturday"
+msgstr "Samedi"
+
+msgid "Sunday and holiday"
+msgstr "Dimanche et jour férié"
+
+msgid "Per hour (60 minutes)"
+msgstr "Par heure (60 minutes)"
+
+msgid "Per quarter of an hour (15 minutes)"
+msgstr "Par quart d'heure (15 minutes)"
+
+msgid "Grid price"
+msgstr "Prix de grille"
+
+msgid "Unknown grid version"
+msgstr "Version de grille inconnue"
+
+msgid "Unknown intervention type"
+msgstr "Type d'intervention inconnu"
+
+msgid "The day type must be 1 (week), 2 (Saturday) or 3 (Sunday and holiday)"
+msgstr "Le type de jour doit être 1 (semaine), 2 (samedi) ou 3 (dimanche et férié)"
+
+msgid "This version is already used by an operation: create a new version instead"
+msgstr "Cette version est déjà utilisée par une opération : créez une nouvelle version"
+
+msgid "This price already exists for this version"
+msgstr "Ce prix existe déjà pour cette version"
+
+msgid "Only the price of a grid cell can be changed"
+msgstr "Seul le prix d'une case de la grille peut être modifié"
+
+msgid "This version is already used by an operation: it cannot be deleted"
+msgstr "Cette version est déjà utilisée par une opération : elle ne peut pas être supprimée"
+
+msgid "A price must be a number, zero or more"
+msgstr "Un prix doit être un nombre, zéro ou plus"
+
+msgid "Day type"
+msgstr "Type de jour"
+
+msgid "Price"
+msgstr "Prix"
+
+msgid "Grid version"
+msgstr "Version de grille"
+
+msgid "The grid of a version cannot be changed"
+msgstr "La grille d'une version ne peut pas être modifiée"
+
+msgid "A version of this grid already starts on this date"
+msgstr "Une version de cette grille commence déjà à cette date"
+
+msgid "Intervention type"
+msgstr "Type d'intervention"
+
+msgid "This intervention type is used by a grid, a ticket or the settings: it cannot be deleted"
+msgstr "Ce type d'intervention est utilisé par une grille, un ticket ou le paramétrage : il ne peut pas être supprimé"
+
+msgid "This task has been debited: its duration, dates and ticket can no longer be changed"
+msgstr "Cette tâche est débitée : sa durée, ses dates et son ticket ne peuvent plus être modifiés"
+
+msgid "This task has been debited: it cannot be deleted"
+msgstr "Cette tâche est débitée : elle ne peut pas être supprimée"
+
+msgid "Task counting"
+msgstr "Décompte de tâche"
+
+msgid "Locked"
+msgstr "Verrouillée"
+
+msgid "Ticket Points settings"
+msgstr "Réglage Points du ticket"
+
+msgid "This contract is not a Points contract linked to the ticket"
+msgstr "Ce contrat n'est pas un contrat Points lié au ticket"
+
+msgid "Unknown ticket"
+msgstr "Ticket inconnu"
+
+msgid "The ticket of a Points setting cannot be changed"
+msgstr "Le ticket d'un réglage Points ne peut pas être modifié"
+
+msgid "Billable"
+msgstr "Facturable"
+
+msgid "Debited (locked)"
+msgstr "Débitée (verrouillée)"
+
+msgid "Not counted"
+msgstr "Non décomptée"
+
+msgid "Nothing to debit"
+msgstr "Rien à débiter"
+
+msgid "Estimated, not yet debited"
+msgstr "Estimée, pas encore débitée"
+
+msgid "Sunday"
+msgstr "Dimanche"
+
+msgid "Holiday"
+msgstr "Jour férié"
+
+msgid "Outside working hours"
+msgstr "Hors horaires du calendrier"
+
+msgid "Saved"
+msgstr "Enregistré"
+
+msgid "Deleted"
+msgstr "Supprimé"
+
+msgid "Price grids and intervention types"
+msgstr "Grilles de prix et types d'intervention"
+
+msgid "Price grids"
+msgstr "Grilles de prix"
+
+msgid "Version applicable from"
+msgstr "Version applicable à partir du"
+
+msgid "Used by an operation: read only, create a new version to change prices"
+msgstr "Utilisée par une opération : lecture seule, créez une nouvelle version pour changer les prix"
+
+msgid "Applicable from"
+msgstr "Applicable à partir du"
+
+msgid "Save the prices"
+msgstr "Enregistrer les prix"
+
+msgid "Save the version"
+msgstr "Enregistrer la version"
+
+msgid "New version"
+msgstr "Nouvelle version"
+
+msgid "Copy the prices of the version"
+msgstr "Copier les prix de la version"
+
+msgid "Versions"
+msgstr "Versions"
+
+msgid "No grid"
+msgstr "Aucune grille"
+
+msgid "New grid"
+msgstr "Nouvelle grille"
+
+msgid "Intervention types"
+msgstr "Types d'intervention"
+
+msgid "No intervention type"
+msgstr "Aucun type d'intervention"
+
+msgid "Points settings of the ticket"
+msgstr "Réglage Points du ticket"
+
+msgid "Points contract (empty: automatic)"
+msgstr "Contrat Points (vide : automatique)"
+
+msgid "Intervention type (empty: default)"
+msgstr "Type d'intervention (vide : par défaut)"
+
+msgid "Tasks and points"
+msgstr "Tâches et points"
+
+msgid "Entered duration (min)"
+msgstr "Durée saisie (min)"
+
+msgid "Counted duration (min)"
+msgstr "Durée comptée (min)"
+
+msgid "Checks"
+msgstr "Contrôles"
+
+msgid "State"
+msgstr "État"
+
+msgid "No task"
+msgstr "Aucune tâche"
+
+msgid "Total (debited and estimated)"
+msgstr "Total (débité et estimé)"
+
+msgid "This item has already been debited"
+msgstr "Cet élément est déjà débité"
+
+msgid "A task of this ticket has been debited: the ticket cannot be deleted permanently"
+msgstr "Une tâche de ce ticket est débitée : le ticket ne peut pas être supprimé définitivement"
+
+msgid "No valid points at the date of the task"
+msgstr "Aucun point valide à la date de la tâche"
+
+msgid "Debited on the merged ticket (locked)"
+msgstr "Débitée sur le ticket fusionné (verrouillée)"

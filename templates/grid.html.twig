@@ -1,0 +1,109 @@
+{# Une famille de grilles : réglage, versions datées, matrice des prix. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun |raw). #}
+{% import 'components/form/fields_macros.html.twig' as fields %}
+{% import 'components/form/basic_inputs_macros.html.twig' as inputs %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ grid.name }}</h3>
+        <div class="card-actions"><a href="{{ list_url }}" class="btn btn-outline-secondary btn-sm">{{ __('Price grids', 'points') }}</a></div>
+    </div>
+    {% if can_update %}
+        <form method="post" action="{{ base_url }}grid.form.php">
+            {{ fields.hiddenField('id', grid.id) }}
+    {% endif %}
+    <div class="card-body">
+        <div class="row">
+            {{ fields.textField('name', grid.name, __('Name'), {required: true, disabled: not can_update}) }}
+            {{ fields.dropdownArrayField('unit_minutes', grid.unit, units, __('Price unit (minutes)', 'points'), {disabled: not can_update or unit_locked}) }}
+            {{ fields.dropdownYesNo('is_active', grid.active, __('Active'), {disabled: not can_update}) }}
+            {{ fields.textareaField('comment', grid.comment, __('Comments'), {disabled: not can_update}) }}
+        </div>
+        {% if unit_locked %}
+            <div class="text-muted">{{ __('The price unit cannot change: a version of this grid is already used by an operation', 'points') }}</div>
+        {% endif %}
+    </div>
+    {% if can_update %}
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('update', _x('button', 'Save'), 1, {class: 'btn btn-primary', icon: 'ti ti-device-floppy'}) }}
+            {% if can_purge and not in_use %}
+                {{ inputs.submit('purge', _x('button', 'Delete permanently'), 1, {class: 'btn btn-outline-danger me-2', icon: 'ti ti-trash'}) }}
+            {% endif %}
+        </div>
+        </form>
+    {% endif %}
+</div>
+
+{% for version in versions %}
+<div class="card mb-3" id="points-version-{{ version.id }}">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Version applicable from', 'points') }} {{ version.begin }}</h3>
+        {% if version.used %}
+            <div class="card-actions"><span class="badge bg-warning">{{ __('Used by an operation: read only, create a new version to change prices', 'points') }}</span></div>
+        {% endif %}
+    </div>
+    <form method="post" action="{{ base_url }}grid.form.php">
+        {{ fields.hiddenField('version_id', version.id) }}
+        <div class="table-responsive">
+            <table class="table table-sm card-table points-matrix">
+                <thead>
+                    <tr>
+                        <th>{{ __('Intervention type', 'points') }}</th>
+                        {% for daytype, label in day_types %}
+                            <th>{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for type in types %}
+                        <tr>
+                            <td>{{ type.name }}</td>
+                            {% for daytype, label in day_types %}
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" name="cost[{{ type.id }}][{{ daytype }}]"
+                                           value="{{ version.costs[type.id][daytype]|default('') }}" {{ version.editable ? '' : 'disabled' }}>
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if version.editable %}
+            <div class="card-body">
+                <div class="row">
+                    {{ fields.dateField('begin_date', version.begin, __('Applicable from', 'points'), {required: true}) }}
+                    {{ fields.textField('comment', version.comment, __('Comments')) }}
+                </div>
+            </div>
+            <div class="card-footer d-flex flex-row-reverse">
+                {{ inputs.submit('save_costs', __('Save the prices', 'points'), 1, {class: 'btn btn-primary', icon: 'ti ti-device-floppy'}) }}
+                {{ inputs.submit('update_version', __('Save the version', 'points'), 1, {class: 'btn btn-outline-primary me-2'}) }}
+                {% if can_purge %}
+                    {{ inputs.submit('purge_version', _x('button', 'Delete permanently'), 1, {class: 'btn btn-outline-danger me-2', icon: 'ti ti-trash'}) }}
+                {% endif %}
+            </div>
+        {% endif %}
+    </form>
+</div>
+{% endfor %}
+
+{% if can_create %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('New version', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}grid.form.php">
+        {{ fields.hiddenField('plugin_points_grids_id', grid.id) }}
+        <div class="card-body">
+            <div class="row">
+                {{ fields.dateField('begin_date', '', __('Applicable from', 'points'), {required: true}) }}
+                {{ fields.dropdownArrayField('copy_from', 0, copy_from, __('Copy the prices of the version', 'points')) }}
+                {{ fields.textField('comment', '', __('Comments')) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add_version', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+        </div>
+    </form>
+</div>
+{% endif %}

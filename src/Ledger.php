@@ -138,7 +138,10 @@ final class Ledger
     /**
      * Débit générique réparti en FIFO (règle 5). Utilisé par les débits de tâche et de forfait et par les ajustements.
      * Options : `itemtype`, `items_id`, `tickets_id`, `comment`, `details`, `operations_id_origin`,
-     * `allow_overdraft` (défaut : paramètre du plugin).
+     * `allow_overdraft` (défaut : paramètre du plugin), `unique` (true : refus ALREADY_DEBITED si un débit du même type,
+     * itemtype et items_id existe déjà, même remboursé (le débit est définitif) ; revérifié SOUS le verrou du contrat, dans la
+     * même transaction que l'écriture), `inside` (callable(int $operationsId) exécuté dans la même transaction, après
+     * l'écriture : état annexe écrit atomiquement avec le débit).
      *
      * @param int $cents montant du débit, positif
      * @param string $date date métier
@@ -157,6 +160,35 @@ final class Ledger
         }
 
         return self::transaction($contractsId, static fn (array $contract): array => self::writeDebit($contract, $type, $cents, $date, $day, $opts));
+    }
+
+    /**
+     * Simulation en LECTURE SEULE d'une suite de débits (rien n'est écrit, aucun verrou) : lève le refus que
+     * Ledger::debit lèverait au premier débit impossible (aucun lot valide, ou solde insuffisant si le dépassement est
+     * interdit). Sert aux garde-fous qui refusent une action avant qu'elle n'ait lieu ; un débit concurrent peut encore
+     * faire échouer le vrai débit, qui reste la seule écriture. Même calcul que writeDebit : les points expirés
+     * récupérables par débit tardif comptent comme disponibles, chaque débit consomme les lots avant le suivant.
+     *
+     * @param list<array{0: int, 1: string}> $debits (montant en centièmes > 0, date métier), dans l'ordre d'exécution
+     * @throws RuleViolation
+     */
+    public static function assertDebitable(int $contractsId, array $debits): void
+    {
+        $allowOverdraft = (int) Config::value('allow_overdraft') === 1;
+        $capacity       = self::expiredCapacities($contractsId);
+        $effective      = [];
+        foreach (self::loadLots($contractsId) as $lot) {
+            $effective[$lot['id']] = ['remaining' => $lot['remaining'] + array_sum(array_column($capacity[$lot['id']] ?? [], 'capacity'))] + $lot;
+        }
+        foreach ($debits as [$cents, $date]) {
+            if ($cents <= 0) {
+                throw new RuleViolation(RuleViolation::INVALID_AMOUNT, 'A debit amount must be positive');
+            }
+            $plan = LotRules::allocateDebit(array_values($effective), self::day($date), $cents, $allowOverdraft);
+            foreach ($plan['allocations'] as $allocation) {
+                $effective[$allocation['lot']]['remaining'] += $allocation['amount'];
+            }
+        }
     }
 
     /**
@@ -474,6 +506,7 @@ final class Ledger
             RuleViolation::CREDIT_OUT_OF_RANGE => __('The purchase date must be inside the envelope', 'points'),
             RuleViolation::ENVELOPE_ENDED      => __('The envelope is already over: no credit can be added', 'points'),
             RuleViolation::NOT_REPORTABLE      => __('The source envelope is not marked as carried over', 'points'),
+            RuleViolation::ALREADY_DEBITED     => __('This item has already been debited', 'points'),
             RuleViolation::NOT_A_DEBIT         => __('Only a debit can be given back or corrected upwards', 'points'),
             default                            => $e->getMessage(),
         };
@@ -565,6 +598,9 @@ final class Ledger
      */
     private static function writeDebit(array $contract, string $type, int $cents, string $date, string $day, array $opts): array
     {
+        if (!empty($opts['unique']) && self::alreadyDebited($type, (string) ($opts['itemtype'] ?? ''), (int) ($opts['items_id'] ?? 0))) {
+            throw new RuleViolation(RuleViolation::ALREADY_DEBITED, 'This item has already been debited');
+        }
         $allowOverdraft = array_key_exists('allow_overdraft', $opts) ? (bool) $opts['allow_overdraft'] : (int) Config::value('allow_overdraft') === 1;
         // Débit tardif (règle 5) : les points déjà expirés d'un lot encore valide à la date métier comptent comme disponibles ;
         // ceux que le débit prend sont d'abord repris (expiry_reversal), le client ne paie jamais un point expiré et débité
@@ -613,7 +649,27 @@ final class Ledger
             self::addAllocation($contract, $operationId, $allocation['lot'], $allocation['amount']);
         }
 
+        if (isset($opts['inside']) && is_callable($opts['inside'])) {
+            $opts['inside']($operationId);
+        }
+
         return ['operations_id' => $operationId, 'allocations' => $plan['allocations'], 'overdraft' => $plan['overdraft']];
+    }
+
+    /**
+     * Un débit de cette clé (type, itemtype, items_id) existe-t-il ? Le débit est DÉFINITIF : un remboursement, une
+     * correction ou une compensation ne le rendent jamais débitable une seconde fois. Appelé sous le verrou du contrat :
+     * une lecture faite avant le verrou ne suffit pas (deux débits concurrents).
+     */
+    private static function alreadyDebited(string $type, string $itemtype, int $itemsId): bool
+    {
+        global $DB;
+
+        if ($itemtype === '' || $itemsId < 1) {
+            return false;
+        }
+
+        return count($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['type' => $type, 'itemtype' => $itemtype, 'items_id' => $itemsId], 'LIMIT' => 1])) > 0;
     }
 
     /**

@@ -34,13 +34,15 @@ class Config extends CommonGLPI
      */
     public static function getMenuContent()
     {
-        if (!static::canView()) {
+        // Visible avec le droit du paramétrage OU celui des grilles ; chaque page garde son propre contrôle de droit
+        $config = static::canView();
+        if (!$config && !Session::haveRight(Rights::GRID, READ)) {
             return false;
         }
 
         return [
             'title' => static::getTypeName(),
-            'page'  => static::getFormURL(false),
+            'page'  => $config ? static::getFormURL(false) : '/plugins/points/front/grid.php',
             'icon'  => static::getIcon(),
         ];
     }

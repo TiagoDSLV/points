@@ -132,14 +132,14 @@ v("(1) crédit hors enveloppe refusé (date d'achat après la fin)", led("credit
 
 # --- (2) débit générique FIFO sur deux enveloppes
 l1, l2, l3 = e1["lots_id"], e2["lots_id"], c1["lots_id"]
-deb = led("debit", A, "debit_task", 5000, d(0), {"itemtype": "TicketTask", "items_id": 7, "details": {"minutes": 150}})
+deb = led("debit", A, "debit_task", 5000, d(0), {"itemtype": "TicketTask", "items_id": 9000007, "details": {"minutes": 150}})
 v("(2) débit de 50 accepté", "ok" in deb, True)
 deb = ok(deb)
 v("(2) FIFO : 40 sur le plus ancien lot, 10 sur le suivant", affectations(deb["operations_id"]), [(l1, "-40.00"), (l2, "-10.00")])
 v("(2) restes des lots : 0, 20, 25", [restes(A)[l] for l in (l1, l2, l3)], ["0.00", "20.00", "25.00"])
 v("(2) opération : montant négatif, type, objet et détails",
   lignes(f"SELECT type, amount, itemtype, items_id, details FROM {T}operations WHERE id = {deb['operations_id']}"),
-  [["debit_task", "-50.00", "TicketTask", "7", '{"minutes":150}']])
+  [["debit_task", "-50.00", "TicketTask", "9000007", '{"minutes":150}']])
 v("(2) cache : solde 45, consommé 50", cache(A), [["45.00", "95.00", "50.00"]])
 
 # --- (3) corrections liées
@@ -347,8 +347,8 @@ v("(10) solde du cache = somme du journal pour chaque contrat", lignes(
     f"SELECT COUNT(*) FROM {T}contracts c WHERE c.balance <> (SELECT COALESCE(SUM(amount), 0) FROM {T}operations o WHERE o.contracts_id = c.contracts_id)"), [["0"]])
 v("(10) solde du cache = somme des restes des lots pour chaque contrat", lignes(
     f"SELECT COUNT(*) FROM {T}contracts c WHERE c.balance <> (SELECT COALESCE(SUM(a.amount), 0) FROM {T}lots l JOIN {T}allocations a ON a.plugin_points_lots_id = l.id WHERE l.contracts_id = c.contracts_id)"), [["0"]])
-v("(10) aucun reste négatif hors contrat B (dépassement)", lignes(
-    f"SELECT COUNT(*) FROM (SELECT l.id FROM {T}lots l JOIN {T}allocations a ON a.plugin_points_lots_id = l.id WHERE l.contracts_id <> {B} GROUP BY l.id HAVING SUM(a.amount) < 0) x"), [["0"]])
+v("(10) aucun reste négatif hors contrat B (dépassement), sur les contrats de ce scénario", lignes(
+    f"SELECT COUNT(*) FROM (SELECT l.id FROM {T}lots l JOIN {T}allocations a ON a.plugin_points_lots_id = l.id WHERE l.contracts_id IN ({A},{C},{D},{E},{G}) GROUP BY l.id HAVING SUM(a.amount) < 0) x"), [["0"]])
 v("(10) aucune échéance de lot au-delà de 24 mois après l'origine", lignes(
     f"SELECT COUNT(*) FROM {T}lots WHERE expiry_date > DATE_ADD(origin_date, INTERVAL 24 MONTH)"), [["0"]])
 sql_ecrire(f"UPDATE {T}contracts SET balance = 999 WHERE contracts_id = {D};")
@@ -424,7 +424,7 @@ sql_ecrire(f"UPDATE glpi_configs SET value = '{ancien_types}' WHERE context = 'p
 for nom, valeur in (("plugin_points_balance", 1), ("plugin_points_envelope", 7)):
     droit(nom, valeur)
 
-lecture = lambda nom: shell_app(f"cat files/_log/{nom} 2>/dev/null; true").stdout
+lecture = lambda nom: shell_app(f"cat /var/glpi/logs/{nom} 2>/dev/null; true").stdout
 fautes = [l for nom in ("php-errors.log", "sql-errors.log") for l in lecture(nom).splitlines() if re.search("points", l, re.I)]
 v("(13) aucune erreur du plugin dans les journaux PHP et SQL", fautes, [])
 

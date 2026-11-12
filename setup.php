@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Glpi\Plugin\Hooks;
 use GlpiPlugin\Points\Config;
+use GlpiPlugin\Points\ItilHooks;
 use GlpiPlugin\Points\Profile;
 use GlpiPlugin\Points\Rights;
 
@@ -26,15 +27,34 @@ function plugin_init_points(): void
     // Onglet « Points » sur la fiche Contract (le contrat du cœur est \Contract ; celui du plugin porte le même nom court)
     Plugin::registerClass(\GlpiPlugin\Points\Contract::class, ['addtabon' => \Contract::class]);
 
+    // Onglet « Points » sur la fiche Ticket (réglage du ticket et tâches décomptées)
+    Plugin::registerClass(\GlpiPlugin\Points\Ticket::class, ['addtabon' => \Ticket::class]);
+
     if (!Plugin::isPluginActive('points')) {
         return;
     }
 
+    // Décompte des tâches (lot c) : refus et débit autour de TicketTask et du passage du ticket à Clos.
+    // Un seul rappel par itemtype et par crochet (src/Plugin.php:1802 en 12.0.1 : $tab[$itemtype]).
+    $PLUGIN_HOOKS[Hooks::POST_PREPAREADD]['points']    = ['TicketTask' => [ItilHooks::class, 'taskPostPrepareAdd']];
+    $PLUGIN_HOOKS[Hooks::ITEM_ADD]['points']           = ['TicketTask' => [ItilHooks::class, 'taskItemAdd']];
+    $PLUGIN_HOOKS[Hooks::POST_PREPAREUPDATE]['points'] = ['TicketTask' => [ItilHooks::class, 'taskPostPrepareUpdate']];
+    $PLUGIN_HOOKS[Hooks::PRE_ITEM_UPDATE]['points']    = ['Ticket' => [ItilHooks::class, 'ticketPreUpdate']];
+    $PLUGIN_HOOKS[Hooks::ITEM_UPDATE]['points']        = [
+        'TicketTask' => [ItilHooks::class, 'taskItemUpdate'],
+        'Ticket'     => [ItilHooks::class, 'ticketItemUpdate'],
+    ];
+    $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['points']     = [
+        'TicketTask' => [ItilHooks::class, 'taskPrePurge'],
+        'Ticket'     => [ItilHooks::class, 'ticketPrePurge'],
+    ];
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['points']         = ['Ticket' => [ItilHooks::class, 'ticketItemPurge']];
+
     // Lien de configuration dans la liste des plugins
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['points'] = 'front/config.form.php';
 
-    // Configuration > Points, seulement avec le droit de lecture du paramétrage
-    if (Session::haveRight(Rights::CONFIG, READ)) {
+    // Configuration > Points, avec le droit de lecture du paramétrage ou des grilles (chaque page contrôle son droit)
+    if (Session::haveRight(Rights::CONFIG, READ) || Session::haveRight(Rights::GRID, READ)) {
         $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points'] = ['config' => Config::class];
     }
 }

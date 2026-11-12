@@ -76,7 +76,9 @@ ni supprimée (pas de `date_mod`).
 
 1. **Durée comptée** : `ceil(minutes saisies / 15) × 15` ; 0 minute = 0 point.
 2. **Date d'une tâche** : début planifié (`begin`) s'il existe, sinon `date`, lue dans le **fuseau de référence**
-   (fuseau global de GLPI, jamais celui de l'utilisateur ni du processus de la tâche automatique) avant tout calcul de
+   (`date.timezone` du PHP du serveur, UTC à défaut : GLPI 12 n'a pas de fuseau global, lu 12.0.1
+   `src/DBmysql.php:326,1832-1840` ; **à régler sur `Europe/Paris` dans l'image d'Assist**, sinon une tâche du samedi 0 h 30
+   est comptée vendredi ; jamais le fuseau de l'utilisateur ni du processus de la tâche automatique) avant tout calcul de
    type de jour, de créneau, de version de grille et de lot. Durée et dates prises après le calcul de GLPI (modèle de
    tâche compris).
 3. **Type de jour** : jour férié du calendrier ou dimanche → 3 ; samedi → 2 ; sinon 1. Calendrier : paramètre

@@ -295,3 +295,243 @@ msgstr "The source envelope is not marked as carried over"
 
 msgid "Only a debit can be given back or corrected upwards"
 msgstr "Only a debit can be given back or corrected upwards"
+
+msgid "Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable"
+msgstr "Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable"
+
+msgid "Task %1$d: %2$s"
+msgstr "Task %1$d: %2$s"
+
+msgid "The tasks cannot be debited: %s"
+msgstr "The tasks cannot be debited: %s"
+
+msgid "The contract has no price grid"
+msgstr "The contract has no price grid"
+
+msgid "No grid version applies at the date of the task"
+msgstr "No grid version applies at the date of the task"
+
+msgid "The grid has no price for this intervention type and day type"
+msgstr "The grid has no price for this intervention type and day type"
+
+msgid "Price grid"
+msgstr "Price grid"
+
+msgid "A name is required"
+msgstr "A name is required"
+
+msgid "The price unit must be 60 minutes (per hour) or 15 minutes (per quarter of an hour)"
+msgstr "The price unit must be 60 minutes (per hour) or 15 minutes (per quarter of an hour)"
+
+msgid "The scope of a grid cannot be changed"
+msgstr "The scope of a grid cannot be changed"
+
+msgid "The price unit cannot change: a version of this grid is already used by an operation"
+msgstr "The price unit cannot change: a version of this grid is already used by an operation"
+
+msgid "This grid is used by a contract or an operation: it cannot be deleted"
+msgstr "This grid is used by a contract or an operation: it cannot be deleted"
+
+msgid "Price unit (minutes)"
+msgstr "Price unit (minutes)"
+
+msgid "Week"
+msgstr "Week"
+
+msgid "Saturday"
+msgstr "Saturday"
+
+msgid "Sunday and holiday"
+msgstr "Sunday and holiday"
+
+msgid "Per hour (60 minutes)"
+msgstr "Per hour (60 minutes)"
+
+msgid "Per quarter of an hour (15 minutes)"
+msgstr "Per quarter of an hour (15 minutes)"
+
+msgid "Grid price"
+msgstr "Grid price"
+
+msgid "Unknown grid version"
+msgstr "Unknown grid version"
+
+msgid "Unknown intervention type"
+msgstr "Unknown intervention type"
+
+msgid "The day type must be 1 (week), 2 (Saturday) or 3 (Sunday and holiday)"
+msgstr "The day type must be 1 (week), 2 (Saturday) or 3 (Sunday and holiday)"
+
+msgid "This version is already used by an operation: create a new version instead"
+msgstr "This version is already used by an operation: create a new version instead"
+
+msgid "This price already exists for this version"
+msgstr "This price already exists for this version"
+
+msgid "Only the price of a grid cell can be changed"
+msgstr "Only the price of a grid cell can be changed"
+
+msgid "This version is already used by an operation: it cannot be deleted"
+msgstr "This version is already used by an operation: it cannot be deleted"
+
+msgid "A price must be a number, zero or more"
+msgstr "A price must be a number, zero or more"
+
+msgid "Day type"
+msgstr "Day type"
+
+msgid "Price"
+msgstr "Price"
+
+msgid "Grid version"
+msgstr "Grid version"
+
+msgid "The grid of a version cannot be changed"
+msgstr "The grid of a version cannot be changed"
+
+msgid "A version of this grid already starts on this date"
+msgstr "A version of this grid already starts on this date"
+
+msgid "Intervention type"
+msgstr "Intervention type"
+
+msgid "This intervention type is used by a grid, a ticket or the settings: it cannot be deleted"
+msgstr "This intervention type is used by a grid, a ticket or the settings: it cannot be deleted"
+
+msgid "This task has been debited: its duration, dates and ticket can no longer be changed"
+msgstr "This task has been debited: its duration, dates and ticket can no longer be changed"
+
+msgid "This task has been debited: it cannot be deleted"
+msgstr "This task has been debited: it cannot be deleted"
+
+msgid "Task counting"
+msgstr "Task counting"
+
+msgid "Locked"
+msgstr "Locked"
+
+msgid "Ticket Points settings"
+msgstr "Ticket Points settings"
+
+msgid "This contract is not a Points contract linked to the ticket"
+msgstr "This contract is not a Points contract linked to the ticket"
+
+msgid "Unknown ticket"
+msgstr "Unknown ticket"
+
+msgid "The ticket of a Points setting cannot be changed"
+msgstr "The ticket of a Points setting cannot be changed"
+
+msgid "Billable"
+msgstr "Billable"
+
+msgid "Debited (locked)"
+msgstr "Debited (locked)"
+
+msgid "Not counted"
+msgstr "Not counted"
+
+msgid "Nothing to debit"
+msgstr "Nothing to debit"
+
+msgid "Estimated, not yet debited"
+msgstr "Estimated, not yet debited"
+
+msgid "Sunday"
+msgstr "Sunday"
+
+msgid "Holiday"
+msgstr "Holiday"
+
+msgid "Outside working hours"
+msgstr "Outside working hours"
+
+msgid "Saved"
+msgstr "Saved"
+
+msgid "Deleted"
+msgstr "Deleted"
+
+msgid "Price grids and intervention types"
+msgstr "Price grids and intervention types"
+
+msgid "Price grids"
+msgstr "Price grids"
+
+msgid "Version applicable from"
+msgstr "Version applicable from"
+
+msgid "Used by an operation: read only, create a new version to change prices"
+msgstr "Used by an operation: read only, create a new version to change prices"
+
+msgid "Applicable from"
+msgstr "Applicable from"
+
+msgid "Save the prices"
+msgstr "Save the prices"
+
+msgid "Save the version"
+msgstr "Save the version"
+
+msgid "New version"
+msgstr "New version"
+
+msgid "Copy the prices of the version"
+msgstr "Copy the prices of the version"
+
+msgid "Versions"
+msgstr "Versions"
+
+msgid "No grid"
+msgstr "No grid"
+
+msgid "New grid"
+msgstr "New grid"
+
+msgid "Intervention types"
+msgstr "Intervention types"
+
+msgid "No intervention type"
+msgstr "No intervention type"
+
+msgid "Points settings of the ticket"
+msgstr "Points settings of the ticket"
+
+msgid "Points contract (empty: automatic)"
+msgstr "Points contract (empty: automatic)"
+
+msgid "Intervention type (empty: default)"
+msgstr "Intervention type (empty: default)"
+
+msgid "Tasks and points"
+msgstr "Tasks and points"
+
+msgid "Entered duration (min)"
+msgstr "Entered duration (min)"
+
+msgid "Counted duration (min)"
+msgstr "Counted duration (min)"
+
+msgid "Checks"
+msgstr "Checks"
+
+msgid "State"
+msgstr "State"
+
+msgid "No task"
+msgstr "No task"
+
+msgid "Total (debited and estimated)"
+msgstr "Total (debited and estimated)"
+
+msgid "This item has already been debited"
+msgstr "This item has already been debited"
+
+msgid "A task of this ticket has been debited: the ticket cannot be deleted permanently"
+msgstr "A task of this ticket has been debited: the ticket cannot be deleted permanently"
+
+msgid "No valid points at the date of the task"
+msgstr "No valid points at the date of the task"
+
+msgid "Debited on the merged ticket (locked)"
+msgstr "Debited on the merged ticket (locked)"

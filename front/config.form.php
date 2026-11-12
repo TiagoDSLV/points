@@ -13,6 +13,8 @@ use GlpiPlugin\Points\Config;
 use GlpiPlugin\Points\ConfigValues;
 use GlpiPlugin\Points\Rights;
 
+global $CFG_GLPI;
+
 Session::checkRight(Rights::CONFIG, READ);
 
 if (isset($_POST['update'])) {
@@ -43,6 +45,7 @@ TemplateRenderer::getInstance()->display('@points/config.html.twig', [
     ],
     'intervention_types' => Config::interventionTypes(),
     'max_retention'      => ConfigValues::MAX_RETENTION_MONTHS,
+    'grids_url'          => Session::haveRight(Rights::GRID, READ) ? $CFG_GLPI['root_doc'] . '/plugins/points/front/grid.php' : '',
 ]);
 
 Html::footer();

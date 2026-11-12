@@ -5,6 +5,9 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">{{ __('Points settings', 'points') }}</h3>
+        {% if grids_url != '' %}
+            <div class="card-actions"><a href="{{ grids_url }}" class="btn btn-outline-secondary btn-sm" id="points-grids-link">{{ __('Price grids and intervention types', 'points') }}</a></div>
+        {% endif %}
     </div>
     {% if can_edit %}
         <form method="post" action="{{ form_url }}" data-track-changes="true">

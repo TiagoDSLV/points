@@ -47,6 +47,13 @@ done
 printf '%s\n' "UPDATE glpi_apiclients SET ipv4_range_start = NULL, ipv4_range_end = NULL, ipv6 = NULL;" \
   | docker exec -i points-banc-db mariadb -uroot -pbanc-root glpi \
   || { echo "banc : ouverture du client d'API a échoué" >&2; exit 1; }
+# Fuseaux horaires activés (database:enable_timezones) : un utilisateur peut avoir un fuseau différent de celui du serveur.
+# GLPI exige la lecture de mysql.time_zone_name pour son compte de base de données ; le banc l'accorde par root.
+printf '%s\n' "GRANT SELECT ON mysql.time_zone_name TO 'glpi'@'%'; FLUSH PRIVILEGES;" \
+  | docker exec -i points-banc-db mariadb -uroot -pbanc-root \
+  || { echo "banc : GRANT sur mysql.time_zone_name a échoué" >&2; exit 1; }
+docker exec -u www-data points-banc-app php bin/console database:enable_timezones \
+  || { echo "banc : database:enable_timezones a échoué" >&2; exit 1; }
 # Plugin : installation par la console, puis activation (à relancer après --force). Les scénarios partent d'un plugin actif.
 docker exec -u www-data points-banc-app php bin/console plugin:install -u glpi points \
   || { echo "banc : plugin:install a échoué" >&2; exit 1; }

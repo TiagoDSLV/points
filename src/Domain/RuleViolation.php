@@ -26,6 +26,12 @@ final class RuleViolation extends \DomainException
     public const ENVELOPE_ENDED      = 'envelope_ended';
     public const NOT_REPORTABLE      = 'not_reportable';
     public const NOT_A_DEBIT         = 'not_a_debit';
+    // Décompte des tâches (lot c)
+    public const NO_GRID             = 'no_grid';
+    public const NO_GRID_VERSION     = 'no_grid_version';
+    public const NO_COST             = 'no_cost';
+    public const INVALID_TASK        = 'invalid_task';
+    public const ALREADY_DEBITED     = 'already_debited';
 
     public function __construct(public readonly string $reason, string $message = '')
     {
