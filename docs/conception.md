@@ -45,7 +45,7 @@ Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recu
 | `glpi_plugin_points_interventiontypes` | liste (Assistance, Ordre de travail, Intervention urgente) | intitulé ; liste déroulante native |
 | `glpi_plugin_points_contracts` | réglage Points d'un contrat natif (un pour un) | `contracts_id` unique, `plugin_points_grids_id`, `alert_threshold` (%, défaut du paramétrage : 80), `is_active`, cache : `balance`, `credited`, `consumed`, `date_cache` |
 | `glpi_plugin_points_envelopes` | enveloppe datée | `contracts_id`, `name`, `credit` (initial), `begin_date`, `end_date` (≤ début + 24 mois), `is_carryover`, `users_id`, `date_creation` ; dates non modifiables |
-| `glpi_plugin_points_operations` | **journal en ajout seul** | `contracts_id`, `type`, `amount` (signé : + crédit, − débit), `date` (date métier : date de la tâche, de l'approbation…), `tickets_id`, `itemtype` / `items_id` (TicketTask, forfait, compensation, review, enveloppe), `operations_id_origin` (opération corrigée ou liée), `comment` (motif), `details` (JSON : minutes saisies et comptées, type de jour, version de grille, coût unitaire, type d'intervention), `users_id`, `date_creation` |
+| `glpi_plugin_points_operations` | **journal en ajout seul** | `contracts_id`, `type`, `amount` (signé : + crédit, − débit), `date` (`DATE`, date métier : date de la tâche, de l'approbation… ; l'heure d'une tâche reste dans `details`), `tickets_id`, `itemtype` / `items_id` (TicketTask, forfait, compensation, review, enveloppe), `operations_id_origin` (opération corrigée ou liée), `comment` (motif), `details` (JSON : minutes saisies et comptées, type de jour, version de grille, coût unitaire, type d'intervention), `users_id`, `date_creation` |
 | `glpi_plugin_points_lots` | lot de points créé par un crédit (FIFO, expiration) | `operations_id` (crédit, report entrant, import), `plugin_points_envelopes_id`, `contracts_id`, `origin_date` (date d'achat d'origine, conservée au report), `expiry_date` = min(fin de l'enveloppe, `origin_date` + 24 mois), `initial` |
 | `glpi_plugin_points_allocations` | répartition d'une opération sur les lots | `operations_id`, `plugin_points_lots_id`, `amount` (signé) ; reste d'un lot = somme de ses affectations |
 | `glpi_plugin_points_tickets` | réglage Points d'un ticket | `tickets_id` unique, `contracts_id` (contrat Points retenu), `plugin_points_interventiontypes_id`, `is_billable` |
@@ -54,8 +54,14 @@ Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recu
 | `glpi_plugin_points_reviews` | contrôle d'un débit hors créneau ou férié | `operations_id` (débit), `reason` (samedi, dimanche, férié, hors créneau), `status` (à contrôler, confirmé, ajusté), `users_id`, `date_mod`, `comment`, `operations_id_adjustment` |
 | `glpi_plugin_points_compensations` | demande de compensation | `operations_id` (débit visé), `tickets_id`, `amount` (demandé), `comment` (motif obligatoire), `status` (en attente, approuvée, rejetée), `users_id` (demandeur), `users_id_decision`, `date_decision`, `decision_comment`, `approved_amount`, `operations_id_credit` |
 
-Types d'opération : `credit`, `import`, `debit_task`, `debit_flatrate`, `expiry`, `carryover_out`, `carryover_in`,
-`correction`, `review_adjustment`, `compensation`.
+Types d'opération : `credit`, `import`, `debit_task`, `debit_flatrate`, `expiry`, `expiry_reversal`,
+`carryover_out`, `carryover_in`, `correction`, `review_adjustment`, `compensation`. Une correction positive, un
+remboursement ou une compensation ne peuvent viser qu'un débit (`debit_task`, `debit_flatrate`, correction ou
+ajustement négatifs) ; une expiration ne se corrige que par le débit tardif ci-dessus, un report par un report.
+
+Cache du contrat : `credited` = crédits, imports et reports reçus moins reports émis et expirations (points achetés
+encore utilisables ou consommés) ; `consumed` = débits moins remboursements, corrections positives et compensations ;
+`balance` = somme du journal. L'alerte de seuil (règle 12) ne lit pas ce cache : elle calcule sur les lots valides.
 
 Valeurs codées (`varchar(30)`) : forfait `draft`, `submitted`, `bu_refused`, `proposed`, `approved`,
 `client_refused`, `debited`, `cancelled` ; review `to_review`, `confirmed`, `adjusted` ; raison de review `saturday`,
@@ -76,7 +82,12 @@ ni supprimée (pas de `date_mod`).
    type de jour) ; points = arrondi au centième de `coût × minutes comptées / unit_minutes`.
 5. **FIFO** : un débit prend les lots du contrat valides à la date métier (`origin_date` ≤ date ≤ `expiry_date`),
    reste > 0, triés par `origin_date` puis id. Ce qui ne trouve pas de lot va en **dépassement** sur le lot valide le
-   plus récent (paramètre `allow_overdraft`, défaut 1) ou est refusé (0).
+   plus récent (paramètre `allow_overdraft`, défaut 1) ou est refusé (0). **Débit tardif** (débit à la clôture
+   d'une tâche datée d'avant l'échéance d'un lot déjà expiré) : le débit reprend d'abord, sur ce lot, les points
+   expirés (opération `expiry_reversal` liée à l'opération `expiry`), puis les consomme ; le client ne paie jamais un
+   point à la fois expiré et débité. Points reportés : le lot reçu garde son origine, il reste valide à la date de la
+   tâche et le FIFO le prend normalement. Sans dépassement autorisé, le contrôle porte sur le solde réel des lots
+   valides (restes négatifs compris).
 6. **Garde-fous** : tâche refusée (ticket facturable) s'il n'existe aucune enveloppe valide à sa date ; durée et date
    d'une tâche débitée verrouillées (modification et suppression refusées) ; un ajustement à la baisse (débit en plus)
    exige un solde suffisant.
@@ -124,7 +135,7 @@ les comptes de service : 0 partout.
 | Contrat, onglet « Points » | réglage (grille, seuil), solde, enveloppes, registre ; actions ADV : créer une enveloppe, créditer, corriger, reporter | balance READ ; envelope pour écrire |
 | Ticket, onglet « Points » | contrat Points, type d'intervention, tâches et débits, forfait (chiffrer, soumettre, valider BU, proposer), compensation | ticket, flatrate, compensation |
 | Entité, onglet « Points » | soldes des contrats de l'entité | balance READ |
-| Interface simplifiée (Responsable client) | entrée « Points » du menu : soldes et registre de ses contrats | balance READ |
+| Interface simplifiée (Responsable client) | entrée « Points » du menu (`Hooks::HELPDESK_MENU_ENTRY`) : pour chaque contrat à points de ses entités, solde, enveloppes (échéances) et registre ; pas d'onglet sur la fiche contrat, inaccessible en interface simplifiée (fiche contrat servie par un contrôleur moderne, stratégie par défaut `central_access` qui refuse un profil `helpdesk` : lu 12.0.1 `src/Glpi/Http/Firewall.php:152,170-190`, `src/Session.php:1219-1224`, à confirmer au banc, lot f) | balance READ |
 | Outils > Points | liste des contrats à points (recherche native : client, BU, solde, % consommé, prochaine échéance), registre, reviews à contrôler, compensations en attente | selon droit |
 | Configuration > Points | paramétrage, grilles, types d'intervention | config, grid |
 
