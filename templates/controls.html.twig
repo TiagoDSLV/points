@@ -1,0 +1,134 @@
+{# Sections « Tâches à contrôler » et « Compensation » de l'onglet Points du ticket. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun filtre raw). #}
+{% if reviews.visible and reviews.rows is not empty %}
+<div class="card mb-3" id="points-reviews">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Tasks to check', 'points') }}</h3>
+    </div>
+    {% if reviews.to_review > 0 %}
+        <div class="alert alert-warning m-3" id="points-reviews-notice">{{ __('Some debits of this ticket are to be reviewed (weekend, holiday or outside working hours)', 'points') }}</div>
+    {% endif %}
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-reviews-table">
+            <thead>
+                <tr>
+                    <th>{{ __('Review', 'points') }}</th>
+                    <th>{{ __('Task') }}</th>
+                    <th>{{ __('Checks', 'points') }}</th>
+                    <th>{{ __('Points', 'points') }}</th>
+                    <th>{{ __('Status') }}</th>
+                    <th>{{ __('Reviewed by', 'points') }}</th>
+                    <th>{{ __('Comment') }}</th>
+                    <th>{{ __('Adjustment operation', 'points') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reviews.rows %}
+                    <tr data-review="{{ r.id }}">
+                        <td>{{ r.id }}</td>
+                        <td>{{ r.task }}</td>
+                        <td>{{ r.reason }}</td>
+                        <td>{{ r.points }}</td>
+                        <td data-status="{{ r.status }}">{{ r.status_label }}</td>
+                        <td>{{ r.reviewer }}</td>
+                        <td>{{ r.comment }}</td>
+                        <td>{{ r.adjustment > 0 ? r.adjustment : '' }}</td>
+                        <td>
+                            {% if r.can_decide %}
+                                <form method="post" action="{{ reviews.form_url }}" class="d-flex flex-wrap gap-1" id="points-review-form-{{ r.id }}">
+                                    <input type="hidden" name="id" value="{{ r.id }}">
+                                    <input type="text" class="form-control form-control-sm w-auto" name="amount" size="6" placeholder="{{ __('Adjustment (+ refund, - extra debit)', 'points') }}" aria-label="{{ __('Adjustment (+ refund, - extra debit)', 'points') }}">
+                                    <input type="text" class="form-control form-control-sm w-auto" name="comment" placeholder="{{ __('Comment (required to adjust)', 'points') }}" aria-label="{{ __('Comment (required to adjust)', 'points') }}">
+                                    <button type="submit" name="action" value="confirm" class="btn btn-sm btn-success">{{ __('Confirm', 'points') }}</button>
+                                    <button type="submit" name="action" value="adjust" class="btn btn-sm btn-warning">{{ __('Adjust', 'points') }}</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if compensations.visible and (compensations.rows is not empty or compensations.can_request) %}
+<div class="card mb-3" id="points-compensations">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Compensation', 'points') }}</h3>
+    </div>
+    {% if compensations.can_request %}
+        <form method="post" action="{{ compensations.form_url }}" class="card-body" id="points-compensation-request">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label" for="points-compensation-debit">{{ __('Debit to compensate', 'points') }}</label>
+                    <select class="form-select" id="points-compensation-debit" name="operations_id">
+                        {% for d in compensations.debits %}
+                            <option value="{{ d.id }}">{{ d.label }} - {{ __('compensable', 'points') }} {{ d.remaining }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="points-compensation-amount">{{ __('Requested amount (points)', 'points') }}</label>
+                    <input type="text" class="form-control" id="points-compensation-amount" name="amount" value="">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="points-compensation-comment">{{ __('Reason of the request', 'points') }}</label>
+                    <textarea class="form-control" id="points-compensation-comment" name="comment" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="mt-2">
+                <button type="submit" name="action" value="request" class="btn btn-primary">{{ __('Request a compensation', 'points') }}</button>
+            </div>
+        </form>
+    {% endif %}
+    {% if compensations.rows is not empty %}
+        <div class="table-responsive">
+            <table class="table table-sm card-table" id="points-compensations-table">
+                <thead>
+                    <tr>
+                        <th>{{ __('Compensation', 'points') }}</th>
+                        <th>{{ __('Debit operation', 'points') }}</th>
+                        <th>{{ __('Status') }}</th>
+                        <th>{{ __('Requested amount (points)', 'points') }}</th>
+                        <th>{{ __('Approved amount (points)', 'points') }}</th>
+                        <th>{{ __('Requested by', 'points') }}</th>
+                        <th>{{ __('Reason of the request', 'points') }}</th>
+                        <th>{{ __('Decided by', 'points') }}</th>
+                        <th>{{ __('Decision comment', 'points') }}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in compensations.rows %}
+                        <tr data-compensation="{{ c.id }}">
+                            <td>{{ c.id }}</td>
+                            <td>{{ c.operation }}</td>
+                            <td data-status="{{ c.status }}">{{ c.status_label }}</td>
+                            <td>{{ c.amount }}</td>
+                            <td>{{ c.approved }}</td>
+                            <td>{{ c.requester }}</td>
+                            <td>{{ c.comment }}</td>
+                            <td>{{ c.decider }}</td>
+                            <td>{{ c.decision_comment }}</td>
+                            <td>
+                                {% if c.can_decide %}
+                                    <form method="post" action="{{ compensations.form_url }}" class="d-flex flex-wrap gap-1" id="points-compensation-form-{{ c.id }}">
+                                        <input type="hidden" name="id" value="{{ c.id }}">
+                                        <input type="text" class="form-control form-control-sm w-auto" name="approved" size="6" placeholder="{{ __('Approved amount (empty: requested)', 'points') }}" aria-label="{{ __('Approved amount (empty: requested)', 'points') }}">
+                                        <input type="text" class="form-control form-control-sm w-auto" name="comment" placeholder="{{ __('Decision comment (required to reject)', 'points') }}" aria-label="{{ __('Decision comment (required to reject)', 'points') }}">
+                                        <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">{{ __('Approve', 'points') }}</button>
+                                        <button type="submit" name="action" value="reject" class="btn btn-sm btn-danger">{{ __('Reject', 'points') }}</button>
+                                    </form>
+                                {% elseif c.self_blocked %}
+                                    <span class="text-muted">{{ __('You made this request yourself: another user must decide it', 'points') }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endif %}

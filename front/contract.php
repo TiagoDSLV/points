@@ -1,45 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * -------------------------------------------------------------------------
- * Credit plugin for GLPI
- * -------------------------------------------------------------------------
- *
- * LICENSE
- *
- * This file is part of Credit.
- *
- * Credit is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- *
- * Credit is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Credit. If not, see <http://www.gnu.org/licenses/>.
- * -------------------------------------------------------------------------
- * @author    François Legastelois
- * @copyright Copyright (C) 2017-2023 by Credit plugin team.
- * @license   GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
- * @link      https://github.com/pluginsGLPI/credit
- * -------------------------------------------------------------------------
+ * Outils > Points > Contrats à points : portefeuille par la recherche native (client, BU, solde, crédité, consommé, % consommé, prochaine
+ * échéance, grille ; filtres, tri, export). Droit plugin_points_balance READ ; les lignes sont limitées aux entités actives de
+ * l'utilisateur par le moteur de recherche (lignes Points non récursives : entité propre du contrat).
  */
 
-Session::checkRight(PluginCreditContract::$rightname, READ);
+use GlpiPlugin\Points\Contract;
+use GlpiPlugin\Points\Controls;
+use GlpiPlugin\Points\Rights;
 
-Html::header(
-    PluginCreditContract::getTypeName(Session::getPluralNumber()),
-    $_SERVER['PHP_SELF'],
-    "admin",
-    PluginCreditContract::class,
-    "credit",
-    false,
-);
+Session::checkRight(Rights::BALANCE, READ);
 
-Search::show(PluginCreditContract::class);
-
+Html::header(Contract::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], 'tools', Controls::class, 'contract');
+Search::show(Contract::class);
 Html::footer();

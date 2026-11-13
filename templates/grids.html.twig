@@ -1,0 +1,111 @@
+{# Configuration > Points > Grilles : familles de grilles et types d'intervention. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun |raw). #}
+{% import 'components/form/fields_macros.html.twig' as fields %}
+{% import 'components/form/basic_inputs_macros.html.twig' as inputs %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Price grids', 'points') }}</h3>
+        <div class="card-actions"><a href="{{ config_url }}" class="btn btn-outline-secondary btn-sm">{{ __('Points settings', 'points') }}</a></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-grids">
+            <thead>
+                <tr>
+                    <th>{{ __('Name') }}</th>
+                    <th>{{ __('Price unit (minutes)', 'points') }}</th>
+                    <th>{{ __('Active') }}</th>
+                    <th>{{ __('Versions', 'points') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grid in grids %}
+                    <tr>
+                        <td><a href="{{ base_url }}grid.form.php?id={{ grid.id }}">{{ grid.name }}</a></td>
+                        <td>{{ grid.unit }}</td>
+                        <td>{{ grid.active ? __('Yes') : __('No') }}</td>
+                        <td>{{ grid.versions }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="text-muted">{{ __('No grid', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if can_create %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('New grid', 'points') }}</h3>
+    </div>
+    <form method="post" action="{{ base_url }}grid.form.php">
+        <div class="card-body">
+            <div class="row">
+                {{ fields.textField('name', '', __('Name'), {required: true}) }}
+                {{ fields.dropdownArrayField('unit_minutes', 60, units, __('Price unit (minutes)', 'points')) }}
+                {{ fields.textareaField('comment', '', __('Comments')) }}
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('add', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Intervention types', 'points') }}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-intervention-types">
+            <thead>
+                <tr>
+                    <th>{{ __('Name') }}</th>
+                    <th>{{ __('Comments') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for type in types %}
+                    <tr>
+                        {% if can_update %}
+                            <td>
+                                <form id="points-type-{{ type.id }}" method="post" action="{{ base_url }}interventiontype.form.php">
+                                    <input type="hidden" name="id" value="{{ type.id }}">
+                                </form>
+                                <input type="text" class="form-control form-control-sm" form="points-type-{{ type.id }}" name="name" value="{{ type.name }}" required>
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm" form="points-type-{{ type.id }}" name="comment" value="{{ type.comment }}"></td>
+                            <td class="text-end">
+                                <button type="submit" form="points-type-{{ type.id }}" name="update" value="1" class="btn btn-sm btn-primary">{{ _x('button', 'Save') }}</button>
+                                {% if can_purge %}
+                                    <button type="submit" form="points-type-{{ type.id }}" name="purge" value="1" class="btn btn-sm btn-outline-danger">{{ _x('button', 'Delete permanently') }}</button>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td>{{ type.name }}</td>
+                            <td>{{ type.comment }}</td>
+                            <td></td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="text-muted">{{ __('No intervention type', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if can_create %}
+        <form method="post" action="{{ base_url }}interventiontype.form.php">
+            <div class="card-body">
+                <div class="row">
+                    {{ fields.textField('name', '', __('Name'), {required: true}) }}
+                    {{ fields.textField('comment', '', __('Comments')) }}
+                </div>
+            </div>
+            <div class="card-footer d-flex flex-row-reverse">
+                {{ inputs.submit('add', _x('button', 'Add'), 1, {class: 'btn btn-primary', icon: 'ti ti-plus'}) }}
+            </div>
+        </form>
+    {% endif %}
+</div>

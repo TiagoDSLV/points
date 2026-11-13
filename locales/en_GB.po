@@ -1,231 +1,963 @@
-# English translations for PACKAGE package.
-# Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# Automatically generated, 2026.
-#
+# Points plugin for GLPI 12 (domain "points").
+# English (United Kingdom) translation.
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-26 02:13+0000\n"
-"PO-Revision-Date: 2026-05-26 02:13+0000\n"
-"Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
-"Language: en_GB\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Project-Id-Version: points 0.1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: en_GB\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: templates/creditentity_form.html.twig
-msgid "Quantities"
-msgstr "Quantities"
+msgid "Points"
+msgstr "Points"
 
-#: templates/creditentity_form.html.twig templates/creditentity.hmtl.twig
-#: inc/notificationtargetentity.class.php:112
-#: inc/notificationtargetentity.class.php:132 inc/entity.class.php:205
-#: inc/entity.class.php:318
-msgid "Quantity sold"
-msgstr "Quantity sold"
+msgid "Points settings"
+msgstr "Points settings"
 
-#: templates/creditentity_form.html.twig templates/creditentity.hmtl.twig
-#: inc/notificationtargetentity.class.php:114
-#: inc/notificationtargetentity.class.php:139 inc/entity.class.php:208
-#: inc/entity.class.php:338
-msgid "Allow overconsumption"
-msgstr "Allow overconsumption"
+msgid "Settings saved"
+msgstr "Settings saved"
 
-#: templates/creditentity_form.html.twig templates/tickets/consume.html.twig
-#: templates/tickets/form.html.twig
-#: templates/tickets/consumed_details.html.twig
-#: inc/notificationtargetentity.class.php:116
-#: inc/notificationtargetentity.class.php:136 inc/ticket.class.php:546
-#: inc/entity.class.php:206 hook.php:132
-msgid "Quantity consumed"
-msgstr "Quantity consumed"
+msgid "Read"
+msgstr "Read"
 
-#: templates/creditentity_form.html.twig
-#: inc/notificationtargetentity.class.php:111
-#: inc/notificationtargetentity.class.php:135 inc/entity.class.php:207
-#: hook.php:133
-msgid "Quantity remaining"
-msgstr "Quantity remaining"
+msgid "Update"
+msgstr "Update"
 
-#: templates/creditentity_form.html.twig templates/creditentity.hmtl.twig
-msgid "Low credit alert threshold"
-msgstr "Low points alert threshold"
+msgid "Create"
+msgstr "Create"
 
-#: templates/tickets/consume.html.twig
-msgid "Consume a voucher ?"
-msgstr "Consume a voucher ?"
+msgid "Purge"
+msgstr "Purge"
 
-#: templates/tickets/consume.html.twig templates/tickets/form.html.twig
-msgid "Voucher name"
-msgstr "Voucher name"
+msgid "Validate"
+msgstr "Validate"
 
-#: templates/tickets/consume.html.twig templates/tickets/form.html.twig
-msgid "Maximum consumable quantity"
-msgstr "Maximum consumable quantity"
+msgid "Balances, envelopes and ledger"
+msgstr "Balances, envelopes and ledger"
 
-#: templates/tickets/config.html.twig templates/creditentity_config.hmtl.twig
-msgid "Default for followups"
-msgstr "Default for followups"
+msgid "Points settings of a ticket"
+msgstr "Points settings of a ticket"
 
-#: templates/tickets/config.html.twig templates/creditentity_config.hmtl.twig
-msgid "Default for tasks"
-msgstr "Default for tasks"
+msgid "Envelopes, credits, corrections, carry-overs and import"
+msgstr "Envelopes, credits, corrections, carry-overs and import"
 
-#: templates/tickets/config.html.twig templates/creditentity_config.hmtl.twig
-msgid "Default for solutions"
-msgstr "Default for solutions"
+msgid "Flat rates (Validate = business unit approval)"
+msgstr "Flat rates (Validate = business unit approval)"
 
-#: templates/tickets/form.html.twig
-msgid "Add a voucher to the ticket"
-msgstr "Add a voucher to the ticket"
+msgid "Reviews"
+msgstr "Reviews"
 
-#: templates/tickets/form.html.twig
-msgid "Consumed credits for this ticket"
-msgstr "Points consumed for this ticket"
+msgid "Compensations (Create = request, Validate = decide)"
+msgstr "Compensations (Create = request, Validate = decide)"
 
-#: templates/tickets/form.html.twig
-msgid "Voucher type"
-msgstr "Voucher type"
+msgid "Grids and intervention types"
+msgstr "Grids and intervention types"
 
-#: templates/tickets/form.html.twig
-#: templates/tickets/consumed_details.html.twig inc/ticket.class.php:538
-msgid "Date consumed"
-msgstr "Date consumed"
+msgid "When the ticket is closed"
+msgstr "When the ticket is closed"
 
-#: templates/tickets/form.html.twig
-#: templates/tickets/consumed_details.html.twig
-msgid "User consumed"
-msgstr "User consumed"
+msgid "When the task is added"
+msgstr "When the task is added"
 
-#: templates/tickets/consumed_details.html.twig
-msgid "Detail of tickets on which consumption is declared"
-msgstr "Detail of tickets on which consumption is declared"
+msgid "Allowed and reported"
+msgstr "Allowed and reported"
 
-#: templates/tickets/consumed_details.html.twig
-msgid "No credit was recorded"
-msgstr "No points were recorded"
+msgid "Refused"
+msgstr "Refused"
 
-#: templates/creditentity.hmtl.twig
-msgid "Add a credit voucher"
-msgstr "Add a points voucher"
+msgid "Contract types carrying points"
+msgstr "Contract types carrying points"
 
-#: templates/creditentity_config.hmtl.twig
-msgid "Default options for entity"
-msgstr "Default options for entity"
+msgid "Debit moment"
+msgstr "Debit moment"
 
-#: templates/creditentity_config.hmtl.twig
-msgid "By default consume a voucher for : "
-msgstr "By default consume a voucher for : "
+msgid "Default alert threshold (%)"
+msgstr "Default alert threshold (%)"
 
-#: templates/creditentity_config.hmtl.twig
-msgid "Default voucher for : "
-msgstr "Default voucher for : "
+msgid "Overdraft"
+msgstr "Overdraft"
 
-#: setup.php:108 inc/ticket.class.php:70 inc/entityconfig.class.php:72
-#: inc/entity.class.php:43
-msgid "Credit voucher"
-msgid_plural "Credit vouchers"
-msgstr[0] "Point"
-msgstr[1] "Points"
+msgid "Calendar for day types (empty: entity calendar)"
+msgstr "Calendar for day types (empty: entity calendar)"
 
-#: front/ticket.form.php:39
-msgid "Credit voucher entity must be selected."
-msgstr "Points voucher entity must be selected."
+msgid "Default intervention type"
+msgstr "Default intervention type"
 
-#: front/ticket.form.php:46
-msgid "Credit voucher quantity must be greater than 0."
-msgstr "Points voucher quantity must be greater than 0."
+msgid "Maximum lifetime of a point (months, 24 at most)"
+msgstr "Maximum lifetime of a point (months, 24 at most)"
 
-#: front/ticket.form.php:60 inc/ticket.class.php:523
-msgid "Credit voucher successfully added."
-msgstr "Points voucher successfully added."
+msgid "Invalid value for the setting \"%s\": nothing was saved"
+msgstr "Invalid value for the setting \"%s\": nothing was saved"
 
-#: inc/ticketconfig.class.php:43
-msgid "Default voucher option"
-msgid_plural "Default voucher options"
-msgstr[0] "Default voucher option"
-msgstr[1] "Default voucher options"
+msgid "Allocation"
+msgstr "Allocation"
 
-#: inc/ticketconfig.class.php:217
-msgid "Update in ticket tab"
-msgstr "Update in ticket tab"
+msgid "Points contract"
+msgstr "Points contract"
 
-#: inc/ticketconfig.class.php:218
-msgid "Update in ticket form"
-msgstr "Update in ticket form"
+msgid "The balance and the link to the contract cannot be changed"
+msgstr "The balance and the link to the contract cannot be changed"
 
-#: inc/notificationtargetentity.class.php:68 inc/entity.class.php:371
-msgid "Expiration date"
-msgstr "Expiration date"
+msgid "The alert threshold must be between 1 and 100"
+msgstr "The alert threshold must be between 1 and 100"
 
-#: inc/notificationtargetentity.class.php:69 inc/entity.class.php:376
-msgid "Low credits"
-msgstr "Low points"
+msgid "Unknown grid"
+msgstr "Unknown grid"
 
-#: inc/notificationtargetentity.class.php:110
-#: inc/notificationtargetentity.class.php:134
-msgid "End date"
-msgstr "End date"
+msgid "Balance"
+msgstr "Balance"
 
-#: inc/notificationtargetentity.class.php:154
-msgid "Credit voucher expiration"
-msgstr "Points voucher expiration"
+msgid "Credited"
+msgstr "Credited"
 
-#: inc/notificationtargetentity.class.php:155
-msgid ""
-"This credit voucher will expire soon. Please, consider buying a new one."
-msgstr ""
-"This points voucher will expire soon. Please, consider buying a new one."
+msgid "Consumed"
+msgstr "Consumed"
 
-#: inc/notificationtargetentity.class.php:156
-msgid "Amount of credit remaining close to or at 0"
-msgstr "Amount of points remaining close to or at 0"
+msgid "Alert threshold (%)"
+msgstr "Alert threshold (%)"
 
-#: inc/notificationtargetentity.class.php:157
-msgid "The remaining quantity has reached 0 or almost."
-msgstr "The remaining quantity has reached 0 or almost."
+msgid "The amount or the date is not valid"
+msgstr "The amount or the date is not valid"
 
-#: inc/ticket.class.php:476
-msgid "You must provide a credit voucher"
-msgstr "You must provide a points voucher"
+msgid "Expire or carry over the points of ended lots"
+msgstr "Expire or carry over the points of ended lots"
 
-#: inc/ticket.class.php:496 inc/ticket.class.php:505
-#, php-format
-msgid "Quantity consumed exceeds remaining credits: %d"
-msgstr "Quantity consumed exceeds remaining points: %d"
+msgid "Envelope"
+msgstr "Envelope"
 
-#: inc/type.class.php:40
-msgid "Credit voucher type"
-msgid_plural "Credit vouchers types"
-msgstr[0] "Points voucher type"
-msgstr[1] "Points vouchers types"
+msgid "An envelope is created with its initial credit from the contract page"
+msgstr "An envelope is created with its initial credit from the contract page"
 
-#: inc/entity.class.php:120 inc/entity.class.php:134
-msgid "Credit voucher name is mandatory."
-msgstr "Points voucher name is mandatory."
+msgid "The dates, the initial credit and the contract of an envelope cannot be changed"
+msgstr "The dates, the initial credit and the contract of an envelope cannot be changed"
 
-#: inc/entity.class.php:209
-msgid "Low credits alert"
-msgstr "Low points alert"
+msgid "Initial credit"
+msgstr "Initial credit"
 
-#: inc/entity.class.php:244 inc/entity.class.php:251
-msgid "Consumed details"
-msgstr "Consumed details"
+msgid "Carried over when it ends"
+msgstr "Carried over when it ends"
 
-#: inc/entity.class.php:346
-msgid "Low credit alert"
-msgstr "Low points alert"
+msgid "The amount is not valid"
+msgstr "The amount is not valid"
 
-#: inc/entity.class.php:372
-msgid "Notice (in days)"
-msgstr "Notice (in days)"
+msgid "A date is not valid"
+msgstr "A date is not valid"
 
-#: inc/bareme.class.php templates/tickets/consume.html.twig
-msgid "Rate scale"
-msgid_plural "Rate scales"
-msgstr[0] "Rate scale"
-msgstr[1] "Rate scales"
+msgid "The envelope begin date must not be after its end date"
+msgstr "The envelope begin date must not be after its end date"
+
+msgid "An envelope cannot last more than 24 months"
+msgstr "An envelope cannot last more than 24 months"
+
+msgid "No envelope is valid at this date"
+msgstr "No envelope is valid at this date"
+
+msgid "Not enough points available"
+msgstr "Not enough points available"
+
+msgid "The amount exceeds what the original debit can give back"
+msgstr "The amount exceeds what the original debit can give back"
+
+msgid "A reason is required"
+msgstr "A reason is required"
+
+msgid "Unknown contract"
+msgstr "Unknown contract"
+
+msgid "Unknown envelope for this contract"
+msgstr "Unknown envelope for this contract"
+
+msgid "Unknown operation for this contract"
+msgstr "Unknown operation for this contract"
+
+msgid "The target envelope is not valid for a carry-over"
+msgstr "The target envelope is not valid for a carry-over"
+
+msgid "Operation type not allowed here"
+msgstr "Operation type not allowed here"
+
+msgid "The purchase date must be inside the envelope"
+msgstr "The purchase date must be inside the envelope"
+
+msgid "Lot"
+msgstr "Lot"
+
+msgid "Purchase date"
+msgstr "Purchase date"
+
+msgid "Expiry date"
+msgstr "Expiry date"
+
+msgid "Initial points"
+msgstr "Initial points"
+
+msgid "Operation"
+msgstr "Operation"
+
+msgid "Credit"
+msgstr "Credit"
+
+msgid "Import"
+msgstr "Import"
+
+msgid "Task debit"
+msgstr "Task debit"
+
+msgid "Flat rate debit"
+msgstr "Flat rate debit"
+
+msgid "Expiry"
+msgstr "Expiry"
+
+msgid "Carry-over out"
+msgstr "Carry-over out"
+
+msgid "Carry-over in"
+msgstr "Carry-over in"
+
+msgid "Correction"
+msgstr "Correction"
+
+msgid "Review adjustment"
+msgstr "Review adjustment"
+
+msgid "Compensation"
+msgstr "Compensation"
+
+msgid "%1$s points carried over (%2$d lot(s)); %3$d lot(s) cannot be carried over"
+msgstr "%1$s points carried over (%2$d lot(s)); %3$d lot(s) cannot be carried over"
+
+msgid "Carry-over done"
+msgstr "Carry-over done"
+
+msgid "Correction recorded"
+msgstr "Correction recorded"
+
+msgid "Credit added"
+msgstr "Credit added"
+
+msgid "Envelope created"
+msgstr "Envelope created"
+
+msgid "Points settings of the contract"
+msgstr "Points settings of the contract"
+
+msgid "Grid"
+msgstr "Grid"
+
+msgid "Envelopes"
+msgstr "Envelopes"
+
+msgid "Remaining"
+msgstr "Remaining"
+
+msgid "No envelope"
+msgstr "No envelope"
+
+msgid "New envelope"
+msgstr "New envelope"
+
+msgid "Add a credit to an envelope"
+msgstr "Add a credit to an envelope"
+
+msgid "Original operation"
+msgstr "Original operation"
+
+msgid "Points (negative: debit, positive: give back)"
+msgstr "Points (negative: debit, positive: give back)"
+
+msgid "Reason"
+msgstr "Reason"
+
+msgid "Manual carry-over"
+msgstr "Manual carry-over"
+
+msgid "From envelope"
+msgstr "From envelope"
+
+msgid "To envelope"
+msgstr "To envelope"
+
+msgid "Carry over"
+msgstr "Carry over"
+
+msgid "Ledger"
+msgstr "Ledger"
+
+msgid "No operation"
+msgstr "No operation"
+
+msgid "The envelope is already over: no credit can be added"
+msgstr "The envelope is already over: no credit can be added"
+
+msgid "The source envelope is not marked as carried over"
+msgstr "The source envelope is not marked as carried over"
+
+msgid "Only a debit can be given back or corrected upwards"
+msgstr "Only a debit can be given back or corrected upwards"
+
+msgid "Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable"
+msgstr "Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable"
+
+msgid "Task %1$d: %2$s"
+msgstr "Task %1$d: %2$s"
+
+msgid "The tasks cannot be debited: %s"
+msgstr "The tasks cannot be debited: %s"
+
+msgid "The contract has no price grid"
+msgstr "The contract has no price grid"
+
+msgid "No grid version applies at the date of the task"
+msgstr "No grid version applies at the date of the task"
+
+msgid "The grid has no price for this intervention type and day type"
+msgstr "The grid has no price for this intervention type and day type"
+
+msgid "Price grid"
+msgstr "Price grid"
+
+msgid "A name is required"
+msgstr "A name is required"
+
+msgid "The price unit must be 60 minutes (per hour) or 15 minutes (per quarter of an hour)"
+msgstr "The price unit must be 60 minutes (per hour) or 15 minutes (per quarter of an hour)"
+
+msgid "The scope of a grid cannot be changed"
+msgstr "The scope of a grid cannot be changed"
+
+msgid "The price unit cannot change: a version of this grid is already used by an operation"
+msgstr "The price unit cannot change: a version of this grid is already used by an operation"
+
+msgid "This grid is used by a contract or an operation: it cannot be deleted"
+msgstr "This grid is used by a contract or an operation: it cannot be deleted"
+
+msgid "Price unit (minutes)"
+msgstr "Price unit (minutes)"
+
+msgid "Week"
+msgstr "Week"
+
+msgid "Saturday"
+msgstr "Saturday"
+
+msgid "Sunday and holiday"
+msgstr "Sunday and holiday"
+
+msgid "Per hour (60 minutes)"
+msgstr "Per hour (60 minutes)"
+
+msgid "Per quarter of an hour (15 minutes)"
+msgstr "Per quarter of an hour (15 minutes)"
+
+msgid "Grid price"
+msgstr "Grid price"
+
+msgid "Unknown grid version"
+msgstr "Unknown grid version"
+
+msgid "Unknown intervention type"
+msgstr "Unknown intervention type"
+
+msgid "The day type must be 1 (week), 2 (Saturday) or 3 (Sunday and holiday)"
+msgstr "The day type must be 1 (week), 2 (Saturday) or 3 (Sunday and holiday)"
+
+msgid "This version is already used by an operation: create a new version instead"
+msgstr "This version is already used by an operation: create a new version instead"
+
+msgid "This price already exists for this version"
+msgstr "This price already exists for this version"
+
+msgid "Only the price of a grid cell can be changed"
+msgstr "Only the price of a grid cell can be changed"
+
+msgid "This version is already used by an operation: it cannot be deleted"
+msgstr "This version is already used by an operation: it cannot be deleted"
+
+msgid "A price must be a number, zero or more"
+msgstr "A price must be a number, zero or more"
+
+msgid "Day type"
+msgstr "Day type"
+
+msgid "Price"
+msgstr "Price"
+
+msgid "Grid version"
+msgstr "Grid version"
+
+msgid "The grid of a version cannot be changed"
+msgstr "The grid of a version cannot be changed"
+
+msgid "A version of this grid already starts on this date"
+msgstr "A version of this grid already starts on this date"
+
+msgid "Intervention type"
+msgstr "Intervention type"
+
+msgid "This intervention type is used by a grid, a ticket or the settings: it cannot be deleted"
+msgstr "This intervention type is used by a grid, a ticket or the settings: it cannot be deleted"
+
+msgid "This task has been debited: its duration, dates and ticket can no longer be changed"
+msgstr "This task has been debited: its duration, dates and ticket can no longer be changed"
+
+msgid "This task has been debited: it cannot be deleted"
+msgstr "This task has been debited: it cannot be deleted"
+
+msgid "Task counting"
+msgstr "Task counting"
+
+msgid "Locked"
+msgstr "Locked"
+
+msgid "Ticket Points settings"
+msgstr "Ticket Points settings"
+
+msgid "This contract is not a Points contract linked to the ticket"
+msgstr "This contract is not a Points contract linked to the ticket"
+
+msgid "Unknown ticket"
+msgstr "Unknown ticket"
+
+msgid "The ticket of a Points setting cannot be changed"
+msgstr "The ticket of a Points setting cannot be changed"
+
+msgid "Billable"
+msgstr "Billable"
+
+msgid "Debited (locked)"
+msgstr "Debited (locked)"
+
+msgid "Not counted"
+msgstr "Not counted"
+
+msgid "Nothing to debit"
+msgstr "Nothing to debit"
+
+msgid "Estimated, not yet debited"
+msgstr "Estimated, not yet debited"
+
+msgid "Sunday"
+msgstr "Sunday"
+
+msgid "Holiday"
+msgstr "Holiday"
+
+msgid "Outside working hours"
+msgstr "Outside working hours"
+
+msgid "Saved"
+msgstr "Saved"
+
+msgid "Deleted"
+msgstr "Deleted"
+
+msgid "Price grids and intervention types"
+msgstr "Price grids and intervention types"
+
+msgid "Price grids"
+msgstr "Price grids"
+
+msgid "Version applicable from"
+msgstr "Version applicable from"
+
+msgid "Used by an operation: read only, create a new version to change prices"
+msgstr "Used by an operation: read only, create a new version to change prices"
+
+msgid "Applicable from"
+msgstr "Applicable from"
+
+msgid "Save the prices"
+msgstr "Save the prices"
+
+msgid "Save the version"
+msgstr "Save the version"
+
+msgid "New version"
+msgstr "New version"
+
+msgid "Copy the prices of the version"
+msgstr "Copy the prices of the version"
+
+msgid "Versions"
+msgstr "Versions"
+
+msgid "No grid"
+msgstr "No grid"
+
+msgid "New grid"
+msgstr "New grid"
+
+msgid "Intervention types"
+msgstr "Intervention types"
+
+msgid "No intervention type"
+msgstr "No intervention type"
+
+msgid "Points settings of the ticket"
+msgstr "Points settings of the ticket"
+
+msgid "Points contract (empty: automatic)"
+msgstr "Points contract (empty: automatic)"
+
+msgid "Intervention type (empty: default)"
+msgstr "Intervention type (empty: default)"
+
+msgid "Tasks and points"
+msgstr "Tasks and points"
+
+msgid "Entered duration (min)"
+msgstr "Entered duration (min)"
+
+msgid "Counted duration (min)"
+msgstr "Counted duration (min)"
+
+msgid "Checks"
+msgstr "Checks"
+
+msgid "State"
+msgstr "State"
+
+msgid "No task"
+msgstr "No task"
+
+msgid "Total (debited and estimated)"
+msgstr "Total (debited and estimated)"
+
+msgid "This item has already been debited"
+msgstr "This item has already been debited"
+
+msgid "A task of this ticket has been debited: the ticket cannot be deleted permanently"
+msgstr "A task of this ticket has been debited: the ticket cannot be deleted permanently"
+
+msgid "No valid points at the date of the task"
+msgstr "No valid points at the date of the task"
+
+msgid "Debited on the merged ticket (locked)"
+msgstr "Debited on the merged ticket (locked)"
+
+msgid "This approval belongs to a flatrate: it cannot be deleted"
+msgstr "This approval belongs to a flatrate: it cannot be deleted"
+
+msgid "Flatrates"
+msgstr "Flatrates"
+
+msgid "Flatrate"
+msgstr "Flatrate"
+
+msgid "Draft"
+msgstr "Draft"
+
+msgid "Submitted to the BU manager"
+msgstr "Submitted to the BU manager"
+
+msgid "Refused by the BU manager"
+msgstr "Refused by the BU manager"
+
+msgid "Proposed to the customer"
+msgstr "Proposed to the customer"
+
+msgid "Approved by the customer"
+msgstr "Approved by the customer"
+
+msgid "Refused by the customer"
+msgstr "Refused by the customer"
+
+msgid "Debited"
+msgstr "Debited"
+
+msgid "Cancelled"
+msgstr "Cancelled"
+
+msgid "The flatrate amount must be a positive number"
+msgstr "The flatrate amount must be a positive number"
+
+msgid "This action is not possible in the current state of the flatrate"
+msgstr "This action is not possible in the current state of the flatrate"
+
+msgid "This ticket already has a flatrate in progress or debited"
+msgstr "This ticket already has a flatrate in progress or debited"
+
+msgid "The BU manager who priced a flatrate cannot validate it"
+msgstr "The BU manager who priced a flatrate cannot validate it"
+
+msgid "A flatrate can only be modified while it is a draft, and its state and approved amount never change by hand"
+msgstr "A flatrate can only be modified while it is a draft, and its state and approved amount never change by hand"
+
+msgid "The ticket needs one billable Points contract before a flatrate can be priced"
+msgstr "The ticket needs one billable Points contract before a flatrate can be priced"
+
+msgid "Tasks of this ticket are already debited: no flatrate is possible"
+msgstr "Tasks of this ticket are already debited: no flatrate is possible"
+
+msgid "The customer approver must be a user of the ticket or of its entity"
+msgstr "The customer approver must be a user of the ticket or of its entity"
+
+msgid "A comment is required to refuse a flatrate"
+msgstr "A comment is required to refuse a flatrate"
+
+msgid "Flatrate proposal: %1$s points. %2$s"
+msgstr "Flatrate proposal: %1$s points. %2$s"
+
+msgid "The approval request could not be created"
+msgstr "The approval request could not be created"
+
+msgid "This approval belongs to a flatrate that is no longer waiting for the customer answer"
+msgstr "This approval belongs to a flatrate that is no longer waiting for the customer answer"
+
+msgid "The flatrate cannot be debited: %s"
+msgstr "The flatrate cannot be debited: %s"
+
+msgid "Flatrate %1$d: %2$s"
+msgstr "Flatrate %1$d: %2$s"
+
+msgid "The flatrate of this ticket is not approved by the customer yet: the ticket cannot be closed"
+msgstr "The flatrate of this ticket is not approved by the customer yet: the ticket cannot be closed"
+
+msgid "When the customer approves"
+msgstr "When the customer approves"
+
+msgid "Amount"
+msgstr "Amount"
+
+msgid "Approved amount"
+msgstr "Approved amount"
+
+msgid "Flatrate submitted to the BU manager"
+msgstr "Flatrate submitted to the BU manager"
+
+msgid "Flatrate decision"
+msgstr "Flatrate decision"
+
+msgid "Technician who priced the flatrate"
+msgstr "Technician who priced the flatrate"
+
+msgid "BU managers of the entity"
+msgstr "BU managers of the entity"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Ticket title"
+msgstr "Ticket title"
+
+msgid "Amount (points)"
+msgstr "Amount (points)"
+
+msgid "Approved amount (points)"
+msgstr "Approved amount (points)"
+
+msgid "BU manager comment"
+msgstr "BU manager comment"
+
+msgid "Technician"
+msgstr "Technician"
+
+msgid "Flatrate saved as a draft"
+msgstr "Flatrate saved as a draft"
+
+msgid "Flatrate saved"
+msgstr "Flatrate saved"
+
+msgid "Flatrate reopened as a draft"
+msgstr "Flatrate reopened as a draft"
+
+msgid "Flatrate validated and proposed to the customer"
+msgstr "Flatrate validated and proposed to the customer"
+
+msgid "Flatrate refused"
+msgstr "Flatrate refused"
+
+msgid "Flatrate cancelled"
+msgstr "Flatrate cancelled"
+
+msgid "Estimate: %1$s hours = %2$s points (work order price of the grid, today)"
+msgstr "Estimate: %1$s hours = %2$s points (work order price of the grid, today)"
+
+msgid "No flatrate on this ticket: the tasks are counted one by one"
+msgstr "No flatrate on this ticket: the tasks are counted one by one"
+
+msgid "BU manager"
+msgstr "BU manager"
+
+msgid "Customer approver"
+msgstr "Customer approver"
+
+msgid "Approval"
+msgstr "Approval"
+
+msgid "Journal operation"
+msgstr "Journal operation"
+
+msgid "This ticket is under a flatrate: its tasks are not counted"
+msgstr "This ticket is under a flatrate: its tasks are not counted"
+
+msgid "Submit to the BU manager"
+msgstr "Submit to the BU manager"
+
+msgid "Price a flatrate"
+msgstr "Price a flatrate"
+
+msgid "Estimated hours (help)"
+msgstr "Estimated hours (help)"
+
+msgid "Estimate with the work order price"
+msgstr "Estimate with the work order price"
+
+msgid "Reopen as a draft to correct it"
+msgstr "Reopen as a draft to correct it"
+
+msgid "You priced this flatrate yourself: another BU manager must validate it"
+msgstr "You priced this flatrate yourself: another BU manager must validate it"
+
+msgid "Validate and propose to the customer"
+msgstr "Validate and propose to the customer"
+
+msgid "Refuse (comment required)"
+msgstr "Refuse (comment required)"
+
+msgid "Cancel the flatrate"
+msgstr "Cancel the flatrate"
+
+msgid "From"
+msgstr "From"
+
+msgid "To"
+msgstr "To"
+
+msgid "A solved or closed ticket cannot receive a flatrate"
+msgstr "A solved or closed ticket cannot receive a flatrate"
+
+msgid "The request of an approval that belongs to a flatrate cannot be changed"
+msgstr "The request of an approval that belongs to a flatrate cannot be changed"
+
+msgid "A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently"
+msgstr "A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently"
+
+msgid "A BU manager may validate a flatrate they priced"
+msgstr "A BU manager may validate a flatrate they priced"
+
+msgid "Refused (separation of duties)"
+msgstr "Refused (separation of duties)"
+
+msgid "Allowed"
+msgstr "Allowed"
+
+msgid "Compensation decision"
+msgstr "Compensation decision"
+
+msgid "User who requested the compensation"
+msgstr "User who requested the compensation"
+
+msgid "Requested amount (points)"
+msgstr "Requested amount (points)"
+
+msgid "Reason of the request"
+msgstr "Reason of the request"
+
+msgid "Decision comment"
+msgstr "Decision comment"
+
+msgid "Requested by"
+msgstr "Requested by"
+
+msgid "Decided by"
+msgstr "Decided by"
+
+msgid "Reviews to check"
+msgstr "Reviews to check"
+
+msgid "Pending compensations"
+msgstr "Pending compensations"
+
+msgid "Compensations"
+msgstr "Compensations"
+
+msgid "Pending"
+msgstr "Pending"
+
+msgid "Approved"
+msgstr "Approved"
+
+msgid "Rejected"
+msgstr "Rejected"
+
+msgid "This compensation request has already been decided"
+msgstr "This compensation request has already been decided"
+
+msgid "You made this request yourself: another user must decide it"
+msgstr "You made this request yourself: another user must decide it"
+
+msgid "The amount exceeds what the debit leaves to compensate, or what was requested"
+msgstr "The amount exceeds what the debit leaves to compensate, or what was requested"
+
+msgid "A compensation can only target a task or flatrate debit"
+msgstr "A compensation can only target a task or flatrate debit"
+
+msgid "Debit operation"
+msgstr "Debit operation"
+
+msgid "Review"
+msgstr "Review"
+
+msgid "To review"
+msgstr "To review"
+
+msgid "Confirmed"
+msgstr "Confirmed"
+
+msgid "Adjusted"
+msgstr "Adjusted"
+
+msgid "This review has already been decided"
+msgstr "This review has already been decided"
+
+msgid "Reviewed by"
+msgstr "Reviewed by"
+
+msgid "Compensation requested"
+msgstr "Compensation requested"
+
+msgid "Compensation approved"
+msgstr "Compensation approved"
+
+msgid "Compensation rejected"
+msgstr "Compensation rejected"
+
+msgid "Review confirmed"
+msgstr "Review confirmed"
+
+msgid "Review adjusted"
+msgstr "Review adjusted"
+
+msgid "Tasks to check"
+msgstr "Tasks to check"
+
+msgid "Some debits of this ticket are to be reviewed (weekend, holiday or outside working hours)"
+msgstr "Some debits of this ticket are to be reviewed (weekend, holiday or outside working hours)"
+
+msgid "Adjustment operation"
+msgstr "Adjustment operation"
+
+msgid "Adjustment (+ refund, - extra debit)"
+msgstr "Adjustment (+ refund, - extra debit)"
+
+msgid "Comment (required to adjust)"
+msgstr "Comment (required to adjust)"
+
+msgid "Confirm"
+msgstr "Confirm"
+
+msgid "Adjust"
+msgstr "Adjust"
+
+msgid "Debit to compensate"
+msgstr "Debit to compensate"
+
+msgid "compensable"
+msgstr "compensable"
+
+msgid "Request a compensation"
+msgstr "Request a compensation"
+
+msgid "Approved amount (empty: requested)"
+msgstr "Approved amount (empty: requested)"
+
+msgid "Decision comment (required to reject)"
+msgstr "Decision comment (required to reject)"
+
+msgid "Approve"
+msgstr "Approve"
+
+msgid "Reject"
+msgstr "Reject"
+
+msgid "A user may decide a compensation they requested"
+msgstr "A user may decide a compensation they requested"
+
+msgid "The task could not be debited because of a concurrent change: it will be taken again, try closing the ticket again"
+msgstr "The task could not be debited because of a concurrent change: it will be taken again, try closing the ticket again"
+
+msgid "The ticket was not closed: a task could not be debited, try again"
+msgstr "The ticket was not closed: a task could not be debited, try again"
+
+msgid "No Points contract in your entities"
+msgstr "No Points contract in your entities"
+
+msgid "The entity of a contract with a Points journal cannot be changed"
+msgstr "The entity of a contract with a Points journal cannot be changed"
+
+msgid "BU (contract type)"
+msgstr "BU (contract type)"
+
+msgid "Client (entity)"
+msgstr "Client (entity)"
+
+msgid "Consumed (%)"
+msgstr "Consumed (%)"
+
+msgid "Consumed (valid lots)"
+msgstr "Consumed (valid lots)"
+
+msgid "Credited (valid lots)"
+msgstr "Credited (valid lots)"
+
+msgid "Next expiry"
+msgstr "Next expiry"
+
+msgid "No points contract"
+msgstr "No points contract"
+
+msgid "Notify the contracts that reached their points alert threshold"
+msgstr "Notify the contracts that reached their points alert threshold"
+
+msgid "Points alert threshold (%)"
+msgstr "Points alert threshold (%)"
+
+msgid "Points balance"
+msgstr "Points balance"
+
+msgid "Points consumed"
+msgstr "Points consumed"
+
+msgid "Points consumed (%)"
+msgstr "Points consumed (%)"
+
+msgid "Points contracts"
+msgstr "Points contracts"
+
+msgid "Points credited"
+msgstr "Points credited"
+
+msgid "Points grid"
+msgstr "Points grid"
+
+msgid "Points next expiry"
+msgstr "Points next expiry"
+
+msgid "Points threshold reached"
+msgstr "Points threshold reached"
+
+msgid "A contract with a Points journal cannot be deleted permanently"
+msgstr "A contract with a Points journal cannot be deleted permanently"
+
+msgid "A refund of an ended lot is credited"
+msgstr "A refund of an ended lot is credited"
+
+msgid "Expiry reversal"
+msgstr "Expiry reversal"
+
+msgid "On the most recent valid envelope (refused if none)"
+msgstr "On the most recent valid envelope (refused if none)"
+
+msgid "On the original envelope (the points expire at once)"
+msgstr "On the original envelope (the points expire at once)"
+
+msgid "The estimate reads the price of the intervention type \"%s\", which does not exist: restore it in the intervention types"
+msgstr "The estimate reads the price of the intervention type \"%s\", which does not exist: restore it in the intervention types"
+
+msgid "The original envelope has ended and no envelope is valid today to receive the points given back"
+msgstr "The original envelope has ended and no envelope is valid today to receive the points given back"
+
+msgid "Debited on the main ticket"
+msgstr "Debited on the main ticket"

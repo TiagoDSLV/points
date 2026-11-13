@@ -1,79 +1,39 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * -------------------------------------------------------------------------
- * Credit plugin for GLPI
- * -------------------------------------------------------------------------
- *
- * LICENSE
- *
- * This file is part of Credit.
- *
- * Credit is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- *
- * Credit is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Credit. If not, see <http://www.gnu.org/licenses/>.
- * -------------------------------------------------------------------------
- * @author    François Legastelois
- * @copyright Copyright (C) 2017-2023 by Credit plugin team.
- * @license   GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
- * @link      https://github.com/pluginsGLPI/credit
- * -------------------------------------------------------------------------
+ * Réglage Points d'un contrat (grille, seuil d'alerte, actif). POST seulement. Droit plugin_points_envelope UPDATE ;
+ * contrat lisible par l'utilisateur ; la ligne est créée au premier enregistrement ; la mise à jour passe par
+ * Contract::can(UPDATE) (droit et entité) puis par les contrôles de Contract::prepareInputForUpdate.
  */
-use Glpi\Event;
+
+use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\BadRequestHttpException;
+use GlpiPlugin\Points\Contract;
+use GlpiPlugin\Points\Ledger;
+use GlpiPlugin\Points\Rights;
 
-$PluginCreditContract = new PluginCreditContract();
-
-if (isset($_POST["add"])) {
-    $PluginCreditContract->check(-1, CREATE, $_POST);
-    if ($PluginCreditContract->add($_POST)) {
-        Event::log(
-            $PluginCreditContract->getID(),
-            "contract",
-            4,
-            "setup",
-            sprintf(__('%s adds a vouchers to a contract'), $_SESSION["glpiname"]),
-        );
-    }
-    Html::back();
-} elseif (isset($_POST["update"])) {
-    $PluginCreditContract->check($_POST['id'], UPDATE);
-    $PluginCreditContract->update($_POST);
-    Html::back();
-} elseif (isset($_POST["delete"])) {
-    $PluginCreditContract->check($_POST['id'], DELETE);
-    $PluginCreditContract->delete($_POST);
-    $PluginCreditContract->redirectToList();
-} elseif (isset($_POST["restore"])) {
-    $PluginCreditContract->check($_POST['id'], DELETE);
-    $PluginCreditContract->restore($_POST);
-    $PluginCreditContract->redirectToList();
-} elseif (isset($_POST["purge"])) {
-    $PluginCreditContract->check($_POST['id'], PURGE);
-    $PluginCreditContract->delete($_POST, true);
-    $PluginCreditContract->redirectToList();
-} elseif (isset($_GET['id'])) {
-    $ID = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-    Session::checkRight(PluginCreditContract::$rightname, READ);
-
-    if (isset($_GET['forcetab'])) {
-        Session::setActiveTab(PluginCreditContract::class, $_GET['forcetab']);
-        unset($_GET['forcetab']);
-    }
-
-    Html::header(PluginCreditContract::getTypeName(), $_SERVER['PHP_SELF'], "admin", PluginCreditContract::class, "credit");
-    $PluginCreditContract->display(['id' => $ID]);
-    Html::footer();
-} else {
+Session::checkRight(Rights::ENVELOPE, UPDATE);
+if (!isset($_POST['update'])) {
     throw new BadRequestHttpException();
 }
+$contractsId = Contract::requireContract((int) ($_POST['contracts_id'] ?? 0));
+
+Contract::respond(
+    static function () use ($contractsId): ?bool {
+        $row  = Ledger::ensureContract($contractsId);
+        $item = new Contract();
+        if (!$item->can($row['id'], UPDATE)) {
+            throw new AccessDeniedHttpException();
+        }
+
+        return $item->update([
+            'id'                     => $row['id'],
+            'plugin_points_grids_id' => (int) ($_POST['plugin_points_grids_id'] ?? 0),
+            'alert_threshold'        => (int) ($_POST['alert_threshold'] ?? 0),
+            'is_active'              => (int) ($_POST['is_active'] ?? 0) === 1 ? 1 : 0,
+        ]) ? true : false;
+    },
+    __s('Settings saved', 'points')
+);

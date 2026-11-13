@@ -1,9 +1,5 @@
-dist/
-node_modules/
 vendor/
-.gh_token
-.php-cs-fixer.cache
-CLAUDE.md
-.claude/
-docs/
-compile_mo.py
+*.cache
+__pycache__/
+*.pyc
+.phpunit.result.cache

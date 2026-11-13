@@ -1,52 +1,64 @@
-# Points — fork du plugin GLPI Credit
+# Points : plugin GLPI 12
 
-> Fork de [pluginsGLPI/credit](https://github.com/pluginsGLPI/credit).  
-> Affiché sous le nom **"Points"** dans GLPI — identité technique interne reste `credit`.
+Gestion de points prépayés sur les contrats natifs de GLPI : enveloppes datées, grilles de prix, registre en ajout
+seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0.99), PHP 8.3. Dépôt privé d'Athéo.
 
----
+État : lots a à h réalisés (le plan est dans `tasks/`), lots g et h encore en relecture ; reste i (intégration Assist).
 
-## Ce que ce fork ajoute
+- a : socle (installation et désinstallation rejouables, 14 tables `glpi_plugin_points_*`, droits `plugin_points_*`, paramétrage, traductions).
+- b : enveloppes datées, journal en ajout seul, lots FIFO, expiration et report (action `pointsexpire`).
+- c : décompte des tâches (grilles versionnées, types de jour, moment du débit).
+- d : forfaits (validation Responsable BU puis client).
+- e : reviews et compensations.
+- f : cloisonnement par entité et par profil, page « Points » de l'interface simplifiée.
+- g : alerte de seuil (action `pointsalert`, notification `threshold`), liste « Contrats à points » (Outils > Points), options de recherche sur
+  Contract et Entity, onglet « Points » de l'entité.
+- h : import des soldes du BPM Kiwi par la console (voir « Importer les soldes »).
 
-Une classe dropdown **Barème** (`PluginCreditBareme`) qui calcule automatiquement
-les points consommés quand un technicien ajoute une Tâche à un ticket.
+## Documentation
 
-Règle : `ceil(durée_min / 15) × points_par_tranche` — toute tranche de 15 min
-entamée compte pleine.
+- `docs/cahier-des-charges.md` : le besoin, en mots simples.
+- `docs/conception.md` : la conception technique (fait foi : identité, tables, droits, paramétrage).
 
-Les barèmes (noms et valeurs) se créent manuellement après installation via
-**Configuration > Intitulés > Barèmes**.
-
-## Fichiers ajoutés vs upstream
-
-| Fichier | Rôle |
-|---|---|
-| `inc/bareme.class.php` | Dropdown + calcul `calculatePoints()` |
-| `ajax/calculatePoints.php` | Endpoint AJAX pour aperçu live |
-| `inc/ticket.class.php` | `consumeVoucher()` surchargée |
-| `templates/tickets/consume.html.twig` | Dropdown barème + preview temps réel |
-
-Aucun renommage technique : dossier, classes, tables SQL et constantes restent `credit`.
-
-## Synchronisation avec upstream
+## Tester
 
 ```bash
-git fetch upstream
-git merge upstream/main
+scripts/check.sh            # php -l, tests unitaires, .mo à jour ; le banc est SAUTÉ (pas vert)
+scripts/check.sh --banc     # idem + banc GLPI 12 jetable sous Docker (images figées par digest)
+php tests/unit/run.php      # tests unitaires seuls, sans GLPI
+tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, final, forfaits, import, journal, socle, taches, zdesinstallation) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
 ```
 
-Les ajouts sont dans des fichiers nouveaux ou des méthodes isolées — pas de conflit
-attendu avec les fichiers upstream non modifiés.
+Le banc crée les conteneurs `points-banc-app` et `points-banc-db` (réseau `points-banc`), installe le plugin par la
+console puis joue les scénarios `tests/banc/scenario_*.py`.
 
-## Compatibilité
+## Importer les soldes du BPM Kiwi
 
-GLPI 11.0.0 – 11.0.99
+```bash
+php bin/console plugins:points:import fichier.csv           # simulation : rapport ligne à ligne, rien n'est écrit
+php bin/console plugins:points:import fichier.csv --apply   # écrit une enveloppe et une opération « import » par ligne
+```
 
-## Statut
+Une ligne de même contrat, solde et dates qu'une enveloppe déjà importée, sous un autre libellé, est une erreur de plan (le libellé a sans doute
+été corrigé) : `--accept-similar` la laisse passer.
 
-POC — non déployé en production.
+## Contrôler le journal
 
-## Licence
+```bash
+php bin/console plugins:points:check   # lecture seule : invariants du journal de tous les contrats, code de sortie non nul au moindre écart
+```
 
-GPL-3.0 — voir [LICENSE.md](LICENSE.md).  
-Code original : [pluginsGLPI/credit](https://github.com/pluginsGLPI/credit) © TECLIB'.  
-Ce fork redistribue et modifie ce code sous les mêmes termes GPL-3.0.
+CSV UTF-8, séparateur `;`, en-tête `contrat;solde;debut;fin;report;libelle` (exemple fictif : `tests/banc/import-exemple.csv`). Tout le
+fichier est contrôlé avant la première écriture ; une ligne invalide donne un code de sortie non nul et rien n'est écrit. Rejouable : une
+ligne déjà importée est sautée. Format exact, contrôles et traçabilité : `docs/conception.md`, section « Import des soldes du BPM Kiwi ».
+
+## Traductions
+
+Chaînes sources en anglais, domaine `points`. Après toute modification d'un `.po` :
+`python3 tools/compile_mo.py` (les `.mo` sont versionnés ; `scripts/check.sh` vérifie qu'ils sont à jour).
+
+## Installer
+
+Copier le dossier sous `plugins/points` de GLPI, puis `php bin/console plugin:install -u <admin> points` et
+`php bin/console plugin:activate points`. L'installation est rejouable et sert de mise à jour. Les droits sont à 0
+pour tous les profils, sauf le Super-Admin ; ils se règlent dans l'onglet « Points » de la fiche Profile.

@@ -1,0 +1,93 @@
+{# Onglet « Points » de la fiche Ticket. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun |raw). #}
+{% import 'components/form/fields_macros.html.twig' as fields %}
+{% import 'components/form/basic_inputs_macros.html.twig' as inputs %}
+
+{% if ambiguous %}
+    <div class="alert alert-warning" id="points-ambiguous">
+        {{ __('Several Points contracts are linked to this ticket: choose the one to debit in the Points tab, or mark the ticket as not billable', 'points') }}
+    </div>
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Points settings of the ticket', 'points') }}</h3>
+    </div>
+    {% if can_edit %}
+        <form method="post" action="{{ form_url }}">
+            {{ fields.hiddenField('tickets_id', tickets_id) }}
+    {% endif %}
+    <div class="card-body">
+        <div class="row">
+            {% if has_candidates %}
+                {{ fields.dropdownArrayField('contracts_id', contract, candidates, __('Points contract (empty: automatic)', 'points'), {
+                    disabled: not can_edit
+                }) }}
+            {% endif %}
+            {{ fields.dropdownArrayField('plugin_points_interventiontypes_id', type, types, __('Intervention type (empty: default)', 'points'), {
+                disabled: not can_edit
+            }) }}
+            {{ fields.dropdownYesNo('is_billable', is_billable, __('Billable', 'points'), {
+                disabled: not can_edit
+            }) }}
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4"><strong>{{ __('Points contract', 'points') }}</strong> : <span id="points-contract">{{ resolved != '' ? resolved : '-' }}</span></div>
+            <div class="col-md-4"><strong>{{ __('Default intervention type', 'points') }}</strong> : {{ default_type }}</div>
+            <div class="col-md-4"><strong>{{ __('Debit moment', 'points') }}</strong> : {{ debit_moment }}</div>
+        </div>
+    </div>
+    {% if can_edit %}
+        <div class="card-footer d-flex flex-row-reverse">
+            {{ inputs.submit('update', _x('button', 'Save'), 1, {class: 'btn btn-primary', icon: 'ti ti-device-floppy'}) }}
+        </div>
+        </form>
+    {% endif %}
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Tasks and points', 'points') }}</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-tasks">
+            <thead>
+                <tr>
+                    <th>{{ __('Task') }}</th>
+                    <th>{{ __('Date') }}</th>
+                    <th>{{ __('Entered duration (min)', 'points') }}</th>
+                    <th>{{ __('Counted duration (min)', 'points') }}</th>
+                    <th>{{ __('Day type', 'points') }}</th>
+                    <th>{{ __('Points', 'points') }}</th>
+                    <th>{{ __('Checks', 'points') }}</th>
+                    <th>{{ __('State', 'points') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.id }}</td>
+                        <td>{{ task.date }}</td>
+                        <td>{{ task.entered }}</td>
+                        <td>{{ task.counted }}</td>
+                        <td>{{ task.daytype }}</td>
+                        <td>{{ task.points }}</td>
+                        <td>{{ task.flags }}</td>
+                        <td>{{ task.state }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="text-muted">{{ __('No task', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="5">{{ __('Total (debited and estimated)', 'points') }}</th>
+                    <th id="points-tasks-total">{{ total }}</th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{% include '@points/flatrate.html.twig' with {flatrate: flatrate} only %}
+{% include '@points/controls.html.twig' with {reviews: reviews, compensations: compensations} only %}
