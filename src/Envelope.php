@@ -107,6 +107,23 @@ class Envelope extends CommonDBTM
         return $input;
     }
 
+    /**
+     * Auteur de l'enveloppe : champ interne, vidé sans droit interne (InternalFields).
+     */
+    public function post_getFromDB()
+    {
+        $this->fields = InternalFields::blank($this->fields, ['users_id' => 0]);
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    public static function unsetUndisclosedFields(&$fields)
+    {
+        parent::unsetUndisclosedFields($fields);
+        InternalFields::unset($fields, ['users_id']);
+    }
+
     public function pre_deleteItem()
     {
         return false;

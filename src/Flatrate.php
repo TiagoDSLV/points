@@ -682,6 +682,7 @@ class Flatrate extends CommonDBTM
             return (int) $row['operations_id'];
         }
         FlatrateRules::assertTransition((string) $row['status'], FlatrateRules::DEBITED);
+        self::assertCandidateContract($row);
         $cents = Money::parse((string) $row['approved_amount']);
         $day   = self::approvalDay($row);
         try {
@@ -720,6 +721,20 @@ class Flatrate extends CommonDBTM
         }
 
         return $debit['operations_id'];
+    }
+
+    /**
+     * Le contrat du forfait doit encore être candidat au débit du ticket (contrat lié, de l'entité du ticket ou récursif d'une entité mère) :
+     * un ticket passé chez un autre client ne débite pas le contrat de l'ancien (cloisonnement, même règle que les tâches : Billing::context).
+     *
+     * @param array<string, mixed> $row
+     * @throws RuleViolation
+     */
+    private static function assertCandidateContract(array $row): void
+    {
+        if (!isset(Billing::context((int) $row['tickets_id'])['candidates'][(int) $row['contracts_id']])) {
+            throw new RuleViolation(RuleViolation::FLATRATE_NO_CONTRACT, 'The contract is no longer a Points contract of the ticket');
+        }
     }
 
     private static function debitedOperation(int $id): int
@@ -769,6 +784,7 @@ class Flatrate extends CommonDBTM
         }
         foreach ($DB->request(['FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticketsId, 'status' => FlatrateRules::APPROVED]]) as $row) {
             try {
+                self::assertCandidateContract($row);
                 Ledger::assertDebitable((int) $row['contracts_id'], [[Money::parse((string) $row['approved_amount']), self::approvalDay($row)]]);
             } catch (RuleViolation $e) {
                 return sprintf(__('The flatrate cannot be debited: %s', 'points'), Billing::describe($e));

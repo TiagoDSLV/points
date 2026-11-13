@@ -25,7 +25,7 @@ Plan validé par le prompt du responsable du 2026-11-12, tant qu'il reste dans c
 | c | Décompte des tâches : quart d'heure, grilles versionnées, types de jour (calendrier natif), moment du débit | fait (relu, banc vert) |
 | d | Forfaits : chiffrage, validation Responsable BU, validation native du client, montant figé | fait (relu, banc vert) |
 | e | Reviews (hors créneau, férié) et compensations | fait (relu, banc vert) |
-| f | Cloisonnement et droits par profil (deux clients au banc) | à faire |
+| f | Cloisonnement et droits par profil (deux clients au banc) | fait (relu, banc vert) |
 | g | Alerte de seuil (notification native) et reporting par la recherche native | à faire |
 | h | Import des soldes initiaux (format CSV proposé, simulation puis application) | à faire |
 | i | PR atheo-assist (fiche 03, suivi point 1, droits proposés, plugins.json) | à faire |

@@ -21,18 +21,38 @@ class Operation extends ReadOnlyRecord
         return 'ti ti-list-details';
     }
 
+    /**
+     * Champs internes d'une opération : vidés sans droit interne (InternalFields).
+     */
+    public function post_getFromDB()
+    {
+        $this->fields = InternalFields::blank($this->fields, ['comment' => '', 'details' => null, 'users_id' => 0, 'operations_id_origin' => 0]);
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    public static function unsetUndisclosedFields(&$fields)
+    {
+        parent::unsetUndisclosedFields($fields);
+        InternalFields::unset($fields, ['comment', 'details', 'users_id', 'operations_id_origin']);
+    }
+
     public function rawSearchOptions()
     {
-        $table = static::getTable();
-
-        return array_merge($this->commonSearchOptions(), [
+        $table   = static::getTable();
+        $options = array_merge($this->commonSearchOptions(), [
             ['id' => '3', 'table' => $table, 'field' => 'type', 'name' => __('Type'), 'datatype' => 'string', 'massiveaction' => false],
             ['id' => '4', 'table' => $table, 'field' => 'amount', 'name' => __('Points', 'points'), 'datatype' => 'decimal', 'massiveaction' => false],
             ['id' => '5', 'table' => $table, 'field' => 'date', 'name' => __('Date'), 'datatype' => 'date', 'massiveaction' => false],
-            ['id' => '6', 'table' => $table, 'field' => 'comment', 'name' => __('Comments'), 'datatype' => 'text', 'massiveaction' => false],
             ['id' => '7', 'table' => $table, 'field' => 'tickets_id', 'name' => __('Ticket'), 'datatype' => 'number', 'massiveaction' => false],
-            ['id' => '8', 'table' => 'glpi_users', 'field' => 'name', 'name' => __('User'), 'datatype' => 'dropdown', 'massiveaction' => false],
         ]);
+        if (InternalFields::allowed()) {
+            $options[] = ['id' => '6', 'table' => $table, 'field' => 'comment', 'name' => __('Comments'), 'datatype' => 'text', 'massiveaction' => false];
+            $options[] = ['id' => '8', 'table' => 'glpi_users', 'field' => 'name', 'name' => __('User'), 'datatype' => 'dropdown', 'massiveaction' => false];
+        }
+
+        return $options;
     }
 
     /**

@@ -880,3 +880,9 @@ msgstr "La tâche n'a pas pu être débitée à cause d'une modification concurr
 
 msgid "The ticket was not closed: a task could not be debited, try again"
 msgstr "Le ticket n'a pas été clos : une tâche n'a pas pu être débitée, réessayez"
+
+msgid "No Points contract in your entities"
+msgstr "Aucun contrat à points dans vos entités"
+
+msgid "The entity of a contract with a Points journal cannot be changed"
+msgstr "L'entité d'un contrat qui a un journal de points ne peut pas changer"

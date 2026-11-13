@@ -22,7 +22,7 @@ Aucune reprise du code, des tables ni des droits du plugin `credit` ; aucune mig
 
 | Besoin | Mécanisme natif de GLPI 12 | Source |
 |---|---|---|
-| Contrat d'un ticket | lien `Ticket_Contract` (`glpi_tickets_contracts`) ; contrat par défaut de l'entité posé à la création du ticket (`_contracts_id`, `Entity::getDefaultContract`) | lu 12.0.1 `src/Ticket_Contract.php:38`, `src/Ticket.php:1533-1540` |
+| Contrat d'un ticket | lien `Ticket_Contract` (`glpi_tickets_contracts`) ; contrat par défaut de l'entité posé à la création du ticket (`_contracts_id`, `Entity::getDefaultContract`) | lu 12.0.1 `src/Ticket_Contract.php:38`, `src/Ticket.php:1533-1540` ; le lien se crée sans contrôle d'entité : candidat au débit seulement s'il est de l'entité du ticket ou récursif d'une entité mère (section « Cloisonnement ») |
 | BU | type de contrat (`contracttypes_id`), décision d'Assist du 07/11/26 (fiche 08) | atheo-assist |
 | Jours fériés, créneaux | calendrier natif : `Calendar::isHoliday`, `isAWorkingHour` ; calendrier = celui du paramétrage, sinon celui de l'entité | lu 12.0.1 `src/Calendar.php:249,409` |
 | Validation client d'un forfait | validation de ticket native (`TicketValidation`, statuts WAITING 2, ACCEPTED 3, REFUSED 4) | lu 12.0.1 `src/CommonITILValidation.php:64-67` |
@@ -169,9 +169,61 @@ les comptes de service : 0 partout.
 | Contrat, onglet « Points » | réglage (grille, seuil), solde, enveloppes, registre ; actions ADV : créer une enveloppe, créditer, corriger, reporter | balance READ ; envelope pour écrire |
 | Ticket, onglet « Points » | contrat Points, type d'intervention, tâches et débits, forfait (chiffrer, soumettre, valider BU, proposer), compensation | ticket, flatrate, compensation |
 | Entité, onglet « Points » | soldes des contrats de l'entité | balance READ |
-| Interface simplifiée (Responsable client) | entrée « Points » du menu (`Hooks::HELPDESK_MENU_ENTRY`) : pour chaque contrat à points de ses entités, solde, enveloppes (échéances) et registre ; pas d'onglet sur la fiche contrat, inaccessible en interface simplifiée (fiche contrat servie par un contrôleur moderne, stratégie par défaut `central_access` qui refuse un profil `helpdesk` : lu 12.0.1 `src/Glpi/Http/Firewall.php:152,170-190`, `src/Session.php:1219-1224`, à confirmer au banc, lot f) | balance READ |
+| Interface simplifiée (Responsable client) | entrée « Points » du menu (`Hooks::HELPDESK_MENU_ENTRY` + icône, `front/points.php`, classe `Simplified`) : pour chaque contrat à points de ses entités actives, solde, enveloppes (échéances, reste) et registre (date, type, points, ticket ; ni auteur ni commentaire) ; lecture seule, aucun formulaire ; pas d'onglet sur la fiche contrat, **refusée en interface simplifiée** (fiche servie par un contrôleur moderne, stratégie par défaut `central_access` qui refuse un profil `helpdesk` : lu 12.0.1 `src/Glpi/Http/Firewall.php:152,170-190`, `src/Session.php:1219-1224` ; **vérifié au banc 12.0.1** : 403 sur `/front/contract.form.php?id=…` pour le profil simplifié, y compris pour son propre contrat, 200 pour le même contrat en interface standard) | balance READ |
 | Outils > Points | liste des contrats à points (recherche native : client, BU, solde, % consommé, prochaine échéance), registre, reviews à contrôler, compensations en attente | selon droit |
 | Configuration > Points | paramétrage, grilles, types d'intervention | config, grid |
+
+## Cloisonnement par entité et par profil (lot f)
+
+Chaque ligne du plugin porte l'entité du contrat, sans récursivité (`is_recursive` = 0) ; toute lecture et toute écriture exige l'accès à cette
+entité (`Session::haveAccessToEntity`, entités actives du profil) EN PLUS du droit de la table « Droits du plugin ». Vérifié au banc 12.0.1
+(`tests/banc/scenario_cloisonnement.py`, profils nommés comme ceux d'Assist, droits relus dans la table ci-dessus ; chaque ensemble de comptes
+qui réussit est comparé à l'ensemble attendu, donc chaque refus a son témoin positif) : getItem, recherche native, getMultipleItems, add / update /
+delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/report.dynamic.php`).
+
+- **Un client ne voit jamais les points de l'autre** : ni par l'API, ni par la recherche, ni par l'export. Le Responsable client joué deux
+  fois (interface standard, décision de principe du responsable, suivi Assist point 50 ; interface simplifiée) voit ses contrats seulement.
+  Le Responsable client de l'interface standard voit l'onglet « Points » de SES contrats seulement (droit natif de lecture du contrat requis).
+- **Interface simplifiée : `Profile::$helpdesk_rights`** (lu 12.0.1 `src/Profile.php:75,674-685`, `src/Session.php:636-641`) : à l'ouverture de
+  session, un profil `helpdesk` perd tout droit qui n'est pas dans cette liste, même enregistré en base. `setup.php` y ajoute
+  `plugin_points_balance` ; sans cela le droit restait à 0 pour le Responsable client en interface simplifiée (défaut trouvé au banc, lot f).
+  Le script `front/points.php` est déclaré en `STRATEGY_HELPDESK_ACCESS` (par défaut un script de plugin est en `STRATEGY_AUTHENTICATED` :
+  `Firewall.php:91,226,261`) : les profils standard n'y accèdent pas (ils ont l'onglet du contrat).
+- **Lien ticket - contrat sans contrôle d'entité** (défaut trouvé au banc) : le cœur crée le lien `Ticket_Contract` sans vérifier l'entité
+  (`_contracts_id` à la création d'un ticket par un Demandeur, API) ; un ticket du client A lié au contrat du client B faisait débiter les
+  points de B. Seul un contrat de l'entité du ticket, ou récursif d'une entité mère, est maintenant candidat au débit
+  (`Billing::context`, `getEntitiesRestrictCriteria` récursif).
+- **Contrat récursif d'une entité mère** (comportement mesuré avant correction, puis règle) : le contrat natif récursif est lisible depuis
+  l'entité fille (droit du cœur). Avant : l'onglet « Points » montrait solde, enveloppes et registre à un compte de l'entité fille, alors que
+  l'API et la recherche le refusaient (lignes du plugin à l'entité de la mère, non récursives) ; et un compte ADV de l'entité fille pouvait
+  créditer, corriger, créer une enveloppe ou reporter sur le journal du contrat de la mère (`Contract::requireContract` ne contrôlait que
+  `Contract::can(READ)`, récursif). Règle retenue : **ni lecture ni écriture des points depuis une entité fille** (onglet masqué, API et
+  recherche refusées, page de l'interface simplifiée sans ce contrat, formulaires d'écriture 403) ; seuls les comptes dont les entités actives
+  contiennent l'entité propre du contrat l'utilisent. Un ticket de l'entité fille lié à ce contrat est débité normalement sur le contrat de la
+  mère (l'opération porte l'entité de la mère). Pour qu'un compte d'une entité fille voie les points, lui donner l'accès à l'entité du contrat,
+  ou créer le contrat dans son entité.
+- **Champs internes du journal** (`InternalFields`) : commentaire ou motif, détails de calcul, auteur et opération corrigée d'une opération, auteur d'une
+  enveloppe ne sont lus qu'avec `plugin_points_envelope` READ ou `plugin_points_review` READ (ADV, Responsable BU, Admin ; ni le Responsable client ni le
+  technicien) ; critère le plus simple, choisi pour ne pas créer de droit. Montant, type, date, contrat, enveloppes et soldes restent lisibles avec
+  `plugin_points_balance`. Mécanismes (lu 12.0.1) : `Operation::unsetUndisclosedFields` et `Envelope::unsetUndisclosedFields` retirent les champs ;
+  l'API v1 l'appelle pour getItem (`src/Glpi/Api/API.php:676`), getItems et ses sous-éléments (`:1386`), les colonnes d'une recherche (`:1823`) et le
+  filtre `searchText` (`:1295` : le champ retiré n'entre pas dans le filtre, qui est ignoré sans erreur, donc aucune sonde possible : mesuré au banc) ;
+  `post_getFromDB` vide les champs pour getMultipleItems et les pages natives (`src/CommonDBTM.php:352,475`) ; les options de recherche 6 (commentaire) et
+  8 (auteur) de l'opération n'existent pas sans le droit (recherche native et export ne connaissent que `rawSearchOptions`,
+  `src/Glpi/Search/SearchOption.php:155-170` ; un critère de la recherche native sur une option absente est refusé, 400) ; l'onglet du contrat n'affiche ni
+  commentaire ni auteur. Historique natif : les objets du plugin n'ont pas d'onglet Historique (`dohistory` faux) ; seuls les changements d'état des
+  reviews et compensations sont écrits dans `glpi_logs` (lisibles avec leur droit, sans page pour le Responsable client) ; l'historique du contrat natif
+  ne contient rien du plugin (vérifié au banc, section 7). Vérifié au banc, mutations à l'appui.
+- **Entité d'un contrat à points** : `Contract::contractPreUpdate` (hook PRE_ITEM_UPDATE sur le contrat natif) refuse tout changement d'`entities_id` d'un
+  contrat qui a une ligne Points (message) : les lignes du journal portent l'entité du contrat et ne se modifient pas. Le transfert natif passe par
+  `$item->update()` (`Transfer::transferItem`, `src/Transfer.php:1240` en 12.0.1) : il est donc refusé aussi (vérifié au banc par `Transfer::moveItems`).
+  Pour changer de client, créer un nouveau contrat et reprendre les soldes par l'import.
+- **Forfait** : avant `Ledger::debit` (et dans le contrôle de clôture), le contrat du forfait doit rester candidat au débit du ticket
+  (`Billing::context`) ; un ticket passé chez un autre client ne débite pas le contrat de l'ancien (refus `flatrate_no_contract`).
+- **Limites connues** : (1) les commentaires des compensations et des reviews restent lisibles avec leur propre droit de lecture (qui s'accompagne du droit
+  interne dans les profils de la table) ; le détail des tâches de l'onglet du ticket reste lu avec `plugin_points_ticket` READ ; (2) l'onglet
+  « Ticket » montre au technicien d'une entité fille le total des points débités par les tâches de son propre ticket sur le contrat de la mère (sans le nom du contrat) ; (3) l'onglet « Points » de
+  l'entité (écran « Entité » ci-dessus) n'est pas réalisé.
 
 ## Paramétrage (`plugin:points`)
 

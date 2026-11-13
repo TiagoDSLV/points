@@ -8,6 +8,7 @@ declare(strict_types=1);
  * JSON {"ok": …} | {"error": …}.
  *
  *   merge : fusion de tickets avec copie des tâches (Ticket::merge, src/Ticket.php:5765), utilisateur « glpi » connecté.
+ *   transfer : transfert natif d'un contrat vers une entité (Transfer::moveItems, src/Transfer.php:175 en 12.0.1), pour le refus d'un changement d'entité.
  *   flatrate_debit : GlpiPlugin\Points\Flatrate::debit(id), pour les débits concurrents d'un même forfait (lot d).
  */
 
@@ -34,6 +35,18 @@ try {
             $status = [];
             $done   = Ticket::merge((int) $request['args'][0], array_map('intval', $request['args'][1]), $status, ['linktypes' => ['TicketTask']]);
             echo "\n" . json_encode(['ok' => ['done' => $done, 'status' => $status]]) . "\n";
+            break;
+        case 'transfer':
+            $user = new User();
+            $user->getFromDBbyName('glpi');
+            $auth = new Auth();
+            $auth->auth_succeded = true;
+            $auth->user          = $user;
+            Session::init($auth);
+            Session::changeActiveEntities('all', true);
+            $transfer = new Transfer();
+            $transfer->moveItems(['Contract' => [(int) $request['args'][0]]], (int) $request['args'][1], []);
+            echo "\n" . json_encode(['ok' => true]) . "\n";
             break;
         case 'flatrate_debit':
             $user = new User();

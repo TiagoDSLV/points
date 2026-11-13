@@ -880,3 +880,9 @@ msgstr "The task could not be debited because of a concurrent change: it will be
 
 msgid "The ticket was not closed: a task could not be debited, try again"
 msgstr "The ticket was not closed: a task could not be debited, try again"
+
+msgid "No Points contract in your entities"
+msgstr "No Points contract in your entities"
+
+msgid "The entity of a contract with a Points journal cannot be changed"
+msgstr "The entity of a contract with a Points journal cannot be changed"

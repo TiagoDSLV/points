@@ -163,11 +163,42 @@ class Contract extends CommonDBTM
         if ($contractsId <= 0 || !$contract->getFromDB($contractsId)) {
             throw new NotFoundHttpException();
         }
-        if (!$contract->can($contractsId, READ)) {
+        // Contrat récursif d'une entité mère : \Contract::can(READ) l'ouvre aux entités filles, mais une écriture du journal
+        // exige l'accès à l'entité DU contrat (non récursif), comme la lecture des lignes du plugin (docs/conception.md, « Contrat récursif »)
+        if (!$contract->can($contractsId, READ) || !self::haveEntityAccess($contract)) {
             throw new AccessDeniedHttpException();
         }
 
         return $contractsId;
+    }
+
+    /**
+     * Hook PRE_ITEM_UPDATE du contrat natif : l'entité d'un contrat qui a une ligne Points ne change pas. Les lignes du journal portent l'entité
+     * du contrat (copie, non récursive) et ne se modifient pas : un changement d'entité (PUT, formulaire, transfert natif : Transfer::transferItem
+     * appelle `$item->update()`, src/Transfer.php:1240 en 12.0.1) les laisserait dans l'ancienne entité, visibles de l'ancien client seul.
+     */
+    public static function contractPreUpdate(\Contract $contract): void
+    {
+        global $DB;
+
+        $input = $contract->input;
+        if (!is_array($input) || !array_key_exists('entities_id', $input) || (int) $input['entities_id'] === (int) ($contract->fields['entities_id'] ?? -1)) {
+            return;
+        }
+        if (count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['contracts_id' => $contract->getID()], 'LIMIT' => 1])) === 0) {
+            return;
+        }
+        $contract->input = false;
+        Session::addMessageAfterRedirect(__s('The entity of a contract with a Points journal cannot be changed', 'points'), false, ERROR);
+    }
+
+    /**
+     * Accès à l'entité propre du contrat (les lignes du plugin portent l'entité du contrat, is_recursive = 0) : un contrat
+     * récursif d'une entité mère ne donne pas accès à ses points depuis une entité fille.
+     */
+    public static function haveEntityAccess(\Contract $contract): bool
+    {
+        return Session::haveAccessToEntity((int) ($contract->fields['entities_id'] ?? -1));
     }
 
     /**
@@ -198,7 +229,7 @@ class Contract extends CommonDBTM
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        if (!$withtemplate && $item instanceof \Contract && $item->getID() > 0 && self::canView() && self::carriesPoints($item)) {
+        if (!$withtemplate && $item instanceof \Contract && $item->getID() > 0 && self::canView() && self::haveEntityAccess($item) && self::carriesPoints($item)) {
             return self::createTabEntry(__('Points', 'points'), 0, $item::class, 'ti ti-coins');
         }
 
@@ -207,7 +238,7 @@ class Contract extends CommonDBTM
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        if (!$item instanceof \Contract || !self::canView() || !$item->can($item->getID(), READ)) {
+        if (!$item instanceof \Contract || !self::canView() || !$item->can($item->getID(), READ) || !self::haveEntityAccess($item)) {
             return false;
         }
         self::showForContract($item);
@@ -229,12 +260,18 @@ class Contract extends CommonDBTM
         return in_array((int) ($contract->fields['contracttypes_id'] ?? 0), Config::value('contracttypes'), true);
     }
 
-    private static function showForContract(\Contract $contract): void
+    /**
+     * Soldes, enveloppes et registre d'un contrat, lus en base (l'appelant a contrôlé l'accès : entité du contrat et droit de lecture).
+     * `$internal` : onglet du contrat (auteur et commentaire de chaque opération, choix pour la correction) ; faux pour l'interface
+     * simplifiée, dont le registre n'expose ni l'auteur ni les notes internes.
+     *
+     * @return array{balance: string, credited: string, consumed: string, envelopes: list<array<string, mixed>>, operations: list<array<string, mixed>>,
+     *               operation_choices: array<int, string>, envelope_choices: array<int, string>}
+     */
+    public static function ledgerView(int $id, bool $internal = true): array
     {
-        global $CFG_GLPI, $DB;
+        global $DB;
 
-        $id        = $contract->getID();
-        $setting   = $DB->request(['FROM' => self::getTable(), 'WHERE' => ['contracts_id' => $id], 'LIMIT' => 1])->current();
         $remaining = Ledger::remainingByEnvelope($id);
 
         $envelopes = [];
@@ -257,16 +294,19 @@ class Contract extends CommonDBTM
             $amount  = Money::format(Money::parse((string) $row['amount']));
             $label   = Operation::typeLabel((string) $row['type']);
             $userId  = (int) $row['users_id'];
-            $users[$userId] ??= $userId > 0 ? getUserName($userId) : '';
-            $operations[] = [
-                'id'      => (int) $row['id'],
-                'date'    => substr((string) $row['date'], 0, 10),
-                'type'    => $label,
-                'amount'  => $amount,
-                'ticket'  => (int) $row['tickets_id'],
-                'comment' => (string) ($row['comment'] ?? ''),
-                'user'    => $users[$userId],
+            $line    = [
+                'id'     => (int) $row['id'],
+                'date'   => substr((string) $row['date'], 0, 10),
+                'type'   => $label,
+                'amount' => $amount,
+                'ticket' => (int) $row['tickets_id'],
             ];
+            if ($internal) {
+                $users[$userId] ??= $userId > 0 ? getUserName($userId) : '';
+                $line['comment'] = (string) ($row['comment'] ?? '');
+                $line['user']    = $users[$userId];
+            }
+            $operations[] = $line;
             $choices[(int) $row['id']] = sprintf('#%d  %s  %s  %s', $row['id'], substr((string) $row['date'], 0, 10), $label, $amount);
         }
 
@@ -276,25 +316,45 @@ class Contract extends CommonDBTM
         }
 
         $cache = Ledger::cached($id);
+
+        return [
+            'balance'           => Money::format($cache['balance']),
+            'credited'          => Money::format($cache['credited']),
+            'consumed'          => Money::format($cache['consumed']),
+            'envelopes'         => $envelopes,
+            'operations'        => $operations,
+            'operation_choices' => $choices,
+            'envelope_choices'  => $envelopeChoices,
+        ];
+    }
+
+    private static function showForContract(\Contract $contract): void
+    {
+        global $CFG_GLPI, $DB;
+
+        $id      = $contract->getID();
+        $setting = $DB->request(['FROM' => self::getTable(), 'WHERE' => ['contracts_id' => $id], 'LIMIT' => 1])->current();
+        $view    = self::ledgerView($id, InternalFields::allowed());
+
         TemplateRenderer::getInstance()->display('@points/contract.html.twig', [
-            'contracts_id'     => $id,
-            'base_url'         => $CFG_GLPI['root_doc'] . '/plugins/points/front/',
-            'can_settings'     => Session::haveRight(Rights::ENVELOPE, UPDATE),
-            'can_create'       => Session::haveRight(Rights::ENVELOPE, CREATE),
-            'can_update'       => Session::haveRight(Rights::ENVELOPE, UPDATE),
-            'setting'          => [
+            'contracts_id'      => $id,
+            'base_url'          => $CFG_GLPI['root_doc'] . '/plugins/points/front/',
+            'can_settings'      => Session::haveRight(Rights::ENVELOPE, UPDATE),
+            'can_create'        => Session::haveRight(Rights::ENVELOPE, CREATE),
+            'can_update'        => Session::haveRight(Rights::ENVELOPE, UPDATE),
+            'setting'           => [
                 'plugin_points_grids_id' => (int) ($setting['plugin_points_grids_id'] ?? 0),
                 'alert_threshold'        => (int) ($setting['alert_threshold'] ?? Config::value('default_alert_threshold')),
                 'is_active'              => (int) ($setting['is_active'] ?? 1),
             ],
-            'grids'            => self::grids(),
-            'balance'          => Money::format($cache['balance']),
-            'credited'         => Money::format($cache['credited']),
-            'consumed'         => Money::format($cache['consumed']),
-            'envelopes'        => $envelopes,
-            'envelope_choices' => $envelopeChoices,
-            'operations'       => $operations,
-            'operation_choices' => $choices,
+            'grids'             => self::grids(),
+            'balance'           => $view['balance'],
+            'credited'          => $view['credited'],
+            'consumed'          => $view['consumed'],
+            'envelopes'         => $view['envelopes'],
+            'envelope_choices'  => $view['envelope_choices'],
+            'operations'        => $view['operations'],
+            'operation_choices' => $view['operation_choices'],
         ]);
     }
 

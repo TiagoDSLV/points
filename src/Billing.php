@@ -78,6 +78,10 @@ final class Billing
                     'glpi_contracts.is_deleted'                  => 0,
                     'glpi_contracts.contracttypes_id'            => $types,
                     'glpi_plugin_points_contracts.is_active'     => 1,
+                    // Cloisonnement : le lien ticket-contrat se crée sans contrôle d'entité (`_contracts_id` à la création d'un ticket,
+                    // API Ticket_Contract) ; seul un contrat de l'entité du ticket, ou récursif d'une entité mère, peut porter un débit.
+                    // Sinon le débit d'un ticket du client A serait pris sur les points du client B (banc, lot f).
+                    getEntitiesRestrictCriteria('glpi_contracts', 'entities_id', $ctx['entities_id'], true),
                 ],
                 'ORDER'      => 'glpi_contracts.id',
             ]);

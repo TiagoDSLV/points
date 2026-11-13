@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Glpi\Http\Firewall;
 use Glpi\Plugin\Hooks;
 use GlpiPlugin\Points\Config;
 use GlpiPlugin\Points\Controls;
@@ -48,7 +49,11 @@ function plugin_init_points(): void
         'TicketTask'       => [ItilHooks::class, 'taskPostPrepareUpdate'],
         'TicketValidation' => [ItilHooks::class, 'validationPostPrepareUpdate'],
     ];
-    $PLUGIN_HOOKS[Hooks::PRE_ITEM_UPDATE]['points']    = ['Ticket' => [ItilHooks::class, 'ticketPreUpdate']];
+    $PLUGIN_HOOKS[Hooks::PRE_ITEM_UPDATE]['points']    = [
+        'Ticket'   => [ItilHooks::class, 'ticketPreUpdate'],
+        // Contrat natif : l'entité d'un contrat à points ne change pas (le transfert natif passe par update(), donc par ce hook)
+        'Contract' => [\GlpiPlugin\Points\Contract::class, 'contractPreUpdate'],
+    ];
     $PLUGIN_HOOKS[Hooks::ITEM_UPDATE]['points']        = [
         'TicketTask' => [ItilHooks::class, 'taskItemUpdate'],
         'Ticket'     => [ItilHooks::class, 'ticketItemUpdate'],
@@ -60,6 +65,22 @@ function plugin_init_points(): void
         'TicketValidation' => [ItilHooks::class, 'validationPrePurge'],
     ];
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['points']         = ['Ticket' => [ItilHooks::class, 'ticketItemPurge']];
+
+    // À l'ouverture de session, un profil de l'interface simplifiée perd tout droit absent de Profile::$helpdesk_rights (src/Profile.php:674-685,
+    // cleanProfile, appelée par Session::changeProfile, src/Session.php:636-641 en 12.0.1) : sans cette ligne, plugin_points_balance reste à 0 pour le
+    // Responsable client en interface simplifiée, même enregistré à 1 en base (constaté au banc, lot f).
+    if (!in_array(Rights::BALANCE, \Profile::$helpdesk_rights, true)) {
+        \Profile::$helpdesk_rights[] = Rights::BALANCE;
+    }
+
+    // Interface simplifiée (Responsable client) : entrée « Points » du menu (src/Html.php:1129-1163 en 12.0.1), avec le droit de lecture des soldes.
+    // Le script front d'un plugin est en STRATEGY_AUTHENTICATED par défaut (src/Glpi/Http/Firewall.php:91,226,261) : la page est réservée au profil
+    // de l'interface simplifiée (STRATEGY_HELPDESK_ACCESS) ; les profils standard ont l'onglet du contrat. Le droit est contrôlé par la page.
+    Firewall::addPluginStrategyForLegacyScripts('points', '#^/front/points\.php(/.*)?$#', Firewall::STRATEGY_HELPDESK_ACCESS);
+    if (Session::haveRight(Rights::BALANCE, READ)) {
+        $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY]['points']      = '/front/points.php';
+        $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY_ICON]['points'] = 'ti ti-coins';
+    }
 
     // Lien de configuration dans la liste des plugins
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['points'] = 'front/config.form.php';

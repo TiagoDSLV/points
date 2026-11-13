@@ -1,0 +1,68 @@
+{# Page « Points » de l'interface simplifiée : lecture seule, aucun formulaire. GLPI 12 : tout est échappé par Twig (aucun filtre de désactivation de l'échappement). #}
+{% for contract in contracts %}
+    <div class="card mb-3 points-contract" data-contract="{{ contract.id }}">
+        <div class="card-header">
+            <h3 class="card-title">{{ contract.name }}{% if contract.num %} ({{ contract.num }}){% endif %}</h3>
+            <div class="card-subtitle text-muted ms-3">{{ contract.entity }}</div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4"><strong>{{ __('Balance', 'points') }}</strong> : <span class="points-balance">{{ contract.ledger.balance }}</span></div>
+                <div class="col-md-4"><strong>{{ __('Credited', 'points') }}</strong> : {{ contract.ledger.credited }}</div>
+                <div class="col-md-4"><strong>{{ __('Consumed', 'points') }}</strong> : {{ contract.ledger.consumed }}</div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm card-table points-envelopes">
+                <thead>
+                    <tr>
+                        <th>{{ __('Name') }}</th>
+                        <th>{{ __('Begin date') }}</th>
+                        <th>{{ __('End date') }}</th>
+                        <th>{{ __('Initial credit', 'points') }}</th>
+                        <th>{{ __('Remaining', 'points') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for envelope in contract.ledger.envelopes %}
+                        <tr>
+                            <td>{{ envelope.name }}</td>
+                            <td>{{ envelope.begin }}</td>
+                            <td>{{ envelope.end }}</td>
+                            <td>{{ envelope.credit }}</td>
+                            <td>{{ envelope.remaining }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="text-muted">{{ __('No envelope', 'points') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm card-table points-ledger">
+                <thead>
+                    <tr>
+                        <th>{{ __('Date') }}</th>
+                        <th>{{ __('Type') }}</th>
+                        <th>{{ __('Points', 'points') }}</th>
+                        <th>{{ __('Ticket') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for operation in contract.ledger.operations %}
+                        <tr>
+                            <td>{{ operation.date }}</td>
+                            <td>{{ operation.type }}</td>
+                            <td>{{ operation.amount }}</td>
+                            <td>{{ operation.ticket > 0 ? '#' ~ operation.ticket : '' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-muted">{{ __('No operation', 'points') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-info" id="points-none">{{ __('No Points contract in your entities', 'points') }}</div>
+{% endfor %}
