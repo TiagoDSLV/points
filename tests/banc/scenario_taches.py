@@ -118,7 +118,7 @@ def debits(ticket):
 ancien = {c: une(f"SELECT value FROM glpi_configs WHERE context = 'plugin:points' AND name = '{c}'")
           for c in ("contracttypes", "debit_moment", "allow_overdraft", "calendars_id", "default_interventiontypes_id")}
 droits_origine = {n: une(f"SELECT rights FROM glpi_profilerights WHERE name = '{n}' AND profiles_id = "
-                         "(SELECT id FROM glpi_profiles WHERE name = 'Super-Admin')") for n in ("plugin_points_grid", "plugin_points_ticket", "plugin_points_config", "plugin_points_review", "plugin_points_compensation")}
+                         "(SELECT id FROM glpi_profiles WHERE name = 'Super-Admin')") for n in ("plugin_points_grid", "plugin_points_ticket", "plugin_points_config", "plugin_points_review", "plugin_points_compensation", "plugin_points_balance")}
 
 # Hypothèse explicite : un autre scénario ne laisse pas d'opération de tâche synthétique dont l'id pourrait coïncider avec
 # celui d'une vraie tâche (le débit d'une tâche déjà référencée par le journal est, à raison, refusé comme déjà débité)
@@ -584,8 +584,8 @@ v("(13c) témoin : ticket sans débit purgé, son réglage Points nettoyé",
 
 # --- (13d) menu Configuration > Points : droit config OU grille
 def menu_points(config_droit, grille_droit, review_droit=0, compensation_droit=0):
-    # Outils > Points (reviews, compensations, lot e) a ses propres droits : à 0 pour ne juger ici que l'entrée Configuration
-    droits_super_admin(plugin_points_config=config_droit, plugin_points_grid=grille_droit,
+    # Outils > Points (contrats à points, lot g ; reviews, compensations, lot e) a ses propres droits : à 0 pour ne juger ici que l'entrée Configuration
+    droits_super_admin(plugin_points_config=config_droit, plugin_points_grid=grille_droit, plugin_points_balance=0,
                        plugin_points_review=review_droit, plugin_points_compensation=compensation_droit)
     w = banc.Web()
     code, page = w.get("/front/central.php")
@@ -597,16 +597,17 @@ v("(13d) droit config seul : entrée de menu visible, configuration ouverte, gri
 v("(13d) témoin : aucun des deux droits, pas d'entrée de menu", menu_points(0, 0)[:2], (200, False))
 
 
-def menu_outils(review_droit, compensation_droit):
+def menu_outils(review_droit, compensation_droit, balance_droit=0):
     """(code, lien vers les reviews, lien vers les compensations) de la page d'accueil, avec ces seuls droits de lecture."""
-    droits_super_admin(plugin_points_review=review_droit, plugin_points_compensation=compensation_droit)
+    droits_super_admin(plugin_points_review=review_droit, plugin_points_compensation=compensation_droit, plugin_points_balance=balance_droit)
     code, page = banc.Web().get("/front/central.php")
-    return code, "plugins/points/front/review.php" in page, "plugins/points/front/compensation.php" in page
+    return code, "plugins/points/front/review.php" in page, "plugins/points/front/compensation.php" in page, "plugins/points/front/contract.php" in page
 
 
-v("(13d) droit de lecture des reviews seul : entrée Outils > Points avec les reviews seulement", menu_outils(1, 0), (200, True, False))
-v("(13d) droit de lecture des compensations seul : entrée Outils > Points avec les compensations seulement", menu_outils(0, 1), (200, False, True))
-v("(13d) témoin : aucun des deux droits de contrôle, pas d'entrée Outils > Points", menu_outils(0, 0), (200, False, False))
+v("(13d) droit de lecture des reviews seul : entrée Outils > Points avec les reviews seulement", menu_outils(1, 0), (200, True, False, False))
+v("(13d) droit de lecture des compensations seul : entrée Outils > Points avec les compensations seulement", menu_outils(0, 1), (200, False, True, False))
+v("(13d) témoin : aucun des deux droits de contrôle, pas d'entrée Outils > Points", menu_outils(0, 0), (200, False, False, False))
+v("(13d) droit de lecture des soldes seul : entrée Outils > Points avec la liste des contrats seulement (lot g)", menu_outils(0, 0, 1), (200, False, False, True))
 for nom, valeur in droits_origine.items():
     droit(nom, valeur)
 

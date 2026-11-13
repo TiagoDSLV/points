@@ -26,8 +26,9 @@ function plugin_init_points(): void
 
     // Onglet « Points » sur la fiche Profile (src/Plugin.php:1679 registerClass, 'addtabon')
     Plugin::registerClass(Profile::class, ['addtabon' => \Profile::class]);
-    // Onglet « Points » sur la fiche Contract (le contrat du cœur est \Contract ; celui du plugin porte le même nom court)
-    Plugin::registerClass(\GlpiPlugin\Points\Contract::class, ['addtabon' => \Contract::class]);
+    // Onglet « Points » sur la fiche Contract (le contrat du cœur est \Contract ; celui du plugin porte le même nom court) et sur la fiche Entity
+    // et notification du seuil d'alerte (NotificationTargetContract)
+    Plugin::registerClass(\GlpiPlugin\Points\Contract::class, ['addtabon' => [\Contract::class, \Entity::class], 'notificationtemplates_types' => true]);
 
     // Notifications natives des forfaits (NotificationTargetFlatrate) : la classe du forfait est déclarée au cœur
     Plugin::registerClass(\GlpiPlugin\Points\Flatrate::class, ['notificationtemplates_types' => true]);
@@ -82,15 +83,18 @@ function plugin_init_points(): void
         $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY_ICON]['points'] = 'ti ti-coins';
     }
 
+    // Options de recherche ajoutées au Contract et à l'Entity : en cache statique pour le processus, vidées quand le profil change (SearchOptions)
+    $PLUGIN_HOOKS[Hooks::CHANGE_PROFILE]['points'] = [\GlpiPlugin\Points\SearchOptions::class, 'resetCache'];
+
     // Lien de configuration dans la liste des plugins
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['points'] = 'front/config.form.php';
 
     // Configuration > Points, avec le droit de lecture du paramétrage ou des grilles ; Outils > Points (reviews à
-    // contrôler, compensations en attente), avec l'un des deux droits de lecture. Chaque page contrôle son droit.
+    // contrôler, compensations en attente) et portefeuille de contrats, avec l'un des trois droits de lecture. Chaque page contrôle son droit.
     if (Session::haveRight(Rights::CONFIG, READ) || Session::haveRight(Rights::GRID, READ)) {
         $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points']['config'] = Config::class;
     }
-    if (Session::haveRight(Rights::REVIEW, READ) || Session::haveRight(Rights::COMPENSATION, READ)) {
+    if (Session::haveRight(Rights::BALANCE, READ) || Session::haveRight(Rights::REVIEW, READ) || Session::haveRight(Rights::COMPENSATION, READ)) {
         $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points']['tools'] = Controls::class;
     }
 }

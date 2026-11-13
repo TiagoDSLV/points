@@ -74,6 +74,7 @@ v("(i) plugin activé dans glpi_plugins", clients, "1")
 
 FLAT = r"'GlpiPlugin\\Points\\Flatrate'"
 COMP = r"'GlpiPlugin\\Points\\Compensation'"
+THR = r"'GlpiPlugin\\Points\\Contract'"
 
 
 def notifs_forfait():
@@ -103,6 +104,28 @@ def notifs_compensation():
 # Notification native de la décision d'une compensation (lot e) : un événement, cible = auteur de la demande (3)
 v("(i) notification des compensations : un événement actif par courriel, cible auteur (3)",
   notifs_compensation(), ([["compensation_decided", "1", "mailing", "1", "3"]], ["1", "1"]))
+
+
+
+def notifs_seuil():
+    """Notification du seuil d'alerte (lot g) : (événement, actif, mode, type de cible, cible), modèle FR/EN par défaut (balises du modèle)."""
+    lignes = sql(f"SELECT n.event, n.is_active, l.mode, t.type, t.items_id FROM glpi_notifications n "
+                 f"JOIN glpi_notifications_notificationtemplates l ON l.notifications_id = n.id "
+                 f"JOIN glpi_notificationtargets t ON t.notifications_id = n.id WHERE n.itemtype = {THR} ORDER BY n.event")
+    balises = ("contract", "client", "balance", "percent", "threshold", "expiry")
+    modeles = sql(f"SELECT COUNT(*), SUM(tr.language = '' AND " + " AND ".join(f"tr.content_text LIKE '%##points.{b}##%' AND tr.content_html LIKE '%##lang.points.{b}##%'" for b in balises) +
+                  f") FROM glpi_notificationtemplates m JOIN glpi_notificationtemplatetranslations tr ON tr.notificationtemplates_id = m.id WHERE m.itemtype = {THR}")[0]
+    return lignes, modeles
+
+
+# Notification du seuil (lot g) : un événement actif par courriel, cible par défaut = administrateur de l'entité (11), les six balises du cahier des charges
+v("(i) notification du seuil : un événement actif par courriel, cible administrateur de l'entité (11), balises du modèle",
+  notifs_seuil(), ([["threshold", "1", "mailing", "1", "11"]], ["1", "1"]))
+v("(i) actions automatiques : pointsexpire et pointsalert, quotidiennes",
+  sql("SELECT name, frequency, state FROM glpi_crontasks WHERE itemtype LIKE 'GlpiPlugin%Points%Cron' ORDER BY name"), [["pointsalert", "86400", "1"], ["pointsexpire", "86400", "1"]])
+v("(i) colonnes de recherche du cache et préférences d'affichage de la liste des contrats",
+  (sql("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'glpi' AND table_name = 'glpi_plugin_points_contracts' AND column_name IN ('next_expiry', 'consumed_pct')")[0][0],
+   [r[0] for r in sql(f"SELECT num FROM glpi_displaypreferences WHERE itemtype = {THR} AND users_id = 0 ORDER BY rank")]), ("2", ["10", "80", "11", "3", "4", "5", "8", "9", "12"]))
 
 # --- (ii) droits : Super-Admin tout, les autres 0
 d0 = droits()
@@ -134,6 +157,9 @@ v("(iii) notifications des forfaits : rejeu sans doublon, réglage de l'administ
   ("2", "1", [["renommée par l'admin", "0"]]))
 v("(iii) notification des compensations : rejeu sans doublon",
   (sql(f"SELECT COUNT(*) FROM glpi_notifications WHERE itemtype = {COMP}")[0][0], sql(f"SELECT COUNT(*) FROM glpi_notificationtemplates WHERE itemtype = {COMP}")[0][0]), ("1", "1"))
+v("(iii) notification et préférences d'affichage du seuil : rejeu sans doublon",
+  (sql(f"SELECT COUNT(*) FROM glpi_notifications WHERE itemtype = {THR}")[0][0], sql(f"SELECT COUNT(*) FROM glpi_notificationtemplates WHERE itemtype = {THR}")[0][0],
+   sql(f"SELECT COUNT(*) FROM glpi_displaypreferences WHERE itemtype = {THR}")[0][0], sql("SELECT COUNT(*) FROM glpi_crontasks WHERE name = 'pointsalert'")[0][0]), ("1", "1", "9", "1"))
 sql_ecrire(f"UPDATE glpi_notifications SET is_active = 1, name = 'Points: flatrate decision' WHERE itemtype = {FLAT} AND event = 'flatrate_decided';")
 v("(iii) droits inchangés après rejeu (modifications conservées)", apres_droits, avant_droits)
 v("(iii) Technician garde son droit modifié", apres_droits[("Technician", "plugin_points_balance")], 1)
@@ -288,11 +314,11 @@ def objets_plugin():
     return {t: sql(f"SELECT COUNT(*) FROM {t} WHERE itemtype LIKE {LIKE}")[0][0] for t in OBJETS}
 
 
-# Les notifications des forfaits (1 modèle, 2 notifications) et des compensations (1 modèle, 1 notification) s'ajoutent à l'objet de test
+# Les notifications des forfaits (1 modèle, 2 notifications), des compensations et du seuil (1 modèle, 1 notification chacun) et les 9 préférences d'affichage de la liste des contrats s'ajoutent à l'objet de test
 v("(iv) témoin : un objet du plugin dans chaque table avant désinstallation (et les notifications des forfaits et des compensations)", objets_plugin(),
-  {t: ("3" if t == "glpi_notificationtemplates" else "4" if t == "glpi_notifications" else "1") for t in OBJETS})
-ids_notif = [r[0] for r in sql(f"SELECT id FROM glpi_notifications WHERE itemtype IN ({FLAT}, {COMP})")]
-ids_modele = [r[0] for r in sql(f"SELECT id FROM glpi_notificationtemplates WHERE itemtype IN ({FLAT}, {COMP})")]
+  {t: ("4" if t == "glpi_notificationtemplates" else "5" if t == "glpi_notifications" else "10" if t == "glpi_displaypreferences" else "1") for t in OBJETS})
+ids_notif = [r[0] for r in sql(f"SELECT id FROM glpi_notifications WHERE itemtype IN ({FLAT}, {COMP}, {THR})")]
+ids_modele = [r[0] for r in sql(f"SELECT id FROM glpi_notificationtemplates WHERE itemtype IN ({FLAT}, {COMP}, {THR})")]
 liens_notif = lambda: sql(f"SELECT (SELECT COUNT(*) FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id IN ({','.join(ids_modele)})), "
                           f"(SELECT COUNT(*) FROM glpi_notificationtargets WHERE notifications_id IN ({','.join(ids_notif)})), "
                           f"(SELECT COUNT(*) FROM glpi_notifications_notificationtemplates WHERE notifications_id IN ({','.join(ids_notif)}))")[0]

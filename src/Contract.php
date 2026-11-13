@@ -7,8 +7,10 @@ namespace GlpiPlugin\Points;
 use CommonDBTM;
 use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\DBAL\QuerySubQuery;
 use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\NotFoundHttpException;
+use Glpi\Search\DefaultSearchRequestInterface;
 use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\RuleViolation;
 use Session;
@@ -23,7 +25,7 @@ use Session;
  * d'alerte et l'état actif se modifient (droit plugin_points_envelope UPDATE). Lecture : droit plugin_points_balance
  * et accès à l'entité, sans exiger le droit du cœur sur les contrats.
  */
-class Contract extends CommonDBTM
+class Contract extends CommonDBTM implements DefaultSearchRequestInterface
 {
     use ProtectsFields;
 
@@ -32,14 +34,14 @@ class Contract extends CommonDBTM
 
     public bool $dohistory = false;
 
-    private const FROZEN = ['contracts_id', 'entities_id', 'is_recursive', 'balance', 'credited', 'consumed', 'date_cache', 'date_creation'];
+    private const FROZEN = ['contracts_id', 'entities_id', 'is_recursive', 'balance', 'credited', 'consumed', 'next_expiry', 'consumed_pct', 'date_cache', 'date_creation'];
 
     /** Opérations proposées à la correction et lignes du registre affichées. */
     private const LIST_LIMIT = 200;
 
     public static function getTypeName($nb = 0)
     {
-        return __('Points contract', 'points');
+        return $nb > 1 ? __('Points contracts', 'points') : __('Points contract', 'points');
     }
 
     public static function getIcon()
@@ -126,11 +128,55 @@ class Contract extends CommonDBTM
         return $input;
     }
 
+    /**
+     * Un seuil modifié efface l'alerte mémorisée : le contrat est réévalué au prochain passage de `pointsalert` avec son nouveau seuil (relevé :
+     * pas d'alerte tant qu'il n'est pas atteint ; abaissé sous la consommation : alerte au prochain passage).
+     */
+    public function post_updateItem($history = true)
+    {
+        if (in_array('alert_threshold', $this->updates ?? [], true)) {
+            ThresholdAlert::clear((int) $this->getID());
+        }
+    }
+
     public function pre_deleteItem()
     {
         return false;
     }
 
+    /**
+     * Critères ajoutés par le moteur de recherche à la table des lignes Points (src/Glpi/Search/Provider/SQLProvider.php:1166 en 12.0.1) :
+     * la liste « Contrats à points » ne montre ni les contrats natifs à la corbeille ni les modèles.
+     *
+     * @return array<int|string, mixed>
+     */
+    public static function getSystemSQLCriteria(?string $tablename = null): array
+    {
+        $table = $tablename ?? static::getTable();
+
+        return ['NOT' => ["$table.contracts_id" => new QuerySubQuery([
+            'SELECT' => ['id'],
+            'FROM'   => 'glpi_contracts',
+            'WHERE'  => ['OR' => ['is_deleted' => 1, 'is_template' => 1]],
+        ])]];
+    }
+
+    /**
+     * Liste « Outils > Points > Contrats à points » (portefeuille) : triée par pourcentage consommé décroissant.
+     *
+     * @return array<string, mixed>
+     */
+    public static function getDefaultSearchRequest(): array
+    {
+        return ['sort' => 8, 'order' => 'DESC'];
+    }
+
+    /**
+     * Options de recherche du portefeuille : client (entité du contrat), BU (type du contrat), grille, solde, crédité, consommé,
+     * % consommé et prochaine échéance sont des colonnes réelles du cache (filtre et tri natifs, recalculées par Ledger). Aucun champ
+     * interne (commentaires, auteurs) : le cloisonnement par entité est celui du moteur de recherche (entité propre du contrat, lignes
+     * non récursives).
+     */
     public function rawSearchOptions()
     {
         $table = static::getTable();
@@ -143,7 +189,14 @@ class Contract extends CommonDBTM
             ['id' => '5', 'table' => $table, 'field' => 'consumed', 'name' => __('Consumed', 'points'), 'datatype' => 'decimal', 'massiveaction' => false],
             ['id' => '6', 'table' => $table, 'field' => 'alert_threshold', 'name' => __('Alert threshold (%)', 'points'), 'datatype' => 'number', 'massiveaction' => false],
             ['id' => '7', 'table' => $table, 'field' => 'is_active', 'name' => __('Active'), 'datatype' => 'bool', 'massiveaction' => false],
-            ['id' => '80', 'table' => 'glpi_entities', 'field' => 'completename', 'name' => __('Entity'), 'massiveaction' => false, 'datatype' => 'dropdown'],
+            ['id' => '8', 'table' => $table, 'field' => 'consumed_pct', 'name' => __('Consumed (%)', 'points'), 'datatype' => 'decimal', 'massiveaction' => false],
+            ['id' => '9', 'table' => $table, 'field' => 'next_expiry', 'name' => __('Next expiry', 'points'), 'datatype' => 'date', 'massiveaction' => false],
+            ['id' => '10', 'table' => 'glpi_contracts', 'field' => 'name', 'name' => __('Contract'), 'datatype' => 'itemlink', 'itemlink_type' => \Contract::class, 'massiveaction' => false],
+            // BU = type du contrat natif (décision d'Assist du 07/11/26) : jointure par le contrat
+            ['id' => '11', 'table' => 'glpi_contracttypes', 'field' => 'name', 'name' => __('BU (contract type)', 'points'), 'datatype' => 'dropdown', 'massiveaction' => false,
+                'joinparams' => ['beforejoin' => ['table' => 'glpi_contracts']]],
+            ['id' => '12', 'table' => 'glpi_plugin_points_grids', 'field' => 'name', 'name' => __('Grid', 'points'), 'datatype' => 'dropdown', 'massiveaction' => false],
+            ['id' => '80', 'table' => 'glpi_entities', 'field' => 'completename', 'name' => __('Client (entity)', 'points'), 'massiveaction' => false, 'datatype' => 'dropdown'],
         ];
     }
 
@@ -229,6 +282,14 @@ class Contract extends CommonDBTM
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        if (!$withtemplate && $item instanceof \Entity) {
+            // Fiche Entity : les contrats à points de l'entité elle-même (entité propre, pas ses sous-entités ni un contrat d'une entité mère).
+            // L'accès à l'entité est celui de la fiche (Entity::canViewItem = Session::haveAccessToEntity, src/Entity.php:336-339 en 12.0.1) :
+            // un contrôle de plus ici serait redondant (mutation non détectable au banc)
+            $count = $item->getID() >= 0 && self::canView() ? self::countInEntity($item->getID()) : 0;
+
+            return $count > 0 ? self::createTabEntry(__('Points', 'points'), $count, $item::class, 'ti ti-coins') : '';
+        }
         if (!$withtemplate && $item instanceof \Contract && $item->getID() > 0 && self::canView() && self::haveEntityAccess($item) && self::carriesPoints($item)) {
             return self::createTabEntry(__('Points', 'points'), 0, $item::class, 'ti ti-coins');
         }
@@ -238,12 +299,81 @@ class Contract extends CommonDBTM
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
+        if ($item instanceof \Entity) {
+            // can(READ) de l'entité = accès à l'entité (Entity::canViewItem, src/Entity.php:336-339 en 12.0.1) ; les lignes lues sont celles de CETTE entité
+            if (!self::canView() || $item->getID() < 0 || !$item->can($item->getID(), READ)) {
+                return false;
+            }
+            self::showForEntity($item);
+
+            return true;
+        }
         if (!$item instanceof \Contract || !self::canView() || !$item->can($item->getID(), READ) || !self::haveEntityAccess($item)) {
             return false;
         }
         self::showForContract($item);
 
         return true;
+    }
+
+    private static function countInEntity(int $entityId): int
+    {
+        global $DB;
+
+        $table = self::getTable();
+
+        // Contrats natifs à la corbeille ou modèles exclus (comme la liste de l'onglet et la liste « Contrats à points »)
+        return count($DB->request([
+            'SELECT'     => ["$table.id"],
+            'FROM'       => $table,
+            'INNER JOIN' => ['glpi_contracts' => ['ON' => [$table => 'contracts_id', 'glpi_contracts' => 'id']]],
+            'WHERE'      => ["$table.entities_id" => $entityId, 'glpi_contracts.is_deleted' => 0, 'glpi_contracts.is_template' => 0],
+        ]));
+    }
+
+    /**
+     * Contrats à points d'une entité (entité propre du contrat), avec les colonnes du cache, du plus consommé au moins consommé ; le lien vers
+     * la fiche du contrat n'est donné qu'à qui peut la lire. L'appelant a contrôlé l'accès à l'entité et le droit de lecture des soldes.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function entityRows(int $entityId): array
+    {
+        global $DB;
+
+        $table = self::getTable();
+        $rows  = [];
+        foreach ($DB->request([
+            'SELECT'     => ['glpi_contracts.id AS contract', 'glpi_contracts.name AS name', 'glpi_contracttypes.name AS bu', "$table.balance AS balance", "$table.credited AS credited",
+                "$table.consumed AS consumed", "$table.consumed_pct AS pct", "$table.alert_threshold AS threshold", "$table.next_expiry AS expiry", "$table.is_active AS active"],
+            'FROM'       => $table,
+            'INNER JOIN' => ['glpi_contracts' => ['ON' => [$table => 'contracts_id', 'glpi_contracts' => 'id']]],
+            'LEFT JOIN'  => ['glpi_contracttypes' => ['ON' => ['glpi_contracts' => 'contracttypes_id', 'glpi_contracttypes' => 'id']]],
+            'WHERE'      => ["$table.entities_id" => $entityId, 'glpi_contracts.is_deleted' => 0, 'glpi_contracts.is_template' => 0],
+            'ORDER'      => ["$table.consumed_pct DESC", 'glpi_contracts.name', 'glpi_contracts.id'],
+        ]) as $row) {
+            $native = new \Contract();
+            $link   = $native->can((int) $row['contract'], READ) ? $native->getFormURLWithID((int) $row['contract']) : '';
+            $rows[] = [
+                'name'      => (string) $row['name'],
+                'bu'        => (string) ($row['bu'] ?? ''),
+                'balance'   => Money::format(Money::parse((string) $row['balance'])),
+                'credited'  => Money::format(Money::parse((string) $row['credited'])),
+                'consumed'  => Money::format(Money::parse((string) $row['consumed'])),
+                'pct'       => (string) $row['pct'],
+                'threshold' => (int) $row['threshold'],
+                'expiry'    => (string) ($row['expiry'] ?? ''),
+                'active'    => (int) $row['active'] === 1,
+                'url'       => $link,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private static function showForEntity(\Entity $entity): void
+    {
+        TemplateRenderer::getInstance()->display('@points/entity.html.twig', ['contracts' => self::entityRows($entity->getID())]);
     }
 
     /**

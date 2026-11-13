@@ -35,6 +35,9 @@ final class Install
     /** Nom du modèle de notification des compensations. */
     private const COMPENSATION_TEMPLATE_NAME = 'Points: compensation';
 
+    /** Nom du modèle de notification du seuil d'alerte. */
+    private const THRESHOLD_TEMPLATE_NAME = 'Points: threshold';
+
     /** Motif LIKE des classes du plugin (le séparateur de l'espace de noms est doublé : échappement LIKE). */
     private const LIKE_CLASSES = 'GlpiPlugin\\\\Points\\\\%';
 
@@ -116,10 +119,14 @@ final class Install
                     'credited'               => $amt,
                     'consumed'               => $amt,
                     'date_cache'             => $ts,
+                    // Colonnes de recherche (filtre et tri natifs), recalculées avec le cache par Ledger (même transaction) et recomputeCache
+                    'next_expiry'            => $date, // plus petite échéance d'un lot au reste > 0
+                    'consumed_pct'           => 'decimal(8,2) NOT NULL DEFAULT 0.00', // consumed / credited du cache, en %
                 ] + $stamps,
                 'keys' => [
                     $unique('contracts_id', 'contracts_id'),
-                    $idx('plugin_points_grids_id'), $idx('entities_id'), $idx('is_active'), $idx('date_creation'), $idx('date_mod'),
+                    $idx('plugin_points_grids_id'), $idx('entities_id'), $idx('is_active'), $idx('balance'), $idx('consumed_pct'),
+                    $idx('next_expiry'), $idx('date_creation'), $idx('date_mod'),
                 ],
             ],
             'glpi_plugin_points_envelopes' => [
@@ -300,6 +307,7 @@ final class Install
         $charset   = DBConnection::getDefaultCharset();
         $collation = DBConnection::getDefaultCollation();
 
+        $backfill = false;
         foreach (self::schema(DBConnection::getDefaultPrimaryKeySignOption()) as $table => $spec) {
             if (!$DB->tableExists($table, false)) {
                 $migration->displayMessage("Création de $table");
@@ -310,6 +318,7 @@ final class Install
             foreach ($spec['columns'] as $field => $definition) {
                 if (!$DB->fieldExists($table, $field, false)) {
                     $migration->addField($table, $field, $definition);
+                    $backfill = $backfill || ($table === 'glpi_plugin_points_contracts' && in_array($field, ['next_expiry', 'consumed_pct'], true));
                 }
             }
             foreach ($spec['keys'] as [$type, $name, $columns]) {
@@ -324,11 +333,21 @@ final class Install
             $DB->doQuery('ALTER TABLE `glpi_plugin_points_operations` MODIFY `date` date DEFAULT NULL');
         }
 
+        // Colonnes de recherche du cache (lot g, `next_expiry`, `consumed_pct`) : remplies depuis le journal SEULEMENT quand ce passage vient de les
+        // ajouter à une table qui existait déjà (un rejeu ne réécrit rien : un contrat aux lots épuisés a légitimement une échéance NULL). Une
+        // migration interrompue entre l'ajout et la reprise se rattrape par `Ledger::recomputeCache` (et la prochaine écriture du journal du contrat recalcule de toute façon ces colonnes).
+        if ($backfill) {
+            foreach ($DB->request(['SELECT' => ['contracts_id'], 'FROM' => 'glpi_plugin_points_contracts']) as $row) {
+                Ledger::recomputeCache((int) $row['contracts_id']);
+            }
+        }
+
         $assistance = self::seedInterventionTypes();
         self::seedConfig($assistance);
         self::seedRights();
         self::registerCronTasks();
         self::seedNotifications();
+        self::seedDisplay();
 
         return true;
     }
@@ -372,6 +391,21 @@ final class Install
             '##lang.compensation.url## : ##compensation.url##',
         ], [
             'compensation_decided' => ['Points: compensation decision', Notification::AUTHOR],
+        ]);
+        // Seuil d'alerte : destinataire par défaut = administrateur de l'entité du contrat (question 4 du cahier des charges)
+        self::seedNotificationSet(Contract::class, self::THRESHOLD_TEMPLATE_NAME, '##points.action## - ##points.contract## (##points.client##)', [
+            '##points.action##',
+            '##lang.points.contract## : ##points.contract##',
+            '##lang.points.client## : ##points.client##',
+            '##lang.points.balance## : ##points.balance##',
+            '##lang.points.credited## : ##points.credited##',
+            '##lang.points.consumed## : ##points.consumed##',
+            '##lang.points.percent## : ##points.percent## %',
+            '##lang.points.threshold## : ##points.threshold## %',
+            '##lang.points.expiry## : ##points.expiry##',
+            '##lang.points.url## : ##points.url##',
+        ], [
+            ThresholdAlert::EVENT => ['Points: threshold reached', Notification::ENTITY_ADMINISTRATOR],
         ]);
     }
 
@@ -418,13 +452,35 @@ final class Install
     }
 
     /**
-     * Actions automatiques : `pointsexpire` (quotidienne). Rejouable : CronTask::register ne recrée pas une tâche
+     * Colonnes par défaut de la liste « Contrats à points » (préférence globale d'affichage, users_id 0) : contrat, client, BU, solde, crédité,
+     * consommé, % consommé, prochaine échéance, grille. Semées seulement si la liste n'a aucune préférence globale (jamais réécrites : un
+     * administrateur peut les changer).
+     */
+    private static function seedDisplay(): void
+    {
+        global $DB;
+
+        $where = ['itemtype' => Contract::class, 'users_id' => 0, 'interface' => 'central'];
+        if (count($DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_displaypreferences', 'WHERE' => $where, 'LIMIT' => 1])) > 0) {
+            return;
+        }
+        foreach ([10, 80, 11, 3, 4, 5, 8, 9, 12] as $rank => $num) {
+            $DB->insert('glpi_displaypreferences', $where + ['num' => $num, 'rank' => $rank + 1]);
+        }
+    }
+
+    /**
+     * Actions automatiques : `pointsexpire` et `pointsalert` (quotidiennes). Rejouable : CronTask::register ne recrée pas une tâche
      * existante (src/CronTask.php:1084 en 12.0.1 : doublon évité, renvoie false), et ne touche pas à ses réglages.
      */
     private static function registerCronTasks(): void
     {
         CronTask::register(Cron::class, Cron::EXPIRE, DAY_TIMESTAMP, [
             'comment' => 'Expire or carry over the points of ended lots (docs/conception.md, rule 8)',
+            'state'   => CronTask::STATE_WAITING,
+        ]);
+        CronTask::register(Cron::class, Cron::ALERT, DAY_TIMESTAMP, [
+            'comment' => 'Notify the contracts that reached their points alert threshold (docs/conception.md, rule 12)',
             'state'   => CronTask::STATE_WAITING,
         ]);
     }
@@ -536,7 +592,7 @@ final class Install
 
     /**
      * Notifications, modèles, alertes, préférences d'affichage, recherches enregistrées et historiques dont l'itemtype est une classe du plugin.
-     * Les notifications des forfaits et des compensations sont créées par seedNotifications ; les alertes arrivent avec un lot suivant.
+     * Les notifications des forfaits et des compensations sont créées par seedNotifications ; les alertes de seuil (glpi_alerts) sont celles du contrat à points.
      */
     public static function removeNotificationsAndAlerts(): void
     {

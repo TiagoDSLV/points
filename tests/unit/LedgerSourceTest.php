@@ -19,7 +19,7 @@ test('Ledger : aucune suppression, update seulement sur la ligne du contrat, ins
     foreach ($sets[1] as $set) {
         preg_match_all("/'(\w+)'\s*=>/", $set, $columns);
         foreach ($columns[1] as $column) {
-            assertTrue(in_array($column, ['date_mod', 'balance', 'credited', 'consumed', 'date_cache'], true), "Ledger écrit la colonne $column du contrat");
+            assertTrue(in_array($column, ['date_mod', 'balance', 'credited', 'consumed', 'next_expiry', 'consumed_pct', 'date_cache'], true), "Ledger écrit la colonne $column du contrat");
         }
     }
     preg_match_all('/->insert\(\s*([^,]+),/', $code, $inserts);

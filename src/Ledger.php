@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GlpiPlugin\Points;
 
 use Glpi\DBAL\QueryFunction;
+use GlpiPlugin\Points\Domain\AlertRules;
 use GlpiPlugin\Points\Domain\ContractCache;
 use GlpiPlugin\Points\Domain\Dates;
 use GlpiPlugin\Points\Domain\LotRules;
@@ -387,6 +388,19 @@ final class Ledger
         }
 
         return $result;
+    }
+
+    /**
+     * Exécute une lecture-décision sous le verrou du contrat (même transaction et même verrou que les écritures du journal) : rien du journal
+     * ne change pendant `$work`. Sert à l'alerte de seuil : relire les lots juste avant de lever l'événement. Le cache est réécrit à la fin.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    public static function locked(int $contractsId, callable $work): mixed
+    {
+        return self::transaction($contractsId, static fn (array $contract): mixed => $work());
     }
 
     /**
@@ -817,20 +831,21 @@ final class Ledger
     /**
      * Lots d'un contrat avec leur reste (somme de leurs affectations), centièmes.
      *
-     * @return list<array{id: int, origin_date: string, expiry_date: string, remaining: int, envelope: int}>
+     * @return list<array{id: int, origin_date: string, expiry_date: string, remaining: int, envelope: int, initial: int}>
      */
     private static function loadLots(int $contractsId): array
     {
         global $DB;
 
         $lots = [];
-        foreach ($DB->request(['SELECT' => ['id', 'origin_date', 'expiry_date', 'plugin_points_envelopes_id'], 'FROM' => self::LOTS, 'WHERE' => ['contracts_id' => $contractsId], 'ORDER' => ['origin_date', 'id']]) as $row) {
+        foreach ($DB->request(['SELECT' => ['id', 'origin_date', 'expiry_date', 'plugin_points_envelopes_id', 'initial'], 'FROM' => self::LOTS, 'WHERE' => ['contracts_id' => $contractsId], 'ORDER' => ['origin_date', 'id']]) as $row) {
             $lots[(int) $row['id']] = [
                 'id'          => (int) $row['id'],
                 'origin_date' => (string) $row['origin_date'],
                 'expiry_date' => (string) $row['expiry_date'],
                 'remaining'   => 0,
                 'envelope'    => (int) $row['plugin_points_envelopes_id'],
+                'initial'     => Money::parse((string) $row['initial']),
             ];
         }
         foreach (array_chunk(array_keys($lots), self::CHUNK) as $chunk) {
@@ -989,6 +1004,9 @@ final class Ledger
     }
 
     /**
+     * Écrit le cache du contrat et ses colonnes de recherche (prochaine échéance, % consommé), dans la transaction de l'écriture
+     * du journal ; lève l'alerte de seuil si le contrat repasse sous le seuil (règle 12 : « remise à zéro »).
+     *
      * @param array{id: int, contracts_id: int, entities_id: int} $contract
      */
     private static function writeCache(array $contract): void
@@ -996,14 +1014,28 @@ final class Ledger
         global $DB;
 
         $cache = self::computeCache($contract['contracts_id']);
+        $lots  = self::loadLots($contract['contracts_id']);
         $now   = self::now();
         $DB->update(self::CONTRACTS, [
-            'balance'    => Money::format($cache['balance']),
-            'credited'   => Money::format($cache['credited']),
-            'consumed'   => Money::format($cache['consumed']),
-            'date_cache' => $now,
-            'date_mod'   => $now,
+            'balance'      => Money::format($cache['balance']),
+            'credited'     => Money::format($cache['credited']),
+            'consumed'     => Money::format($cache['consumed']),
+            'next_expiry'  => ContractCache::nextExpiry($lots),
+            'consumed_pct' => Money::format(ContractCache::percent($cache['credited'], $cache['consumed'])),
+            'date_cache'   => $now,
+            'date_mod'     => $now,
         ], ['id' => $contract['id']]);
+        ThresholdAlert::resetIfBelow($contract['id'], $lots, self::today());
+    }
+
+    /**
+     * Crédité et consommé des lots valides à une date (base du seuil d'alerte, règle 12), centièmes ; lecture seule.
+     *
+     * @return array{credited: int, consumed: int}
+     */
+    public static function validTotals(int $contractsId, string $today): array
+    {
+        return AlertRules::validTotals(self::loadLots($contractsId), Dates::check($today));
     }
 
     // ---------------------------------------------------------------------------------------------------------

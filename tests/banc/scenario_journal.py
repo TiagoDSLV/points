@@ -249,7 +249,7 @@ c_borne = ok(led("createEnvelope", C, "C6 finit aujourd'hui", 300, d(-30), d(0),
 g_env = ok(led("createEnvelope", G, "EG", 1000, d(-200), d(-10), False, ""))
 v("(7) témoin : enveloppes passées créées, solde 48", cache(C)[0][0], "48.00")
 v("(7) l'action automatique pointsexpire est enregistrée (quotidienne)",
-  lignes("SELECT name, frequency, state FROM glpi_crontasks WHERE itemtype LIKE 'GlpiPlugin%Points%Cron'"), [["pointsexpire", "86400", "1"]])
+  lignes("SELECT name, frequency, state FROM glpi_crontasks WHERE itemtype LIKE 'GlpiPlugin%Points%Cron' AND name = 'pointsexpire'"), [["pointsexpire", "86400", "1"]])
 time.sleep(2)
 avant_cron = lignes(f"SELECT date_mod, date_cache FROM {T}contracts WHERE contracts_id IN ({A}, {B}, {D})")
 p = shell_app("php front/cron.php --force pointsexpire")

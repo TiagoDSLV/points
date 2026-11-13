@@ -886,3 +886,54 @@ msgstr "No Points contract in your entities"
 
 msgid "The entity of a contract with a Points journal cannot be changed"
 msgstr "The entity of a contract with a Points journal cannot be changed"
+
+msgid "BU (contract type)"
+msgstr "BU (contract type)"
+
+msgid "Client (entity)"
+msgstr "Client (entity)"
+
+msgid "Consumed (%)"
+msgstr "Consumed (%)"
+
+msgid "Consumed (valid lots)"
+msgstr "Consumed (valid lots)"
+
+msgid "Credited (valid lots)"
+msgstr "Credited (valid lots)"
+
+msgid "Next expiry"
+msgstr "Next expiry"
+
+msgid "No points contract"
+msgstr "No points contract"
+
+msgid "Notify the contracts that reached their points alert threshold"
+msgstr "Notify the contracts that reached their points alert threshold"
+
+msgid "Points alert threshold (%)"
+msgstr "Points alert threshold (%)"
+
+msgid "Points balance"
+msgstr "Points balance"
+
+msgid "Points consumed"
+msgstr "Points consumed"
+
+msgid "Points consumed (%)"
+msgstr "Points consumed (%)"
+
+msgid "Points contracts"
+msgstr "Points contracts"
+
+msgid "Points credited"
+msgstr "Points credited"
+
+msgid "Points grid"
+msgstr "Points grid"
+
+msgid "Points next expiry"
+msgstr "Points next expiry"
+
+msgid "Points threshold reached"
+msgstr "Points threshold reached"

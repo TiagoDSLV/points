@@ -17,3 +17,13 @@ function plugin_points_uninstall(): bool
 {
     return Install::uninstall();
 }
+
+/**
+ * Options de recherche ajoutées au contrat natif et à l'entité (portefeuille de points) ; voir GlpiPlugin\Points\SearchOptions.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function plugin_points_getAddSearchOptionsNew(string $itemtype): array
+{
+    return \GlpiPlugin\Points\SearchOptions::forItemtype($itemtype);
+}

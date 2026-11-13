@@ -1,0 +1,35 @@
+{# Onglet « Points » de la fiche Entity : soldes des contrats à points de l'entité (lecture seule, aucun formulaire). Tout est échappé par Twig. #}
+<div class="card mb-3" id="points-entity">
+    <div class="table-responsive">
+        <table class="table table-sm card-table" id="points-entity-table">
+            <thead>
+                <tr>
+                    <th>{{ __('Contract') }}</th>
+                    <th>{{ __('BU (contract type)', 'points') }}</th>
+                    <th>{{ __('Balance', 'points') }}</th>
+                    <th>{{ __('Credited', 'points') }}</th>
+                    <th>{{ __('Consumed', 'points') }}</th>
+                    <th>{{ __('Consumed (%)', 'points') }}</th>
+                    <th>{{ __('Alert threshold (%)', 'points') }}</th>
+                    <th>{{ __('Next expiry', 'points') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                    <tr data-contract="{{ c.name }}">
+                        <td>{% if c.url %}<a href="{{ c.url }}">{{ c.name }}</a>{% else %}{{ c.name }}{% endif %}{% if not c.active %} <span class="badge bg-secondary">{{ __('Inactive') }}</span>{% endif %}</td>
+                        <td>{{ c.bu }}</td>
+                        <td>{{ c.balance }}</td>
+                        <td>{{ c.credited }}</td>
+                        <td>{{ c.consumed }}</td>
+                        <td>{{ c.pct }}</td>
+                        <td>{{ c.threshold }}</td>
+                        <td>{{ c.expiry }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="text-muted">{{ __('No points contract', 'points') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

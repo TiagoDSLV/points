@@ -3,9 +3,16 @@
 Gestion de points prépayés sur les contrats natifs de GLPI : enveloppes datées, grilles de prix, registre en ajout
 seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0.99), PHP 8.3. Dépôt privé d'Athéo.
 
-État : lot (a) « socle » : installation et désinstallation rejouables, 14 tables `glpi_plugin_points_*`, droits
-`plugin_points_*` (onglet « Points » sur la fiche Profile), paramétrage (Configuration > Points), traductions
-(`fr_FR`, `en_GB`), tests. Les lots suivants (enveloppes, décompte, forfaits…) sont décrits dans le plan de `tasks/`.
+État : lots a à g réalisés (le plan est dans `tasks/`), lot g encore en relecture ; restent h (import des soldes) et i (intégration Assist).
+
+- a : socle (installation et désinstallation rejouables, 14 tables `glpi_plugin_points_*`, droits `plugin_points_*`, paramétrage, traductions).
+- b : enveloppes datées, journal en ajout seul, lots FIFO, expiration et report (action `pointsexpire`).
+- c : décompte des tâches (grilles versionnées, types de jour, moment du débit).
+- d : forfaits (validation Responsable BU puis client).
+- e : reviews et compensations.
+- f : cloisonnement par entité et par profil, page « Points » de l'interface simplifiée.
+- g : alerte de seuil (action `pointsalert`, notification `threshold`), liste « Contrats à points » (Outils > Points), options de recherche sur
+  Contract et Entity, onglet « Points » de l'entité.
 
 ## Documentation
 
@@ -18,7 +25,7 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 scripts/check.sh            # php -l, tests unitaires, .mo à jour ; le banc est SAUTÉ (pas vert)
 scripts/check.sh --banc     # idem + banc GLPI 12 jetable sous Docker (images figées par digest)
 php tests/unit/run.php      # tests unitaires seuls, sans GLPI
-tests/banc/run.sh [scenario_socle]   # banc seul ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
+tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, forfaits, journal, socle, taches) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
 ```
 
 Le banc crée les conteneurs `points-banc-app` et `points-banc-db` (réseau `points-banc`), installe le plugin par la

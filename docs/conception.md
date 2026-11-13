@@ -43,7 +43,7 @@ Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recu
 | `glpi_plugin_points_gridversions` | version datée d'une famille | `plugin_points_grids_id`, `begin_date` (applicable à partir de), `comment` ; version applicable = plus grande `begin_date` ≤ date de l'opération |
 | `glpi_plugin_points_gridcosts` | coût d'une version | `plugin_points_gridversions_id`, `plugin_points_interventiontypes_id`, `daytype` (1 semaine, 2 samedi, 3 dimanche et jour férié), `cost` ; unique (version, type, jour) |
 | `glpi_plugin_points_interventiontypes` | liste (Assistance, Ordre de travail, Intervention urgente) | intitulé ; liste déroulante native |
-| `glpi_plugin_points_contracts` | réglage Points d'un contrat natif (un pour un) | `contracts_id` unique, `plugin_points_grids_id`, `alert_threshold` (%, défaut du paramétrage : 80), `is_active`, cache : `balance`, `credited`, `consumed`, `date_cache` |
+| `glpi_plugin_points_contracts` | réglage Points d'un contrat natif (un pour un) | `contracts_id` unique, `plugin_points_grids_id`, `alert_threshold` (%, défaut du paramétrage : 80), `is_active`, cache : `balance`, `credited`, `consumed`, `date_cache` ; colonnes de recherche du cache : `next_expiry` (DATE), `consumed_pct` (DECIMAL(8,2)) |
 | `glpi_plugin_points_envelopes` | enveloppe datée | `contracts_id`, `name`, `credit` (initial), `begin_date`, `end_date` (≤ début + 24 mois), `is_carryover`, `users_id`, `date_creation` ; dates non modifiables |
 | `glpi_plugin_points_operations` | **journal en ajout seul** | `contracts_id`, `type`, `amount` (signé : + crédit, − débit), `date` (`DATE`, date métier : date de la tâche, de l'approbation… ; l'heure d'une tâche reste dans `details`), `tickets_id`, `itemtype` / `items_id` (TicketTask, forfait, compensation, review, enveloppe), `operations_id_origin` (opération corrigée ou liée), `comment` (motif), `details` (JSON : minutes saisies et comptées, type de jour, version de grille, coût unitaire, type d'intervention), `users_id`, `date_creation` |
 | `glpi_plugin_points_lots` | lot de points créé par un crédit (FIFO, expiration) | `operations_id` (crédit, report entrant, import), `plugin_points_envelopes_id`, `contracts_id`, `origin_date` (date d'achat d'origine, conservée au report), `expiry_date` = min(fin de l'enveloppe, `origin_date` + 24 mois), `initial` |
@@ -61,7 +61,20 @@ ajustement négatifs) ; une expiration ne se corrige que par le débit tardif ci
 
 Cache du contrat : `credited` = crédits, imports et reports reçus moins reports émis et expirations (points achetés
 encore utilisables ou consommés) ; `consumed` = débits moins remboursements, corrections positives et compensations ;
-`balance` = somme du journal. L'alerte de seuil (règle 12) ne lit pas ce cache : elle calcule sur les lots valides.
+`balance` = somme du journal. `consumed_pct` = `consumed` / `credited` du cache en % (0 si rien de crédité, arrondi au centième) et
+`next_expiry` = plus petite échéance d'un lot au reste > 0 (NULL s'il n'y en a pas ; un lot échu au reste > 0 attend encore l'action
+`pointsexpire`) : colonnes réelles et indexées, donc filtrables et triables par la recherche native sans `computation` SQL ; recalculées par
+`Ledger` dans la même transaction que le cache (`writeCache`) et par `recomputeCache` ; la migration (réinstallation, rejouable) les remplit
+pour les contrats déjà crédités, seulement quand ce passage vient d'ajouter les colonnes (un rejeu ne réécrit rien : un contrat aux lots épuisés a légitimement une échéance NULL).
+
+**Crédité et consommé des lots valides** (base du seuil d'alerte, règle 12 ; ne lit pas le cache). Un lot est valide à la date du jour d si
+`origin_date` <= d <= `expiry_date` (dernier jour inclus). Pour les lots valides : *crédité* = somme de leurs points initiaux (`initial` : un lot
+reporté repart avec ce qui a été reporté, il garde son origine) ; *consommé* = somme, lot par lot, de `initial` - reste (reste = somme des
+affectations du lot : débits, moins remboursements, corrections +, compensations et ajustements +). Un dépassement autorisé (reste négatif)
+compte comme consommé au-delà du crédité. Un lot échu ou pas encore commencé ne compte ni au crédité ni au consommé, donc un lot échu
+consommé en entier ne pèse pas : c'est la différence avec `credited` / `consumed` du cache (qui gardent la consommation des lots échus ;
+le débit tardif d'un lot échu ne change donc pas le seuil tant que ce lot n'est pas valide). Seuil atteint si crédité > 0 et consommé x 100 >=
+seuil x crédité, en centièmes entiers ; sans crédit valide, jamais d'alerte (aucune division).
 
 Valeurs codées (`varchar(30)`) : forfait `draft`, `submitted`, `bu_refused`, `proposed`, `approved`,
 `client_refused`, `debited`, `cancelled` ; review `to_review`, `confirmed`, `adjusted` ; raison de review `saturday`,
@@ -140,6 +153,18 @@ ni supprimée (pas de `date_mod`).
     (modèle FR/EN semé, cible : auteur de la demande), déclenchée à l'approbation comme au rejet.
 12. **Alerte** (action automatique `pointsalert`) : consommé / crédité des lots valides ≥ seuil du contrat →
     notification `threshold`, une fois par passage du seuil (alerte native `glpi_alerts`, remise à zéro par un crédit).
+    Précisions (lot g) : « crédité » et « consommé » des lots valides sont définis dans « Cache du contrat ». L'action quotidienne
+    (`Cron::cronPointsalert`, `ThresholdAlert::run`) parcourt les lignes Points actives (`is_active` = 1) dont le contrat natif n'est ni supprimé ni
+    un modèle ; elle lève l'événement natif `threshold` (objet : la ligne Points, classe `NotificationTargetContract`) puis mémorise le passage
+    dans `glpi_alerts` (type `Alert::THRESHOLD`, `items_id` = ligne Points) ; rien n'est mémorisé si la levée échoue (retentée le lendemain) ; un
+    contrat déjà alerté n'est pas notifié de nouveau. Les totaux sont relus sous le verrou du contrat (`Ledger::locked`) juste avant la levée : s'ils n'atteignent plus le seuil, rien n'est levé. Un seuil modifié (`Contract::post_updateItem`) efface l'alerte : le contrat est réévalué au passage suivant avec son nouveau seuil. La remise à zéro (effacement de l'alerte) a lieu : (a) dans la transaction du journal qui
+    fait repasser le contrat sous le seuil (crédit, remboursement : `Ledger::writeCache` → `ThresholdAlert::resetIfBelow`), donc un nouveau
+    franchissement est notifié même entre deux passages ; (b) au passage suivant si le seuil du contrat a été relevé ou si un lot échu fait
+    repasser sous le seuil. Destinataire par défaut : l'administrateur de l'entité du contrat (cible native `Notification::ENTITY_ADMINISTRATOR`,
+    question 4 du cahier des charges ; adresse = celle de l'entité, `glpi_entities.admin_email`, héritée) ; d'autres cibles natives se règlent dans
+    l'interface. Modèle FR/EN semé (rejouable, supprimé à la désinstallation) ; balises : `##points.contract##` (contrat), `##points.client##`
+    (entité), `##points.balance##` (solde du cache), `##points.credited##` et `##points.consumed##` (lots valides), `##points.percent##` (% consommé
+    des lots valides), `##points.threshold##` (seuil), `##points.expiry##` (prochaine échéance), `##points.url##`, `##points.action##`.
 
 ## Droits du plugin
 
@@ -168,9 +193,9 @@ les comptes de service : 0 partout.
 |---|---|---|
 | Contrat, onglet « Points » | réglage (grille, seuil), solde, enveloppes, registre ; actions ADV : créer une enveloppe, créditer, corriger, reporter | balance READ ; envelope pour écrire |
 | Ticket, onglet « Points » | contrat Points, type d'intervention, tâches et débits, forfait (chiffrer, soumettre, valider BU, proposer), compensation | ticket, flatrate, compensation |
-| Entité, onglet « Points » | soldes des contrats de l'entité | balance READ |
+| Entité, onglet « Points » | soldes des contrats à points de l'entité elle-même (entité propre, pas ses sous-entités ni un contrat d'une entité mère) : BU, solde, crédité, consommé, % consommé, seuil, prochaine échéance, lien vers chaque contrat (si le contrat est lisible) ; onglet absent s'il n'y a aucun contrat | balance READ + lecture native de l'entité (`Entity::can`) + accès à l'entité |
 | Interface simplifiée (Responsable client) | entrée « Points » du menu (`Hooks::HELPDESK_MENU_ENTRY` + icône, `front/points.php`, classe `Simplified`) : pour chaque contrat à points de ses entités actives, solde, enveloppes (échéances, reste) et registre (date, type, points, ticket ; ni auteur ni commentaire) ; lecture seule, aucun formulaire ; pas d'onglet sur la fiche contrat, **refusée en interface simplifiée** (fiche servie par un contrôleur moderne, stratégie par défaut `central_access` qui refuse un profil `helpdesk` : lu 12.0.1 `src/Glpi/Http/Firewall.php:152,170-190`, `src/Session.php:1219-1224` ; **vérifié au banc 12.0.1** : 403 sur `/front/contract.form.php?id=…` pour le profil simplifié, y compris pour son propre contrat, 200 pour le même contrat en interface standard) | balance READ |
-| Outils > Points | liste des contrats à points (recherche native : client, BU, solde, % consommé, prochaine échéance), registre, reviews à contrôler, compensations en attente | selon droit |
+| Outils > Points | « Contrats à points » (`front/contract.php`, recherche native, filtres, tri, export CSV : contrat, client = entité, BU = type de contrat, grille, solde, crédité, consommé, % consommé, prochaine échéance, seuil, actif), reviews à contrôler, compensations en attente ; options de recherche ajoutées au Contract et à l'Entity natifs pour le portefeuille (crochet `plugin_points_getAddSearchOptionsNew`, numéros 9701-9707 et 9721-9725) | balance READ (contrats) ; review, compensation |
 | Configuration > Points | paramétrage, grilles, types d'intervention | config, grid |
 
 ## Cloisonnement par entité et par profil (lot f)
@@ -214,6 +239,19 @@ delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/repor
   commentaire ni auteur. Historique natif : les objets du plugin n'ont pas d'onglet Historique (`dohistory` faux) ; seuls les changements d'état des
   reviews et compensations sont écrits dans `glpi_logs` (lisibles avec leur droit, sans page pour le Responsable client) ; l'historique du contrat natif
   ne contient rien du plugin (vérifié au banc, section 7). Vérifié au banc, mutations à l'appui.
+- **Options de recherche du portefeuille** (lot g, `SearchOptions`) : la liste « Contrats à points » est la recherche native de la table du plugin
+  (lignes non récursives, entité propre du contrat : le moteur ne montre que les entités actives de l'utilisateur) ; les options ajoutées au Contract
+  et à l'Entity natifs n'existent qu'avec `plugin_points_balance` READ (sans lui, ni option ni critère accepté), et leur jointure ne retient que les
+  lignes Points dont l'entité propre est une entité active de l'utilisateur COURANT (`ActiveEntitiesCondition`, une `QueryExpression` relue à chaque
+  construction de requête : les options sont en cache statique pour tout le processus, src/Glpi/Search/SearchOption.php:84,161-168,435 en 12.0.1, alors que
+  des actions automatiques enchaînent plusieurs utilisateurs, src/SavedSearch_Alert.php:358-372 ; le cache est en plus vidé au changement de profil,
+  crochet CHANGE_PROFILE ; vérifié au banc avec plusieurs utilisateurs successifs dans un même processus). Les contrats natifs à la corbeille et les
+  modèles sont exclus (jointure de l'entité, liste par `getSystemSQLCriteria`, onglet et son compte) : un contrat récursif d'une entité mère, lisible par
+  l'entité fille par le droit du cœur, y garde des cellules vides et ne répond à aucun filtre (aucune sonde). Aucune option ne lit un champ interne
+  (`InternalFields`) ni une table du journal : seuls les champs du cache, la grille, le contrat, l'entité et le type de contrat. Pour l'entité, une
+  cellule regroupe une valeur par contrat à points de l'entité. La recherche de l'Entity exige en plus le droit natif de lecture des entités (un
+  Responsable client sans ce droit passe par l'onglet du contrat ou la page de l'interface simplifiée). Vérifié au banc (`scenario_alerte.py`, deux
+  clients, entité fille, contrat récursif, compte sans droit, mutations à l'appui).
 - **Entité d'un contrat à points** : `Contract::contractPreUpdate` (hook PRE_ITEM_UPDATE sur le contrat natif) refuse tout changement d'`entities_id` d'un
   contrat qui a une ligne Points (message) : les lignes du journal portent l'entité du contrat et ne se modifient pas. Le transfert natif passe par
   `$item->update()` (`Transfer::transferItem`, `src/Transfer.php:1240` en 12.0.1) : il est donc refusé aussi (vérifié au banc par `Transfer::moveItems`).
@@ -222,8 +260,7 @@ delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/repor
   (`Billing::context`) ; un ticket passé chez un autre client ne débite pas le contrat de l'ancien (refus `flatrate_no_contract`).
 - **Limites connues** : (1) les commentaires des compensations et des reviews restent lisibles avec leur propre droit de lecture (qui s'accompagne du droit
   interne dans les profils de la table) ; le détail des tâches de l'onglet du ticket reste lu avec `plugin_points_ticket` READ ; (2) l'onglet
-  « Ticket » montre au technicien d'une entité fille le total des points débités par les tâches de son propre ticket sur le contrat de la mère (sans le nom du contrat) ; (3) l'onglet « Points » de
-  l'entité (écran « Entité » ci-dessus) n'est pas réalisé.
+  « Ticket » montre au technicien d'une entité fille le total des points débités par les tâches de son propre ticket sur le contrat de la mère (sans le nom du contrat).
 
 ## Paramétrage (`plugin:points`)
 
