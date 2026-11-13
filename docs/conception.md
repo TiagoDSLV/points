@@ -30,7 +30,7 @@ Aucune reprise du code, des tables ni des droits du plugin `credit` ; aucune mig
 | Expiration, report, seuil | actions automatiques (`CronTask::register`) | lu 12.0.1 `src/CronTask.php:1075` |
 | Reporting | moteur de recherche natif (`rawSearchOptions`, filtres, export) | doc développeur, « Search options » |
 | Droits | `ProfileRight`, matrice de droits sur la fiche profil | lu 12.0.1 `src/ProfileRight.php:155,191` |
-| Import | commande console du plugin (`src/Console/*Command.php`, chargée par `CommandLoader`) | lu 12.0.1 `src/Glpi/Console/CommandLoader.php:212-247` |
+| Import | commande console du plugin (`src/Console/*Command.php`, chargée par `CommandLoader`, nom `plugins:points:…`) | lu 12.0.1 `src/Glpi/Console/CommandLoader.php:212-247` |
 
 ## Modèle de données
 
@@ -276,14 +276,64 @@ delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/repor
 | `flatrate_separation` | 1 | 1 : le Responsable BU ne valide pas un forfait qu'il a chiffré (question 8) ; 0 : permis |
 | `compensation_separation` | 1 | 1 : celui qui a demandé une compensation ne la décide pas lui-même ; 0 : permis (règle 11, lot e) |
 
-## Import des soldes du BPM Kiwi (format proposé)
+## Import des soldes du BPM Kiwi (lot h)
 
-CSV UTF-8, séparateur `;`, une ligne par enveloppe :
-`contrat;solde;debut;fin;report;libelle` (numéro de contrat Odoo tel que dans le champ « Numéro » du contrat GLPI,
-solde restant en points avec virgule ou point décimal, dates `AAAA-MM-JJ`, report 0/1, libellé libre).
-`php bin/console points:import fichier.csv` simule par défaut (rapport ligne à ligne, aucune écriture) ;
-`--apply` écrit (enveloppe + opération `import`), rejouable : une ligne déjà importée (même contrat, dates, solde,
-libellé) est sautée. Toute ligne invalide arrête l'application avant écriture.
+Commande console du plugin : `php bin/console plugins:points:import fichier.csv [--apply]` (classe `Console\ImportCommand`). Le nom
+porte le préfixe `plugins:points:` : le chargeur des commandes de plugin ignore, avec un avertissement, toute commande qui ne le porte pas
+(lu 12.0.1 `src/Glpi/Console/CommandLoader.php:261-280`). Sans `--apply` : simulation, rapport ligne à ligne, aucune écriture (pas même la
+ligne Points d'un contrat). Seule option : `--apply`.
+
+**Format.** Texte UTF-8 (BOM toléré), fins de ligne Unix, Windows ou Mac, séparateur `;`, première ligne = en-tête exact (casse libre)
+`contrat;solde;debut;fin;report;libelle`, une enveloppe par ligne, lignes vides ignorées, espaces autour des cellules retirés. Une cellule peut
+être entre guillemets (pour contenir un `;`) mais pas sur plusieurs lignes.
+
+| Colonne | Contenu | Contrôle |
+|---|---|---|
+| `contrat` | numéro du contrat, tel que dans le champ « Numéro » (`num`) du contrat GLPI | un seul contrat natif de ce numéro, ni à la corbeille ni modèle, dont le type est un type à points du paramétrage (`contracttypes`) ; la ligne Points est créée à l'écriture si elle manque (entité du contrat) |
+| `solde` | solde restant, en points | strictement `^\+?\d+([.,]\d{1,2})?$` (virgule OU point décimal, **au plus deux décimales**, après retrait des espaces ordinaires), **> 0** : aucun arrondi silencieux (`1.500`, `12,345`, `0,005` refusés), ni signe moins, ni séparateur de milliers, ni espace insécable |
+| `debut`, `fin` | `AAAA-MM-JJ` | dates du calendrier, fin >= début, fin <= début + 24 mois (24 mois pile accepté) |
+| `report` | `0` ou `1` | enveloppe reportable (règle 8) |
+| `libelle` | libellé libre, devient le nom de l'enveloppe | 255 caractères au plus, sans caractère de contrôle ni de format (`\p{Cc}`, `\p{Cf}` : C1, bidi, largeur nulle) ; vide : « début / fin » |
+
+**Comportement.**
+
+- Tout le fichier est contrôlé AVANT la première écriture (format, contrats, dates, doublons). Une seule erreur : code de sortie non nul, message
+  « ligne N : … » pour chacune, rien d'écrit, même avec `--apply`. Doublon : deux lignes de même contrat, solde et dates dont les libellés sont égaux
+  SELON LA BASE (comparaison par la collation de la colonne `name`, utf8mb4_unicode_ci : casse, accents, ß/ss… ; « Reliquat été » = « Reliquat ete »), y compris
+  deux numéros qui désignent le même contrat ; erreur de plan, rien d'écrit.
+- Écriture (`Ledger::importEnvelope`) : une transaction par ligne, sous le verrou de la ligne du contrat : enveloppe + opération de type `import`
+  (date = début, montant = solde) + lot (origine = début, échéance = min(fin, début + 24 mois)) + affectation. Le cache du contrat (`credited`, `balance`) en
+  tient compte comme d'un crédit. Une ligne en échec arrête l'application (code non nul) ; les lignes déjà écrites restent (journal en ajout seul) et
+  un nouveau lancement les saute.
+- Rejouable : une ligne déjà importée est sautée (`SKIP`). L'empreinte de la ligne (SHA-256 de : id du contrat, solde en centièmes, dates, libellé
+  effectif sans casse) est stockée dans `details.import_key` de l'opération `import` (jamais modifiée) et cherchée par `Ledger::importedEnvelope` : le
+  nom de l'enveloppe, modifiable, ne compte pas (renommer une enveloppe ne fait pas recréditer au rejeu ; vérifié au banc). Le contrôle est refait SOUS
+  le verrou du contrat : deux lancements concurrents n'écrivent qu'une fois chaque ligne (vérifié au banc, quatre processus). Le report n'entre pas
+  dans l'empreinte.
+- La commande refuse de tourner si le plugin n'est pas actif (`Plugin::isPluginActive`) ; toute erreur inattendue d'une écriture est interceptée
+  (`\Throwable`) pour afficher le décompte des lignes déjà écrites, avec un code non nul.
+- Fin passée : acceptée (le type `import` n'est pas refusé sur une enveloppe terminée), signalée par un avertissement ; le lot expirera à la
+  prochaine exécution de l'action automatique `pointsexpire`.
+- Droits : aucune session utilisateur en console, donc aucun contrôle de droit ni d'entité (l'accès au shell du serveur vaut administrateur).
+  Chaque écriture est tracée : `users_id` = 0 (enveloppe et opération) et commentaire de l'opération « Import BPM <nom du fichier> ligne <n> »
+  (lisible avec les droits des champs internes).
+- Rapport : les cellules libres (numéro, libellé) sont nettoyées avant affichage : caractères de contrôle retirés, longueur bornée, apostrophe devant
+  `=`, `+`, `-`, `@` (aucune formule si le rapport est collé dans un tableur), balises de la console neutralisées. Un libellé qui contient un caractère de
+  contrôle est de toute façon refusé. Aucun rapport CSV n'est produit.
+- Fichier de 5 Mo au plus. Aucune donnée réelle dans le dépôt : exemple fictif ci-dessous et `tests/banc/import-exemple.csv`.
+
+Exemple fictif (3 lignes, numéros inventés) :
+
+```
+contrat;solde;debut;fin;report;libelle
+CTR-EXEMPLE-001;120,5;2026-01-01;2026-12-31;1;Solde initial fictif
+CTR-EXEMPLE-002;7.25;2026-03-01;2027-02-28;0;Reliquat fictif
+CTR-EXEMPLE-001;30;2026-06-01;2027-05-31;0;
+```
+
+Tests : `tests/unit/ImportRulesTest.php` (lecture et validations), banc `scenario_import.py` (simulation sans écriture, application, rejeu,
+double lancement, lignes invalides, contrats inconnus, sans points, à la corbeille, ambigus, 24 mois, BOM, virgule, fin passée, rapport sans
+injection, soldes dans l'onglet et la recherche).
 
 ## Compatibilité GLPI 11.0.x (coût estimé, non réalisé)
 

@@ -63,34 +63,61 @@ final class Ledger
         LotRules::checkEnvelope($begin, $end);
         $name = trim($name) !== '' ? trim($name) : $begin . ' / ' . $end;
 
+        return self::transaction($contractsId, static fn (array $contract): array => self::writeEnvelope($contract, OpType::CREDIT, $name, $credit, $begin, $end, $reportable, $comment));
+    }
+
+    /**
+     * Import d'un solde du BPM Kiwi (commande `plugins:points:import`) : une enveloppe et une opération de type `import` (au lieu de
+     * `credit`) avec son lot. Rejouable : l'opération porte l'empreinte de la ligne (`details.import_key`, voir importKey) ; si une
+     * opération `import` du contrat a déjà cette empreinte, rien n'est écrit (`skipped`). L'empreinte vit dans l'opération, que rien ne
+     * modifie : renommer l'enveloppe (son nom reste modifiable) ne fait pas recréditer au rejeu. Le contrôle se fait SOUS le verrou du
+     * contrat, dans la même transaction que l'écriture : deux lancements concurrents n'écrivent qu'une enveloppe. Sans utilisateur
+     * connecté (console), l'auteur est 0.
+     *
+     * @param int $credit centièmes, > 0
+     * @return array{skipped: true}|array{skipped: false, envelopes_id: int, operations_id: int, lots_id: int}
+     * @throws RuleViolation
+     */
+    public static function importEnvelope(int $contractsId, string $name, int $credit, string $begin, string $end, bool $reportable, string $comment): array
+    {
+        if ($credit <= 0) {
+            throw new RuleViolation(RuleViolation::INVALID_AMOUNT, 'The imported balance must be positive');
+        }
+        LotRules::checkEnvelope($begin, $end);
+        $name = trim($name) !== '' ? trim($name) : $begin . ' / ' . $end;
+
         return self::transaction($contractsId, static function (array $contract) use ($name, $credit, $begin, $end, $reportable, $comment): array {
-            global $DB;
+            if (self::importedEnvelope($contract['contracts_id'], $name, $credit, $begin, $end) !== null) {
+                return ['skipped' => true];
+            }
+            $details = ['import_key' => self::importKey($contract['contracts_id'], $name, $credit, $begin, $end)];
 
-            $now = self::now();
-            $DB->insert(self::ENVELOPES, [
-                'entities_id'   => $contract['entities_id'],
-                'is_recursive'  => 0,
-                'contracts_id'  => $contract['contracts_id'],
-                'name'          => $name,
-                'credit'        => Money::format($credit),
-                'begin_date'    => $begin,
-                'end_date'      => $end,
-                'is_carryover'  => $reportable ? 1 : 0,
-                'users_id'      => self::userId(),
-                'date_creation' => $now,
-                'date_mod'      => $now,
-            ]);
-            $envelopeId = (int) $DB->insertId();
-            $operationId = self::addOperation($contract, OpType::CREDIT, $credit, $begin, [
-                'itemtype' => Envelope::class,
-                'items_id' => $envelopeId,
-                'comment'  => $comment,
-            ]);
-            $lotId = self::addLot($contract, $operationId, $envelopeId, $begin, LotRules::expiryDate($end, $begin, self::retention()), $credit);
-            self::addAllocation($contract, $operationId, $lotId, $credit);
-
-            return ['envelopes_id' => $envelopeId, 'operations_id' => $operationId, 'lots_id' => $lotId];
+            return ['skipped' => false] + self::writeEnvelope($contract, OpType::IMPORT, $name, $credit, $begin, $end, $reportable, $comment, $details);
         });
+    }
+
+    /**
+     * Empreinte d'une ligne d'import : contrat (id), solde en centièmes, dates et libellé (sans casse), hachés.
+     */
+    public static function importKey(int $contractsId, string $name, int $credit, string $begin, string $end): string
+    {
+        return hash('sha256', implode("\x1F", [$contractsId, $credit, $begin, $end, mb_strtolower(trim($name))]));
+    }
+
+    /**
+     * Opération `import` du contrat qui porte l'empreinte de cette ligne : l'id de son enveloppe, ou null. Lecture seule. Le nom
+     * de l'enveloppe n'entre pas en jeu (il peut être renommé).
+     */
+    public static function importedEnvelope(int $contractsId, string $name, int $credit, string $begin, string $end): ?int
+    {
+        global $DB;
+
+        $key = self::importKey($contractsId, $name, $credit, $begin, $end);
+        $row = $DB->request(['SELECT' => ['items_id'], 'FROM' => self::OPERATIONS, 'WHERE' => [
+            'contracts_id' => $contractsId, 'type' => OpType::IMPORT, 'details' => ['LIKE', '%"import_key":"' . $key . '"%'],
+        ], 'LIMIT' => 1])->current();
+
+        return $row === null ? null : (int) $row['items_id'];
     }
 
     /**
@@ -633,6 +660,43 @@ final class Ledger
     // ---------------------------------------------------------------------------------------------------------
     // Écriture interne (toujours dans transaction())
     // ---------------------------------------------------------------------------------------------------------
+
+    /**
+     * Enveloppe + opération (`credit` ou `import`) + lot + affectation.
+     *
+     * @param array{id: int, contracts_id: int, entities_id: int} $contract
+     * @return array{envelopes_id: int, operations_id: int, lots_id: int}
+     */
+    private static function writeEnvelope(array $contract, string $type, string $name, int $credit, string $begin, string $end, bool $reportable, string $comment, ?array $details = null): array
+    {
+        global $DB;
+
+        $now = self::now();
+        $DB->insert(self::ENVELOPES, [
+            'entities_id'   => $contract['entities_id'],
+            'is_recursive'  => 0,
+            'contracts_id'  => $contract['contracts_id'],
+            'name'          => $name,
+            'credit'        => Money::format($credit),
+            'begin_date'    => $begin,
+            'end_date'      => $end,
+            'is_carryover'  => $reportable ? 1 : 0,
+            'users_id'      => self::userId(),
+            'date_creation' => $now,
+            'date_mod'      => $now,
+        ]);
+        $envelopeId = (int) $DB->insertId();
+        $operationId = self::addOperation($contract, $type, $credit, $begin, [
+            'itemtype' => Envelope::class,
+            'items_id' => $envelopeId,
+            'comment'  => $comment,
+            'details'  => $details,
+        ]);
+        $lotId = self::addLot($contract, $operationId, $envelopeId, $begin, LotRules::expiryDate($end, $begin, self::retention()), $credit);
+        self::addAllocation($contract, $operationId, $lotId, $credit);
+
+        return ['envelopes_id' => $envelopeId, 'operations_id' => $operationId, 'lots_id' => $lotId];
+    }
 
     /**
      * @param array{id: int, contracts_id: int, entities_id: int} $contract

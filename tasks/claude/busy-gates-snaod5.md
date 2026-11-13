@@ -27,7 +27,7 @@ Plan validé par le prompt du responsable du 2026-11-12, tant qu'il reste dans c
 | e | Reviews (hors créneau, férié) et compensations | fait (relu, banc vert) |
 | f | Cloisonnement et droits par profil (deux clients au banc) | fait (relu, banc vert) |
 | g | Alerte de seuil (notification native) et reporting par la recherche native | fait (relu, banc vert) |
-| h | Import des soldes initiaux (format CSV proposé, simulation puis application) | à faire |
+| h | Import des soldes initiaux (format CSV proposé, simulation puis application) | fait (relu, banc vert) |
 | i | PR atheo-assist (fiche 03, suivi point 1, droits proposés, plugins.json) | à faire |
 
 ## Reste / reprise
@@ -36,3 +36,4 @@ Plan validé par le prompt du responsable du 2026-11-12, tant qu'il reste dans c
 
 - Lot g (relu en cours) : alerte `pointsalert` (`ThresholdAlert`, seuil sur les lots valides, modèle `threshold`), colonnes de cache `next_expiry` et
   `consumed_pct`, liste « Contrats à points », options sur Contract et Entity, onglet « Points » de l'entité ; banc `scenario_alerte.py`.
+- Lot h (relu en cours) : commande `plugins:points:import` (`Console/ImportCommand`, `Import`, `Domain/ImportRules`, `Ledger::importEnvelope`), banc `scenario_import.py`, section de `docs/conception.md` réécrite.

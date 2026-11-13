@@ -3,7 +3,7 @@
 Gestion de points prépayés sur les contrats natifs de GLPI : enveloppes datées, grilles de prix, registre en ajout
 seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0.99), PHP 8.3. Dépôt privé d'Athéo.
 
-État : lots a à g réalisés (le plan est dans `tasks/`), lot g encore en relecture ; restent h (import des soldes) et i (intégration Assist).
+État : lots a à h réalisés (le plan est dans `tasks/`), lots g et h encore en relecture ; reste i (intégration Assist).
 
 - a : socle (installation et désinstallation rejouables, 14 tables `glpi_plugin_points_*`, droits `plugin_points_*`, paramétrage, traductions).
 - b : enveloppes datées, journal en ajout seul, lots FIFO, expiration et report (action `pointsexpire`).
@@ -13,6 +13,7 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 - f : cloisonnement par entité et par profil, page « Points » de l'interface simplifiée.
 - g : alerte de seuil (action `pointsalert`, notification `threshold`), liste « Contrats à points » (Outils > Points), options de recherche sur
   Contract et Entity, onglet « Points » de l'entité.
+- h : import des soldes du BPM Kiwi par la console (voir « Importer les soldes »).
 
 ## Documentation
 
@@ -25,11 +26,22 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 scripts/check.sh            # php -l, tests unitaires, .mo à jour ; le banc est SAUTÉ (pas vert)
 scripts/check.sh --banc     # idem + banc GLPI 12 jetable sous Docker (images figées par digest)
 php tests/unit/run.php      # tests unitaires seuls, sans GLPI
-tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, forfaits, journal, socle, taches) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
+tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, forfaits, import, journal, socle, taches) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
 ```
 
 Le banc crée les conteneurs `points-banc-app` et `points-banc-db` (réseau `points-banc`), installe le plugin par la
 console puis joue les scénarios `tests/banc/scenario_*.py`.
+
+## Importer les soldes du BPM Kiwi
+
+```bash
+php bin/console plugins:points:import fichier.csv           # simulation : rapport ligne à ligne, rien n'est écrit
+php bin/console plugins:points:import fichier.csv --apply   # écrit une enveloppe et une opération « import » par ligne
+```
+
+CSV UTF-8, séparateur `;`, en-tête `contrat;solde;debut;fin;report;libelle` (exemple fictif : `tests/banc/import-exemple.csv`). Tout le
+fichier est contrôlé avant la première écriture ; une ligne invalide donne un code de sortie non nul et rien n'est écrit. Rejouable : une
+ligne déjà importée est sautée. Format exact, contrôles et traçabilité : `docs/conception.md`, section « Import des soldes du BPM Kiwi ».
 
 ## Traductions
 
