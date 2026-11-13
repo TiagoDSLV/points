@@ -15,7 +15,7 @@ TABLES = sorted(f"glpi_plugin_points_{t}" for t in TABLES)
 DROITS = {"plugin_points_balance": 1, "plugin_points_ticket": 3, "plugin_points_envelope": 7,
           "plugin_points_flatrate": 1031, "plugin_points_review": 3, "plugin_points_compensation": 1029,
           "plugin_points_grid": 23, "plugin_points_config": 3}
-CONFIG_CLES = ["allow_overdraft", "calendars_id", "compensation_separation", "contracttypes", "debit_moment",
+CONFIG_CLES = ["allow_overdraft", "calendars_id", "compensation_on_expired", "compensation_separation", "contracttypes", "debit_moment",
                "default_alert_threshold", "default_interventiontypes_id", "flatrate_separation", "retention_months"]
 
 

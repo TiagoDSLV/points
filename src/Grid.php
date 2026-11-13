@@ -109,13 +109,11 @@ class Grid extends CommonDBTM
      */
     public static function hasUsedVersion(int $gridId): bool
     {
-        foreach (array_keys(self::versions($gridId)) as $versionId) {
-            if (GridVersion::isUsed($versionId)) {
-                return true;
-            }
-        }
+        global $DB;
 
-        return false;
+        $versions = array_keys(self::versions($gridId));
+
+        return $versions !== [] && count($DB->request(['SELECT' => ['id'], 'FROM' => Task::getTable(), 'WHERE' => ['plugin_points_gridversions_id' => $versions], 'LIMIT' => 1])) > 0;
     }
 
     /**

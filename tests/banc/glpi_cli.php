@@ -10,6 +10,7 @@ declare(strict_types=1);
  *   merge : fusion de tickets avec copie des tâches (Ticket::merge, src/Ticket.php:5765), utilisateur « glpi » connecté.
  *   transfer : transfert natif d'un contrat vers une entité (Transfer::moveItems, src/Transfer.php:175 en 12.0.1), pour le refus d'un changement d'entité.
  *   flatrate_debit : GlpiPlugin\Points\Flatrate::debit(id), pour les débits concurrents d'un même forfait (lot d).
+ *   estimate : GlpiPlugin\Points\Flatrate::estimate(ticket, heures), utilisateur « glpi » connecté (lot final : type « Ordre de travail » introuvable).
  *   search : plusieurs utilisateurs successifs DANS LE MÊME PROCESSUS (Session::init de chacun, comme l'action automatique des recherches
  *            enregistrées, src/SavedSearch_Alert.php:358-372), recherche native d'un type avec des options forcées ; args [[logins], type, [options]].
  */
@@ -59,6 +60,16 @@ try {
             Session::init($auth);
             Session::changeActiveEntities('all', true);
             echo "\n" . json_encode(['ok' => GlpiPlugin\Points\Flatrate::debit((int) $request['args'][0])]) . "\n";
+            break;
+        case 'estimate':
+            $user = new User();
+            $user->getFromDBbyName('glpi');
+            $auth = new Auth();
+            $auth->auth_succeded = true;
+            $auth->user          = $user;
+            Session::init($auth);
+            Session::changeActiveEntities('all', true);
+            echo "\n" . json_encode(['ok' => GlpiPlugin\Points\Flatrate::estimate((int) $request['args'][0], (string) $request['args'][1])]) . "\n";
             break;
         case 'search':
             [$logins, $itemtype, $ids] = $request['args'];

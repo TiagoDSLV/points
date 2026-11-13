@@ -121,6 +121,31 @@ final class Ledger
     }
 
     /**
+     * Opération `import` du contrat de même solde, même début et même fin d'enveloppe : l'id de l'enveloppe, ou null. Sert à repérer
+     * une ligne dont seul le libellé a été corrigé (l'empreinte, elle, change avec le libellé). Renvoie l'enveloppe et l'empreinte de
+     * l'opération trouvée. Lecture seule.
+     *
+     * @return array{envelope: int, key: string}|null
+     */
+    public static function similarImport(int $contractsId, int $credit, string $begin, string $end): ?array
+    {
+        global $DB;
+
+        $row = $DB->request([
+            'SELECT'     => [self::OPERATIONS . '.items_id', self::OPERATIONS . '.details'],
+            'FROM'       => self::OPERATIONS,
+            'INNER JOIN' => [self::ENVELOPES => ['ON' => [self::OPERATIONS => 'items_id', self::ENVELOPES => 'id']]],
+            'WHERE'      => [
+                self::OPERATIONS . '.contracts_id' => $contractsId, self::OPERATIONS . '.type' => OpType::IMPORT,
+                self::OPERATIONS . '.amount' => Money::format($credit), self::OPERATIONS . '.date' => $begin, self::ENVELOPES . '.end_date' => $end,
+            ],
+            'LIMIT'      => 1,
+        ])->current();
+
+        return $row === null ? null : ['envelope' => (int) $row['items_id'], 'key' => (string) (json_decode((string) $row['details'], true)['import_key'] ?? '')];
+    }
+
+    /**
      * Crédit additionnel sur une enveloppe : une opération et un nouveau lot.
      * Options : `type` (credit par défaut, ou import), `origin_date` (date d'achat : défaut aujourd'hui ramené dans
      * l'enveloppe ; explicite, elle doit être dans l'enveloppe), `comment`, `details`.
@@ -142,10 +167,10 @@ final class Ledger
 
         return self::transaction($contractsId, static function (array $contract) use ($envelopesId, $cents, $type, $opts): array {
             $envelope = self::envelope($contract['contracts_id'], $envelopesId);
-            if ($type !== OpType::IMPORT && $envelope['end_date'] < self::today()) {
+            if ($type !== OpType::IMPORT && $envelope['end_date'] < Billing::today()) {
                 throw new RuleViolation(RuleViolation::ENVELOPE_ENDED, 'The envelope is already over');
             }
-            $clamped  = Dates::min(self::today(), $envelope['end_date']);
+            $clamped  = Dates::min(Billing::today(), $envelope['end_date']);
             $origin   = isset($opts['origin_date']) ? self::day($opts['origin_date']) : ($clamped < $envelope['begin_date'] ? $envelope['begin_date'] : $clamped);
             if ($origin < $envelope['begin_date'] || $origin > $envelope['end_date']) {
                 throw new RuleViolation(RuleViolation::CREDIT_OUT_OF_RANGE, 'The purchase date is outside the envelope');
@@ -237,7 +262,7 @@ final class Ledger
         if ($cents === 0) {
             throw new RuleViolation(RuleViolation::INVALID_AMOUNT, 'A correction cannot be zero');
         }
-        $date = $date ?? self::today();
+        $date = $date ?? Billing::today();
         $day  = self::day($date);
 
         return self::transaction($contractsId, static function (array $contract) use ($originOperationId, $cents, $reason, $date, $day): array {
@@ -252,14 +277,7 @@ final class Ledger
             if (!LotRules::isDebitOrigin($origin['type'], $origin['amount'])) {
                 throw new RuleViolation(RuleViolation::NOT_A_DEBIT, 'A positive correction can only target a debit');
             }
-            $originAllocations = self::allocationsOf($originOperationId);
-            $allocations       = LotRules::refund($originAllocations, self::refundedByLot($originOperationId), $cents);
-            $operationId       = self::addOperation($contract, OpType::CORRECTION, $cents, $date, $opts);
-            foreach ($allocations as $allocation) {
-                self::addAllocation($contract, $operationId, $allocation['lot'], $allocation['amount']);
-            }
-
-            return ['operations_id' => $operationId, 'allocations' => $allocations];
+            return self::writeRefund($contract, $originOperationId, $cents, OpType::CORRECTION, $date, $opts);
         });
     }
 
@@ -289,23 +307,15 @@ final class Ledger
             if (!LotRules::isDebitOrigin($origin['type'], $origin['amount'])) {
                 throw new RuleViolation(RuleViolation::NOT_A_DEBIT, 'A refund can only target a debit');
             }
-            $allocations = LotRules::refund(self::allocationsOf($originOperationId), self::refundedByLot($originOperationId), $cents);
-            $operationId = self::addOperation($contract, $type, $cents, $date, [
-                'comment'              => trim($reason),
-                'operations_id_origin' => $originOperationId,
-                'itemtype'             => $opts['itemtype'] ?? null,
-                'items_id'             => $opts['items_id'] ?? 0,
-                'tickets_id'           => $opts['tickets_id'] ?? 0,
-                'details'              => $opts['details'] ?? null,
-            ]);
-            foreach ($allocations as $allocation) {
-                self::addAllocation($contract, $operationId, $allocation['lot'], $allocation['amount']);
-            }
-            if (isset($opts['inside']) && is_callable($opts['inside'])) {
-                $opts['inside']($operationId);
-            }
 
-            return ['operations_id' => $operationId, 'allocations' => $allocations];
+            return self::writeRefund($contract, $originOperationId, $cents, $type, $date, [
+                'comment'    => trim($reason),
+                'itemtype'   => $opts['itemtype'] ?? null,
+                'items_id'   => $opts['items_id'] ?? 0,
+                'tickets_id' => $opts['tickets_id'] ?? 0,
+                'details'    => $opts['details'] ?? null,
+                'inside'     => $opts['inside'] ?? null,
+            ]);
         });
     }
 
@@ -319,7 +329,7 @@ final class Ledger
      */
     public static function carryover(int $contractsId, int $fromEnvelopeId, int $toEnvelopeId, ?string $date = null): array
     {
-        $day = self::day($date ?? self::today());
+        $day = self::day($date ?? Billing::today());
         if ($fromEnvelopeId === $toEnvelopeId) {
             throw new RuleViolation(RuleViolation::BAD_TARGET, 'The target envelope must differ from the source');
         }
@@ -366,15 +376,20 @@ final class Ledger
 
         $day    = Dates::check($date);
         $result = ['expired' => 0, 'carried' => 0, 'lots' => 0, 'errors' => []];
+        // Seuls les contrats qui ont un lot échu au reste > 0 (somme de ses affectations) sont parcourus : les autres ne sont ni verrouillés
+        // ni écrits. Le reste est relu sous le verrou, dans la transaction de chaque contrat.
         $contracts = [];
-        foreach ($DB->request(['SELECT' => ['contracts_id'], 'DISTINCT' => true, 'FROM' => self::LOTS, 'WHERE' => ['expiry_date' => ['<', $day]]]) as $row) {
-            $contracts[] = (int) $row['contracts_id'];
+        foreach ($DB->request([
+            'SELECT'     => [self::LOTS . '.contracts_id', QueryFunction::sum(self::ALLOCATIONS . '.amount', false, 'total')],
+            'FROM'       => self::LOTS,
+            'INNER JOIN' => [self::ALLOCATIONS => ['ON' => [self::LOTS => 'id', self::ALLOCATIONS => 'plugin_points_lots_id']]],
+            'WHERE'      => [self::LOTS . '.expiry_date' => ['<', $day]],
+            'GROUPBY'    => [self::LOTS . '.id', self::LOTS . '.contracts_id'],
+            'HAVING'     => ['total' => ['>', 0]],
+        ]) as $row) {
+            $contracts[(int) $row['contracts_id']] = (int) $row['contracts_id'];
         }
         foreach ($contracts as $contractsId) {
-            // Filtre avant transaction : un contrat sans lot échu au reste > 0 n'est ni verrouillé ni écrit
-            if (LotRules::dueLots(self::loadLots($contractsId), $day) === []) {
-                continue;
-            }
             try {
                 $done = self::transaction($contractsId, static function (array $contract) use ($day): array {
                     $partial   = ['expired' => 0, 'carried' => 0, 'lots' => 0];
@@ -479,6 +494,33 @@ final class Ledger
     }
 
     /**
+     * Débit net de chaque opération de débit, en centièmes (positif = points consommés) : le montant de l'opération plus tout ce qui
+     * lui est lié (corrections, compensations, ajustements de review, signés : un remboursement le réduit, un débit en plus
+     * l'augmente). Seule définition du « débit net d'une tâche » : l'onglet du ticket l'affiche, aucune règle du journal ailleurs.
+     *
+     * @param list<int> $operationIds
+     * @return array<int, int> opération => débit net
+     */
+    public static function netDebits(array $operationIds): array
+    {
+        global $DB;
+
+        $net = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $operationIds))), self::CHUNK) as $chunk) {
+            foreach ($DB->request(['SELECT' => ['id', 'amount'], 'FROM' => self::OPERATIONS, 'WHERE' => ['id' => $chunk]]) as $row) {
+                $net[(int) $row['id']] = -Money::parse((string) $row['amount']);
+            }
+            foreach ($DB->request(['SELECT' => ['operations_id_origin', 'amount'], 'FROM' => self::OPERATIONS, 'WHERE' => [
+                'operations_id_origin' => $chunk, 'type' => [OpType::CORRECTION, OpType::COMPENSATION, OpType::REVIEW_ADJUSTMENT],
+            ]]) as $row) {
+                $net[(int) $row['operations_id_origin']] -= Money::parse((string) $row['amount']);
+            }
+        }
+
+        return $net;
+    }
+
+    /**
      * Cache du contrat lu en base (sans recalcul), en centièmes ; contrat sans ligne Points : zéros.
      *
      * @return array{balance: int, credited: int, consumed: int}
@@ -499,8 +541,9 @@ final class Ledger
     /**
      * Invariants du journal pour un contrat (docs/conception.md) ; liste vide = tout est cohérent :
      * somme des montants d'une opération = somme de ses affectations ; affectations sur des lots du contrat ;
-     * reste d'un lot >= 0 (sauf dépassement autorisé par le paramètre) ; solde du cache = somme du journal = somme
-     * des restes des lots.
+     * reste d'un lot >= 0, sauf sur un lot qui a reçu une affectation de dépassement (détails `overdraft_lot` d'une opération de
+     * débit : le paramètre `allow_overdraft` du moment n'y entre pas, il a pu changer depuis) ; solde du cache = somme du journal =
+     * somme des restes des lots.
      *
      * @return list<string>
      */
@@ -533,11 +576,19 @@ final class Ledger
         foreach (array_keys($foreign) as $id) {
             $problems[] = sprintf('operation %d: allocation on a lot of another contract', $id);
         }
-        $overdraft = (int) Config::value('allow_overdraft') === 1;
-        $sumLots   = 0;
+        $overdraftLots = [];
+        foreach ($DB->request(['SELECT' => ['details'], 'FROM' => self::OPERATIONS, 'WHERE' => [
+            'contracts_id' => $contractsId, 'type' => OpType::debitTypes(), 'details' => ['LIKE', '%"overdraft_lot"%'],
+        ]]) as $row) {
+            $lot = (int) (json_decode((string) $row['details'], true)['overdraft_lot'] ?? 0);
+            if ($lot > 0) {
+                $overdraftLots[$lot] = true;
+            }
+        }
+        $sumLots = 0;
         foreach ($lots as $lot) {
             $sumLots += $lot['remaining'];
-            if ($lot['remaining'] < 0 && !$overdraft) {
+            if ($lot['remaining'] < 0 && !isset($overdraftLots[$lot['id']])) {
                 $problems[] = sprintf('lot %d: negative remainder %s', $lot['id'], Money::format($lot['remaining']));
             }
         }
@@ -552,6 +603,34 @@ final class Ledger
         }
 
         return $problems;
+    }
+
+    /**
+     * Contrôle des invariants de tous les contrats qui ont une ligne Points ou une opération (commande `plugins:points:check`).
+     * Lecture seule.
+     *
+     * @return array<int, list<string>> contrat => écarts (les contrats cohérents n'y figurent pas)
+     */
+    public static function checkAll(): array
+    {
+        global $DB;
+
+        $contracts = [];
+        foreach ([self::CONTRACTS, self::OPERATIONS] as $table) {
+            foreach ($DB->request(['SELECT' => ['contracts_id'], 'DISTINCT' => true, 'FROM' => $table]) as $row) {
+                $contracts[(int) $row['contracts_id']] = (int) $row['contracts_id'];
+            }
+        }
+        ksort($contracts);
+        $out = [];
+        foreach ($contracts as $contractsId) {
+            $problems = self::check($contractsId);
+            if ($problems !== []) {
+                $out[$contractsId] = $problems;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -578,6 +657,7 @@ final class Ledger
             RuleViolation::NOT_REPORTABLE      => __('The source envelope is not marked as carried over', 'points'),
             RuleViolation::ALREADY_DEBITED     => __('This item has already been debited', 'points'),
             RuleViolation::NOT_A_DEBIT         => __('Only a debit can be given back or corrected upwards', 'points'),
+            RuleViolation::REFUND_NO_VALID_LOT => __('The original envelope has ended and no envelope is valid today to receive the points given back', 'points'),
             default                            => $e->getMessage(),
         };
     }
@@ -705,7 +785,7 @@ final class Ledger
      */
     private static function writeDebit(array $contract, string $type, int $cents, string $date, string $day, array $opts): array
     {
-        if (!empty($opts['unique']) && self::alreadyDebited($type, (string) ($opts['itemtype'] ?? ''), (int) ($opts['items_id'] ?? 0))) {
+        if (!empty($opts['unique']) && self::debitOf($type, (string) ($opts['itemtype'] ?? ''), (int) ($opts['items_id'] ?? 0)) > 0) {
             throw new RuleViolation(RuleViolation::ALREADY_DEBITED, 'This item has already been debited');
         }
         $allowOverdraft = array_key_exists('allow_overdraft', $opts) ? (bool) $opts['allow_overdraft'] : (int) Config::value('allow_overdraft') === 1;
@@ -742,7 +822,9 @@ final class Ledger
         }
         $details        = $opts['details'] ?? [];
         if ($plan['overdraft'] > 0) {
-            $details['overdraft'] = Money::format($plan['overdraft']);
+            // Le lot qui porte le dépassement est la seule raison légitime d'un reste négatif (Ledger::check)
+            $details['overdraft']     = Money::format($plan['overdraft']);
+            $details['overdraft_lot'] = $plan['overdraft_lot'];
         }
         $operationId = self::addOperation($contract, $type, -$cents, $date, [
             'itemtype'             => $opts['itemtype'] ?? null,
@@ -764,19 +846,77 @@ final class Ledger
     }
 
     /**
-     * Un débit de cette clé (type, itemtype, items_id) existe-t-il ? Le débit est DÉFINITIF : un remboursement, une
-     * correction ou une compensation ne le rendent jamais débitable une seconde fois. Appelé sous le verrou du contrat :
-     * une lecture faite avant le verrou ne suffit pas (deux débits concurrents).
+     * Remboursement (correction +, compensation, ajustement + de review) : opération liée au débit d'origine et affectations aux lots du
+     * débit, dans l'ordre inverse (LotRules::refund). La part qui retomberait sur un lot ÉCHU au jour de l'opération suit le paramètre
+     * `compensation_on_expired` (règle 11) : `origin` la rend à ce lot (elle expirera à la prochaine exécution de l'action automatique) ;
+     * `valid_lot` (défaut) la crédite sur un nouveau lot daté du jour, dans l'enveloppe du lot valide le plus récent, ou refuse
+     * (REFUND_NO_VALID_LOT) s'il n'y en a aucun. La part redirigée est notée dans les détails (`redirected` : lot d'origine => centièmes) : elle
+     * compte comme déjà rendue sur ce lot (refundedByLot), sans quoi elle pourrait être rendue une seconde fois. Sous le verrou du contrat.
+     *
+     * @param array{id: int, contracts_id: int, entities_id: int} $contract
+     * @param array<string, mixed> $o comment, itemtype, items_id, tickets_id, details, inside
+     * @return array{operations_id: int, allocations: list<array{lot: int, amount: int}>}
      */
-    private static function alreadyDebited(string $type, string $itemtype, int $itemsId): bool
+    private static function writeRefund(array $contract, int $originOperationId, int $cents, string $type, string $date, array $o): array
+    {
+        $day         = self::day($date);
+        $allocations = LotRules::refund(self::allocationsOf($originOperationId), self::refundedByLot($originOperationId), $cents);
+        $details     = $o['details'] ?? [];
+        $redirected  = 0;
+        $target      = null;
+        if ((string) Config::value('compensation_on_expired') === ConfigValues::ON_EXPIRED_VALID_LOT) {
+            $lots  = self::loadLots($contract['contracts_id']);
+            $split = LotRules::redirectExpired($allocations, $lots, $day);
+            if ($split['redirected'] > 0) {
+                $target = LotRules::latestValidLot($lots, $day);
+                if ($target === null) {
+                    throw new RuleViolation(RuleViolation::REFUND_NO_VALID_LOT, 'No valid lot to credit the refund: its original lot has ended');
+                }
+                $allocations = $split['kept'];
+                $redirected  = $split['redirected'];
+                $details['redirected'] = $split['from'];
+            }
+        }
+        $operationId = self::addOperation($contract, $type, $cents, $date, [
+            'comment'              => $o['comment'] ?? '',
+            'operations_id_origin' => $originOperationId,
+            'itemtype'             => $o['itemtype'] ?? null,
+            'items_id'             => $o['items_id'] ?? 0,
+            'tickets_id'           => $o['tickets_id'] ?? 0,
+            'details'              => $details === [] ? null : $details,
+        ]);
+        foreach ($allocations as $allocation) {
+            self::addAllocation($contract, $operationId, $allocation['lot'], $allocation['amount']);
+        }
+        if ($target !== null) {
+            $envelope = self::envelope($contract['contracts_id'], $target['envelope']);
+            $lotId    = self::addLot($contract, $operationId, $envelope['id'], $day, LotRules::expiryDate($envelope['end_date'], $day, self::retention()), $redirected);
+            self::addAllocation($contract, $operationId, $lotId, $redirected);
+            $allocations[] = ['lot' => $lotId, 'amount' => $redirected];
+        }
+        if (isset($o['inside']) && is_callable($o['inside'])) {
+            $o['inside']($operationId);
+        }
+
+        return ['operations_id' => $operationId, 'allocations' => $allocations];
+    }
+
+    /**
+     * Opération de débit de cette clé (type, itemtype, items_id), 0 s'il n'y en a pas. Le débit est DÉFINITIF : un remboursement, une
+     * correction ou une compensation ne le rendent jamais débitable une seconde fois. Seule lecture « cet élément est-il débité ? » du
+     * plugin (tâches, forfaits, garde-fou d'unicité). Appelée sous le verrou du contrat par writeDebit : une lecture faite avant le
+     * verrou ne suffit pas (deux débits concurrents).
+     */
+    public static function debitOf(string $type, string $itemtype, int $itemsId): int
     {
         global $DB;
 
         if ($itemtype === '' || $itemsId < 1) {
-            return false;
+            return 0;
         }
+        $row = $DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['type' => $type, 'itemtype' => $itemtype, 'items_id' => $itemsId], 'LIMIT' => 1])->current();
 
-        return count($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['type' => $type, 'itemtype' => $itemtype, 'items_id' => $itemsId], 'LIMIT' => 1])) > 0;
+        return $row === null ? 0 : (int) $row['id'];
     }
 
     /**
@@ -895,14 +1035,15 @@ final class Ledger
     /**
      * Lots d'un contrat avec leur reste (somme de leurs affectations), centièmes.
      *
-     * @return list<array{id: int, origin_date: string, expiry_date: string, remaining: int, envelope: int, initial: int}>
+     * @return list<array{id: int, origin_date: string, expiry_date: string, remaining: int, envelope: int, initial: int, refund: bool}>
      */
     private static function loadLots(int $contractsId): array
     {
         global $DB;
 
         $lots = [];
-        foreach ($DB->request(['SELECT' => ['id', 'origin_date', 'expiry_date', 'plugin_points_envelopes_id', 'initial'], 'FROM' => self::LOTS, 'WHERE' => ['contracts_id' => $contractsId], 'ORDER' => ['origin_date', 'id']]) as $row) {
+        $byOperation = [];
+        foreach ($DB->request(['SELECT' => ['id', 'operations_id', 'origin_date', 'expiry_date', 'plugin_points_envelopes_id', 'initial'], 'FROM' => self::LOTS, 'WHERE' => ['contracts_id' => $contractsId], 'ORDER' => ['origin_date', 'id']]) as $row) {
             $lots[(int) $row['id']] = [
                 'id'          => (int) $row['id'],
                 'origin_date' => (string) $row['origin_date'],
@@ -910,7 +1051,17 @@ final class Ledger
                 'remaining'   => 0,
                 'envelope'    => (int) $row['plugin_points_envelopes_id'],
                 'initial'     => Money::parse((string) $row['initial']),
+                'refund'      => false,
             ];
+            $byOperation[(int) $row['operations_id']][] = (int) $row['id'];
+        }
+        // Lot créé par un remboursement (part redirigée, writeRefund) : des points rendus, pas un achat (seuil d'alerte)
+        foreach (array_chunk(array_keys($byOperation), self::CHUNK) as $chunk) {
+            foreach ($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['id' => $chunk, 'type' => [OpType::CORRECTION, OpType::COMPENSATION, OpType::REVIEW_ADJUSTMENT]]]) as $row) {
+                foreach ($byOperation[(int) $row['id']] as $lotId) {
+                    $lots[$lotId]['refund'] = true;
+                }
+            }
         }
         foreach (array_chunk(array_keys($lots), self::CHUNK) as $chunk) {
             foreach ($DB->request(['SELECT' => ['plugin_points_lots_id', QueryFunction::sum('amount', false, 'total')], 'FROM' => self::ALLOCATIONS, 'WHERE' => ['plugin_points_lots_id' => $chunk], 'GROUPBY' => 'plugin_points_lots_id']) as $row) {
@@ -956,14 +1107,12 @@ final class Ledger
      */
     private static function operation(int $contractsId, int $operationId): array
     {
-        global $DB;
-
-        $row = $DB->request(['SELECT' => ['id', 'type', 'amount'], 'FROM' => self::OPERATIONS, 'WHERE' => ['id' => $operationId, 'contracts_id' => $contractsId], 'LIMIT' => 1])->current();
-        if ($row === null) {
+        $row = Operation::read($operationId);
+        if ($row === null || $row['contracts_id'] !== $contractsId) {
             throw new RuleViolation(RuleViolation::UNKNOWN_OPERATION, 'Unknown operation for this contract');
         }
 
-        return ['id' => (int) $row['id'], 'type' => (string) $row['type'], 'amount' => Money::parse((string) $row['amount'])];
+        return ['id' => $row['id'], 'type' => $row['type'], 'amount' => $row['amount']];
     }
 
     /**
@@ -984,7 +1133,8 @@ final class Ledger
     }
 
     /**
-     * Ce qui a déjà été rendu aux lots d'un débit : affectations positives des opérations qui lui sont liées.
+     * Ce qui a déjà été rendu aux lots d'un débit : affectations positives des opérations qui lui sont liées, plus ce qu'elles ont
+     * redirigé hors d'un lot échu (détails `redirected`, voir writeRefund).
      *
      * @return array<int, int> lot => centièmes
      */
@@ -993,10 +1143,13 @@ final class Ledger
         global $DB;
 
         $ids = [];
-        foreach ($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['operations_id_origin' => $originOperationId, 'type' => [OpType::CORRECTION, OpType::COMPENSATION, OpType::REVIEW_ADJUSTMENT]]]) as $row) {
-            $ids[] = (int) $row['id'];
-        }
         $out = [];
+        foreach ($DB->request(['SELECT' => ['id', 'details'], 'FROM' => self::OPERATIONS, 'WHERE' => ['operations_id_origin' => $originOperationId, 'type' => [OpType::CORRECTION, OpType::COMPENSATION, OpType::REVIEW_ADJUSTMENT]]]) as $row) {
+            $ids[] = (int) $row['id'];
+            foreach (LotRules::redirectedFrom(json_decode((string) ($row['details'] ?? ''), true) ?: null) as $lot => $cents) {
+                $out[$lot] = ($out[$lot] ?? 0) + $cents;
+            }
+        }
         foreach (array_chunk($ids, self::CHUNK) as $chunk) {
             foreach ($DB->request(['SELECT' => ['plugin_points_lots_id', 'amount'], 'FROM' => self::ALLOCATIONS, 'WHERE' => ['operations_id' => $chunk, 'amount' => ['>', 0]]]) as $row) {
                 $out[(int) $row['plugin_points_lots_id']] = ($out[(int) $row['plugin_points_lots_id']] ?? 0) + Money::parse((string) $row['amount']);
@@ -1089,7 +1242,7 @@ final class Ledger
             'date_cache'   => $now,
             'date_mod'     => $now,
         ], ['id' => $contract['id']]);
-        ThresholdAlert::resetIfBelow($contract['id'], $lots, self::today());
+        ThresholdAlert::resetIfBelow($contract['id'], $lots, Billing::today());
     }
 
     /**
@@ -1114,11 +1267,6 @@ final class Ledger
     private static function now(): string
     {
         return Session::getCurrentTime() ?? date('Y-m-d H:i:s');
-    }
-
-    private static function today(): string
-    {
-        return substr(self::now(), 0, 10);
     }
 
     private static function userId(): int

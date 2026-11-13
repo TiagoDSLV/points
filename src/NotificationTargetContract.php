@@ -33,7 +33,7 @@ class NotificationTargetContract extends NotificationTarget
         $native = new \Contract();
         $native->getFromDB((int) ($fields['contracts_id'] ?? 0));
 
-        $today  = date('Y-m-d');
+        $today  = Billing::today();
         $totals = Ledger::validTotals((int) ($fields['contracts_id'] ?? 0), $today);
         $cached = Ledger::cached((int) ($fields['contracts_id'] ?? 0));
 

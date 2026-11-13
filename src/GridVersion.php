@@ -6,12 +6,11 @@ namespace GlpiPlugin\Points;
 
 use CommonDBTM;
 use GlpiPlugin\Points\Domain\Dates;
-use GlpiPlugin\Points\Domain\OpType;
 use Session;
 
 /**
  * Version datée d'une grille (table glpi_plugin_points_gridversions) : applicable à partir de `begin_date`
- * (docs/conception.md, règle 4). Une version déjà utilisée par une opération du journal (son id figure dans `details`)
+ * (docs/conception.md, règle 4). Une version déjà utilisée par un débit de tâche (colonne indexée de l'état des tâches)
  * n'est plus modifiable ni supprimable : on en crée une nouvelle. Les grilles sont globales (entité 0, récursives) :
  * le cloisonnement est le droit plugin_points_grid, sans contrôle d'entité.
  */
@@ -87,22 +86,14 @@ class GridVersion extends CommonDBTM
     }
 
     /**
-     * Une opération du journal s'appuie-t-elle sur cette version ? Le détail d'un débit de tâche porte
-     * `"gridversions_id":N` (json_encode compact, écrit par Billing) : la valeur est suivie d'une virgule ou de l'accolade.
+     * Un débit de tâche s'appuie-t-il sur cette version ? Colonne indexée `plugin_points_gridversions_id` de l'état des tâches, écrite dans
+     * la transaction du débit (Billing::lock) : plus de recherche dans le texte des détails du journal.
      */
     public static function isUsed(int $versionId): bool
     {
         global $DB;
 
-        $like = static fn (string $end): array => ['details' => ['LIKE', '%"gridversions_id":' . $versionId . $end]];
-        $rows = $DB->request([
-            'SELECT' => ['id'],
-            'FROM'   => 'glpi_plugin_points_operations',
-            'WHERE'  => ['type' => OpType::debitTypes(), 'OR' => [$like(',%'), $like('}%')]],
-            'LIMIT'  => 1,
-        ]);
-
-        return count($rows) > 0;
+        return $versionId > 0 && count($DB->request(['SELECT' => ['id'], 'FROM' => Task::getTable(), 'WHERE' => ['plugin_points_gridversions_id' => $versionId], 'LIMIT' => 1])) > 0;
     }
 
     public function prepareInputForAdd($input)

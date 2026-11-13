@@ -70,7 +70,7 @@ class Ticket extends CommonDBTM
 
     public function canViewItem(): bool
     {
-        return static::canView() && Session::haveAccessToEntity((int) ($this->fields['entities_id'] ?? -1));
+        return static::canView() && Session::haveAccessToEntity((int) ($this->fields['entities_id'] ?? -1)) && self::canReadTicket((int) ($this->fields['tickets_id'] ?? 0));
     }
 
     public function canCreateItem(): bool
@@ -210,6 +210,51 @@ class Ticket extends CommonDBTM
         return $item->add($input) !== false;
     }
 
+    /**
+     * La ligne Points suit l'entité de son ticket (transfert, changement d'entité) : le cloisonnement la lit par `entities_id`. Ce n'est
+     * pas le journal : l'UPDATE est permis. Appelée par le crochet ITEM_UPDATE du ticket (ItilHooks::ticketItemUpdate).
+     */
+    public static function followTicketEntity(int $ticketsId, int $entitiesId): void
+    {
+        global $DB;
+
+        $DB->update(self::getTable(), ['entities_id' => $entitiesId], ['tickets_id' => $ticketsId, 'NOT' => ['entities_id' => $entitiesId]]);
+    }
+
+    /**
+     * Fige le type d'intervention du paramétrage dans la ligne Points du ticket (créée si elle manque, complétée si son type est vide) :
+     * changer le défaut du paramétrage n'affecte plus ce ticket. Écriture d'état de décompte (comme les lignes de tâche), sans
+     * contrôle de droit : appelée par la création du ticket (ItilHooks::ticketItemAdd) et par la première évaluation (Billing::evaluate).
+     * Une fois par ticket et par processus. Rejouable et tolérante à la concurrence (clé unique sur le ticket).
+     */
+    public static function freezeType(int $ticketsId, int $entitiesId, int $typeId): void
+    {
+        global $DB;
+
+        static $done = [];
+        if ($typeId < 1 || isset($done[$ticketsId][$typeId])) {
+            return;
+        }
+        $row = $DB->request(['SELECT' => ['id', 'plugin_points_interventiontypes_id'], 'FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticketsId], 'LIMIT' => 1])->current();
+        $now = Session::getCurrentTime() ?? date('Y-m-d H:i:s');
+        if ($row === null) {
+            try {
+                $DB->insert(self::getTable(), [
+                    'entities_id' => $entitiesId, 'is_recursive' => 0, 'tickets_id' => $ticketsId, 'contracts_id' => 0,
+                    'plugin_points_interventiontypes_id' => $typeId, 'is_billable' => 1, 'date_creation' => $now, 'date_mod' => $now,
+                ]);
+            } catch (\Throwable $e) {
+                // Insertion concurrente (clé unique sur le ticket) : la ligne existe maintenant, rien à refaire
+                if (count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticketsId], 'LIMIT' => 1])) === 0) {
+                    throw $e;
+                }
+            }
+        } elseif ((int) $row['plugin_points_interventiontypes_id'] === 0) {
+            $DB->update(self::getTable(), ['plugin_points_interventiontypes_id' => $typeId, 'date_mod' => $now], ['id' => $row['id'], 'plugin_points_interventiontypes_id' => 0]);
+        }
+        $done[$ticketsId][$typeId] = true;
+    }
+
     public function rawSearchOptions()
     {
         $table = static::getTable();
@@ -258,7 +303,9 @@ class Ticket extends CommonDBTM
             return true;
         }
 
-        return count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0
+        // La ligne Points est écrite pour tout ticket (type d'intervention figé à la création) : elle ne compte que si elle porte un contrat
+        // ou un ticket marqué non facturable
+        return count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID(), 'OR' => ['contracts_id' => ['>', 0], 'is_billable' => 0]], 'LIMIT' => 1])) > 0
             || count($DB->request(['SELECT' => ['id'], 'FROM' => Task::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0
             || count($DB->request(['SELECT' => ['id'], 'FROM' => Flatrate::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0;
     }
@@ -269,21 +316,21 @@ class Ticket extends CommonDBTM
 
         $id      = (int) $ticket->getID();
         $ctx     = Billing::context($id);
-        $daytypes = [
-            TaskRules::DAY_WEEK     => __('Week', 'points'),
-            TaskRules::DAY_SATURDAY => __('Saturday', 'points'),
-            TaskRules::DAY_SUNDAY   => __('Sunday and holiday', 'points'),
-        ];
+        $daytypes = GridAdmin::dayTypes();
         $locked = [];
         foreach ($DB->request(['SELECT' => ['tickettasks_id', 'operations_id', 'is_locked'], 'FROM' => Task::getTable(), 'WHERE' => ['tickets_id' => $id]]) as $row) {
             $locked[(int) $row['tickettasks_id']] = $row;
         }
+        $nets  = Ledger::netDebits(array_map(static fn (array $row): int => (int) $row['operations_id'], $locked));
         $rows  = [];
         $total = 0;
         $counted = $ctx['contracts_id'] > 0 && $ctx['is_billable'] && !$ctx['flatrate'];
         $seePrivate = Session::haveRight(\TicketTask::$rightname, \CommonITILTask::SEEPRIVATE);
         $me         = (int) Session::getLoginUserID();
-        foreach ($DB->request(['SELECT' => ['id', 'actiontime', 'begin', 'date', 'is_private', 'users_id', 'users_id_tech'], 'FROM' => 'glpi_tickettasks', 'WHERE' => ['tickets_id' => $id], 'ORDER' => ['date', 'id']]) as $task) {
+        $all = iterator_to_array($DB->request(['FROM' => 'glpi_tickettasks', 'WHERE' => ['tickets_id' => $id], 'ORDER' => ['date', 'id']]), false);
+        // Mêmes tâches que pendingTasks laisse au ticket principal (fusion de tickets) : montrées, jamais comptées ici
+        $merged = array_flip(Billing::mergedElsewhere($id, array_values(array_filter($all, static fn (array $t): bool => (int) $t['actiontime'] > 0 && !isset($locked[(int) $t['id']])))));
+        foreach ($all as $task) {
             // Tâche privée : visible avec le droit SEEPRIVATE de TicketTask, ou si elle est à moi (CommonITILTask::canViewItem)
             if ((int) $task['is_private'] === 1 && !$seePrivate && (int) $task['users_id'] !== $me && (int) $task['users_id_tech'] !== $me) {
                 continue;
@@ -295,17 +342,14 @@ class Ticket extends CommonDBTM
             $line['date'] = self::safeDate($task);
             $debit = $locked[(int) $task['id']] ?? null;
             if ($debit !== null && (int) $debit['operations_id'] > 0) {
-                $op = $DB->request(['SELECT' => ['amount', 'details', 'items_id'], 'FROM' => 'glpi_plugin_points_operations', 'WHERE' => ['id' => $debit['operations_id']], 'LIMIT' => 1])->current();
-                $details = json_decode((string) ($op['details'] ?? ''), true) ?: [];
-                // Débit net des remboursements, corrections positives et compensations liés à l'opération
-                $net = -Money::parse((string) ($op['amount'] ?? '0'));
-                foreach ($DB->request(['SELECT' => ['amount'], 'FROM' => 'glpi_plugin_points_operations', 'WHERE' => ['operations_id_origin' => (int) $debit['operations_id'], 'amount' => ['>', 0]]]) as $refund) {
-                    $net -= Money::parse((string) $refund['amount']);
-                }
+                $op      = Operation::read((int) $debit['operations_id']);
+                $details = $op['details'] ?? [];
+                // Débit net du journal (Ledger::netDebits : remboursements, corrections et compensations liés compris)
+                $net             = $nets[(int) $debit['operations_id']] ?? 0;
                 $line['points']  = Money::format($net);
                 $line['daytype'] = $daytypes[(int) ($details['daytype'] ?? 0)] ?? '';
                 $line['counted'] = (int) ($details['counted_minutes'] ?? $line['counted']);
-                $line['flags']   = implode(', ', array_map(self::flagLabel(...), (array) ($details['flags'] ?? [])));
+                $line['flags']   = implode(', ', array_map(Billing::flagLabel(...), (array) ($details['flags'] ?? [])));
                 if ((int) ($op['items_id'] ?? 0) !== (int) $task['id']) {
                     // Copie par fusion d'une tâche débitée sur un autre ticket : montré, jamais compté deux fois
                     $line['state'] = __('Debited on the merged ticket (locked)', 'points');
@@ -313,6 +357,8 @@ class Ticket extends CommonDBTM
                     $line['state'] = __('Debited (locked)', 'points');
                     $total += $net;
                 }
+            } elseif (isset($merged[(int) $task['id']]) && $counted) {
+                $line['state'] = __('Debited on the main ticket', 'points');
             } elseif (!$counted) {
                 $line['state'] = (int) $task['actiontime'] > 0 ? __('Not counted', 'points') : '';
             } elseif ((int) $task['actiontime'] <= 0) {
@@ -322,7 +368,7 @@ class Ticket extends CommonDBTM
                     $r = Billing::evaluate($ctx, $task);
                     $line['points']  = Money::format($r['points']);
                     $line['daytype'] = $daytypes[$r['daytype']] ?? '';
-                    $line['flags']   = implode(', ', array_map(self::flagLabel(...), $r['flags']));
+                    $line['flags']   = implode(', ', array_map(Billing::flagLabel(...), $r['flags']));
                     $line['state']   = __('Estimated, not yet debited', 'points');
                     $total += $r['points'];
                 } catch (RuleViolation $e) {
@@ -373,16 +419,5 @@ class Ticket extends CommonDBTM
         } catch (\InvalidArgumentException) {
             return (string) ($task['date'] ?? '');
         }
-    }
-
-    private static function flagLabel(string $flag): string
-    {
-        return match ($flag) {
-            TaskRules::FLAG_SATURDAY  => __('Saturday', 'points'),
-            TaskRules::FLAG_SUNDAY    => __('Sunday', 'points'),
-            TaskRules::FLAG_HOLIDAY   => __('Holiday', 'points'),
-            TaskRules::FLAG_OFF_HOURS => __('Outside working hours', 'points'),
-            default                   => $flag,
-        };
     }
 }

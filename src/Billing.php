@@ -46,8 +46,8 @@ final class Billing
      * ticket, sinon à choisir (`ambiguous`) ; aucun → ticket non facturable.
      *
      * @return array{tickets_id: int, entities_id: int, candidates: array<int, array{id: int, name: string, grids_id: int}>,
-     *         contracts_id: int, ambiguous: bool, is_billable: bool, billable: bool, interventiontypes_id: int, grids_id: int,
-     *         flatrate: bool}
+     *         contracts_id: int, ambiguous: bool, is_billable: bool, billable: bool, interventiontypes_id: int, type_frozen: bool,
+     *         grids_id: int, flatrate: bool}
      */
     public static function context(int $ticketsId): array
     {
@@ -56,7 +56,7 @@ final class Billing
         $ticket = $DB->request(['SELECT' => ['id', 'entities_id', 'is_deleted'], 'FROM' => 'glpi_tickets', 'WHERE' => ['id' => $ticketsId], 'LIMIT' => 1])->current();
         $ctx    = [
             'tickets_id' => $ticketsId, 'entities_id' => (int) ($ticket['entities_id'] ?? 0), 'candidates' => [], 'contracts_id' => 0,
-            'ambiguous' => false, 'is_billable' => true, 'billable' => false, 'interventiontypes_id' => (int) Config::value('default_interventiontypes_id'),
+            'ambiguous' => false, 'is_billable' => true, 'billable' => false, 'interventiontypes_id' => (int) Config::value('default_interventiontypes_id'), 'type_frozen' => false,
             'grids_id' => 0, 'flatrate' => false,
         ];
         // Un ticket dans la corbeille (source d'une fusion, qui reçoit la copie des tâches du ticket principal par
@@ -94,6 +94,7 @@ final class Billing
             $ctx['is_billable'] = (int) $setting['is_billable'] === 1;
             if ((int) $setting['plugin_points_interventiontypes_id'] > 0) {
                 $ctx['interventiontypes_id'] = (int) $setting['plugin_points_interventiontypes_id'];
+                $ctx['type_frozen']          = true;
             }
         }
         $chosen = (int) ($setting['contracts_id'] ?? 0);
@@ -178,6 +179,18 @@ final class Billing
     }
 
     /**
+     * Jour courant dans le fuseau de référence : la date métier de tout ce qui a lieu « maintenant » (crédit, décision, remboursement,
+     * forfait, action automatique, alerte). Un seul calcul pour tout le plugin ; jamais la date PHP brute (fuseau de la session ou du
+     * processus), qui change de jour à un autre moment que les dates de tâche.
+     */
+    public static function today(): string
+    {
+        $now = new \DateTimeImmutable(Session::getCurrentTime() ?? 'now', new \DateTimeZone(date_default_timezone_get()));
+
+        return Dates::todayIn($now, self::referenceTimezone());
+    }
+
+    /**
      * Exécute un calcul de calendrier (Calendar::isHoliday, isAWorkingHour lisent le fuseau par défaut de PHP) dans le
      * fuseau de référence ; le fuseau de la session est rétabli ensuite (PHP seulement : la session SQL n'est pas touchée).
      *
@@ -220,6 +233,8 @@ final class Billing
 
     /**
      * Décompte d'une tâche : minutes comptées, type de jour, version de grille, coût, points, drapeaux.
+     *
+     * Lecture seule (le type d'un ticket sans réglage est figé par freezeType, dans les chemins d'écriture seulement).
      *
      * @param array{contracts_id: int, entities_id: int, grids_id: int, interventiontypes_id: int} $ctx
      * @param array<string, mixed> $task champs actiontime, begin, date
@@ -264,6 +279,20 @@ final class Billing
     }
 
     /**
+     * Le type d'intervention d'un ticket sans réglage est celui du paramétrage à cet instant : il est FIGÉ dans la ligne du ticket
+     * (Ticket::freezeType) pour que changer le défaut plus tard n'affecte pas ce ticket. À la création, ItilHooks::ticketItemAdd l'a déjà
+     * fait ; ceci rattrape les tickets antérieurs au plugin, aux seuls chemins d'ÉCRITURE (ajout ou modification d'une tâche, débit).
+     *
+     * @param array{tickets_id: int, entities_id: int, interventiontypes_id: int, type_frozen: bool} $ctx
+     */
+    public static function freezeType(array $ctx): void
+    {
+        if (!$ctx['type_frozen'] && $ctx['tickets_id'] > 0) {
+            Ticket::freezeType($ctx['tickets_id'], $ctx['entities_id'], $ctx['interventiontypes_id']);
+        }
+    }
+
+    /**
      * Il existe au moins un lot valide du contrat à cette date (règle 6 : une tâche est refusée sinon).
      */
     public static function hasValidLot(int $contractsId, string $date): bool
@@ -290,6 +319,7 @@ final class Billing
      */
     public static function assertTaskAccepted(array $ctx, array $task): void
     {
+        self::freezeType($ctx);
         $date = self::taskDate($task);
         if (!self::hasValidLot($ctx['contracts_id'], $date)) {
             throw new RuleViolation(RuleViolation::NO_VALID_LOT, 'No valid lot at this date');
@@ -309,16 +339,7 @@ final class Billing
      */
     public static function debitedOperation(int $taskId): int
     {
-        global $DB;
-
-        $row = $DB->request([
-            'SELECT' => ['id'],
-            'FROM'   => self::OPERATIONS,
-            'WHERE'  => ['type' => OpType::DEBIT_TASK, 'itemtype' => \TicketTask::class, 'items_id' => $taskId],
-            'LIMIT'  => 1,
-        ])->current();
-
-        return $row === null ? 0 : (int) $row['id'];
+        return Ledger::debitOf(OpType::DEBIT_TASK, \TicketTask::class, $taskId);
     }
 
     /**
@@ -336,20 +357,9 @@ final class Billing
         if ($source < 1) {
             return 0;
         }
-        $same = static function (string $field, array $row) use ($task): bool {
-            $a = trim((string) ($row[$field] ?? ''));
-            $b = trim((string) ($task[$field] ?? ''));
-            if (in_array($field, ['begin', 'end', 'date'], true)) {
-                return ($a === '' || str_starts_with($a, '0000') ? 0 : (int) strtotime($a)) === ($b === '' || str_starts_with($b, '0000') ? 0 : (int) strtotime($b));
-            }
-
-            return $a === $b;
-        };
         foreach ($DB->request(['FROM' => 'glpi_tickettasks', 'WHERE' => ['tickets_id' => $source]]) as $row) {
-            foreach (['actiontime', 'begin', 'end', 'date', 'content', 'users_id_tech'] as $field) {
-                if (!$same($field, $row)) {
-                    continue 2;
-                }
+            if (!self::sameTask($row, $task)) {
+                continue;
             }
             $operation = self::debitedOperation((int) $row['id']);
             if ($operation > 0) {
@@ -358,6 +368,68 @@ final class Billing
         }
 
         return 0;
+    }
+
+    /**
+     * Deux tâches ont-elles la même durée, les mêmes dates, le même contenu et le même technicien ? Une tâche recopiée par la fusion de
+     * tickets (Ticket::merge) est identique à son original sur ces champs.
+     *
+     * @param array<string, mixed> $a
+     * @param array<string, mixed> $b
+     */
+    private static function sameTask(array $a, array $b): bool
+    {
+        foreach (['actiontime', 'begin', 'end', 'date', 'content', 'users_id_tech'] as $field) {
+            $x = trim((string) ($a[$field] ?? ''));
+            $y = trim((string) ($b[$field] ?? ''));
+            if (in_array($field, ['begin', 'end', 'date'], true)) {
+                $equal = ($x === '' || str_starts_with($x, '0000') ? 0 : (int) strtotime($x)) === ($y === '' || str_starts_with($y, '0000') ? 0 : (int) strtotime($y));
+            } else {
+                $equal = $x === $y;
+            }
+            if (!$equal) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Tâches d'un ticket qui ne se débitent PAS ici parce que la fusion de tickets les a recopiées sur le ticket principal : Ticket::merge
+     * (et l'ajout d'une tâche à un ticket source en corbeille, CommonITILTask::addToMergedTickets) recopie la tâche avec `sourceitems_id` =
+     * ce ticket, et pose le lien « fils de » (tickets_id_1 = source, tickets_id_2 = principal, link SON_OF ; src/Ticket.php:5918-5922 en
+     * 12.0.1). N'est exclue qu'une tâche dont une copie de même contenu (durée, dates, contenu, technicien) est dans un ticket lié à celui-ci
+     * par ce lien : une copie posée à la main (API, `sourceitems_id` sans fusion) n'exclut rien. Un ticket source restauré puis clos ne
+     * débite donc pas ses originaux une seconde fois ; une tâche ajoutée au ticket restauré, sans copie, reste débitable.
+     *
+     * @param list<array<string, mixed>> $tasks tâches du ticket (champs id, actiontime, begin, end, date, content, users_id_tech)
+     * @return list<int> identifiants des tâches à ne pas débiter
+     */
+    public static function mergedElsewhere(int $ticketsId, array $tasks): array
+    {
+        global $DB;
+
+        if ($tasks === []) {
+            return [];
+        }
+        $targets = [];
+        foreach ($DB->request(['SELECT' => ['tickets_id_2'], 'FROM' => \Ticket_Ticket::getTable(), 'WHERE' => ['tickets_id_1' => $ticketsId, 'link' => \CommonITILObject_CommonITILObject::SON_OF]]) as $row) {
+            $targets[] = (int) $row['tickets_id_2'];
+        }
+        if ($targets === []) {
+            return [];
+        }
+        $skip = [];
+        foreach ($DB->request(['FROM' => 'glpi_tickettasks', 'WHERE' => ['sourceitems_id' => $ticketsId, 'tickets_id' => $targets]]) as $copy) {
+            foreach ($tasks as $task) {
+                if (self::sameTask($task, $copy)) {
+                    $skip[(int) $task['id']] = true;
+                }
+            }
+        }
+
+        return array_keys($skip);
     }
 
     /**
@@ -428,6 +500,7 @@ final class Billing
         if ((int) ($task['actiontime'] ?? 0) <= 0) {
             return 0;
         }
+        self::freezeType($ctx);
         $r = self::evaluate($ctx, $task);
         if ($r['points'] <= 0) {
             return 0;
@@ -438,13 +511,12 @@ final class Billing
             'unique'     => true,
             // Règle 10 : un débit hors créneau ou férié ouvre sa review dans la même transaction (Review::openFor)
             'inside'     => static function (int $operationId) use ($ctx, $taskId, $r): void {
-                self::lock($ctx, $taskId, $operationId);
+                self::lock($ctx, $taskId, $operationId, $r['gridversions_id']);
                 Review::openFor($ctx, $operationId, $r['flags']);
             },
             'itemtype'   => \TicketTask::class,
             'items_id'   => $taskId,
             'tickets_id' => $ctx['tickets_id'],
-            // json_encode compact : « "gridversions_id":N, » est ce que GridVersion::isUsed cherche
             'details'    => [
                 'tasks_id'             => $taskId,
                 'entered_seconds'      => $r['entered_seconds'],
@@ -482,15 +554,17 @@ final class Billing
      *
      * @param array{tickets_id: int, entities_id: int} $ctx
      */
-    private static function lock(array $ctx, int $taskId, int $operationId): void
+    private static function lock(array $ctx, int $taskId, int $operationId, int $gridVersionId = 0): void
     {
         global $DB;
 
+        // Débit déjà écrit (reprise après conflit) ou copie de fusion : la version est celle des détails de l'opération
+        $gridVersionId = $gridVersionId > 0 ? $gridVersionId : Operation::gridVersionOf($operationId);
         $now = Session::getCurrentTime() ?? date('Y-m-d H:i:s');
         $row = $DB->request(['SELECT' => ['id'], 'FROM' => self::TASKS, 'WHERE' => ['tickettasks_id' => $taskId], 'LIMIT' => 1])->current();
         if ($row !== null) {
             try {
-                $DB->update(self::TASKS, ['operations_id' => $operationId, 'is_locked' => 1, 'date_mod' => $now], ['id' => $row['id']]);
+                $DB->update(self::TASKS, ['operations_id' => $operationId, 'is_locked' => 1, 'plugin_points_gridversions_id' => $gridVersionId, 'date_mod' => $now], ['id' => $row['id']]);
             } catch (StatementException $e) {
                 // Dans la transaction du journal, sous isolation par instantané (MariaDB 11.x) : erreur 1020 « Record has changed since
                 // last read », la ligne a été écrite par un autre débit entre-temps : « déjà débitée », le journal annule tout.
@@ -509,6 +583,8 @@ final class Billing
             'tickets_id'     => $ctx['tickets_id'],
             'operations_id'  => $operationId,
             'is_locked'      => 1,
+            // Version de grille du débit : colonne indexée que lit GridVersion::isUsed (la version utilisée n'est plus modifiable)
+            'plugin_points_gridversions_id' => $gridVersionId,
             'date_creation'  => $now,
             'date_mod'       => $now,
         ]);
@@ -517,15 +593,22 @@ final class Billing
     /**
      * Tâches d'un ticket à débiter (durée non nulle, pas encore débitées), dans l'ordre de leur date puis de leur id.
      *
-     * @return list<array{id: int, actiontime: int, begin: ?string, date: ?string}>
+     * @return list<array{id: int, actiontime: int, begin: ?string, date: ?string}> (et les champs de la tâche utiles à la fusion)
      */
     public static function pendingTasks(int $ticketsId): array
     {
         global $DB;
 
         $tasks = [];
-        foreach ($DB->request(['SELECT' => ['id', 'actiontime', 'begin', 'date'], 'FROM' => 'glpi_tickettasks', 'WHERE' => ['tickets_id' => $ticketsId, 'actiontime' => ['>', 0]]]) as $row) {
-            $tasks[(int) $row['id']] = ['id' => (int) $row['id'], 'actiontime' => (int) $row['actiontime'], 'begin' => $row['begin'], 'date' => $row['date']];
+        foreach ($DB->request(['FROM' => 'glpi_tickettasks', 'WHERE' => ['tickets_id' => $ticketsId, 'actiontime' => ['>', 0]]]) as $row) {
+            $tasks[(int) $row['id']] = [
+                'id' => (int) $row['id'], 'actiontime' => (int) $row['actiontime'], 'begin' => $row['begin'], 'date' => $row['date'], 'end' => $row['end'],
+                'content' => $row['content'], 'users_id_tech' => $row['users_id_tech'],
+            ];
+        }
+        // Tâches doublées par une fusion de tickets : débitées sur l'autre ticket seulement
+        foreach (self::mergedElsewhere($ticketsId, array_values($tasks)) as $id) {
+            unset($tasks[$id]);
         }
         if ($tasks !== []) {
             foreach ($DB->request(['SELECT' => ['items_id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['type' => OpType::DEBIT_TASK, 'itemtype' => \TicketTask::class, 'items_id' => array_keys($tasks)]]) as $row) {
@@ -620,6 +703,20 @@ final class Billing
         }
 
         return $out;
+    }
+
+    /**
+     * Libellé d'un drapeau de tâche ou d'une raison de review (samedi, dimanche, férié, hors créneau) : l'unique source des quatre.
+     */
+    public static function flagLabel(string $flag): string
+    {
+        return match ($flag) {
+            TaskRules::FLAG_SATURDAY  => __('Saturday', 'points'),
+            TaskRules::FLAG_SUNDAY    => __('Sunday', 'points'),
+            TaskRules::FLAG_HOLIDAY   => __('Holiday', 'points'),
+            TaskRules::FLAG_OFF_HOURS => __('Outside working hours', 'points'),
+            default                   => $flag,
+        };
     }
 
     /**

@@ -9,7 +9,7 @@ use Session;
 
 /**
  * Hooks sur TicketTask (POST_PREPAREADD, ITEM_ADD, POST_PREPAREUPDATE, ITEM_UPDATE, PRE_ITEM_PURGE) et Ticket
- * (PRE_ITEM_UPDATE, ITEM_UPDATE, PRE_ITEM_PURGE, ITEM_PURGE), enregistrés par setup.php. Ils n'ont pas de logique propre :
+ * (ITEM_ADD, PRE_ITEM_UPDATE, ITEM_UPDATE, PRE_ITEM_PURGE, ITEM_PURGE), enregistrés par setup.php. Ils n'ont pas de logique propre :
  * refus (entrée à false et message traduit, src/CommonDBTM.php:1348-1370, 1688-1700 en 12.0.1) ou appel de Billing.
  *
  * Les contrôles d'une tâche se font à POST_PREPAREADD / POST_PREPAREUPDATE (src/CommonDBTM.php:1362, 1698), après
@@ -164,6 +164,18 @@ final class ItilHooks
     // ---------------------------------------------------------------------------------------------------------
 
     /**
+     * Ticket créé : le type d'intervention du paramétrage est figé dans sa ligne Points (Ticket::freezeType) ; changer le défaut plus tard
+     * n'affecte plus ce ticket.
+     */
+    public static function ticketItemAdd(\Ticket $ticket): void
+    {
+        $id = (int) $ticket->getID();
+        if ($id > 0) {
+            Ticket::freezeType($id, (int) ($ticket->fields['entities_id'] ?? 0), (int) Config::value('default_interventiontypes_id'));
+        }
+    }
+
+    /**
      * Passage à Clos impossible (un débit des tâches serait refusé) : le ticket ne passe pas à Clos mais le reste de la
      * demande est conservé. Le statut demandé est ramené à Résolu si la demande vient d'une solution ou d'une approbation
      * (`_trigger`, src/ITILSolution.php:362), sinon laissé au statut courant. Message ; trace pour la clôture automatique
@@ -197,10 +209,14 @@ final class ItilHooks
     }
 
     /**
-     * Ticket passé à Clos : débit de toutes ses tâches non débitées (aussi celles ajoutées après une réouverture).
+     * Changement d'entité : la ligne Points du ticket la suit. Ticket passé à Clos : débit de toutes ses tâches non débitées (aussi celles
+     * ajoutées après une réouverture).
      */
     public static function ticketItemUpdate(\Ticket $ticket): void
     {
+        if (in_array('entities_id', $ticket->updates ?? [], true)) {
+            Ticket::followTicketEntity((int) $ticket->getID(), (int) ($ticket->fields['entities_id'] ?? 0));
+        }
         if (!in_array('status', $ticket->updates ?? [], true) || (int) ($ticket->fields['status'] ?? 0) !== \CommonITILObject::CLOSED) {
             return;
         }

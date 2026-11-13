@@ -19,6 +19,9 @@ class Config extends CommonGLPI
     // Droit du plugin (jamais `config` : docs/conception.md). `string` typé : src/CommonGLPI.php:109 en 12.0.1.
     public static string $rightname = Rights::CONFIG;
 
+    /** @var array<string, mixed>|null */
+    private static ?array $cache = null;
+
     public static function getTypeName($nb = 0)
     {
         return __('Points settings', 'points');
@@ -54,7 +57,16 @@ class Config extends CommonGLPI
      */
     public static function get(): array
     {
-        return ConfigValues::normalize(GlpiConfig::getConfigurationValues(self::CONTEXT));
+        // Lue une seule fois par processus (le débit d'une tâche la consulte à chaque étape) ; vidée par save() et reset()
+        return self::$cache ??= ConfigValues::normalize(GlpiConfig::getConfigurationValues(self::CONTEXT));
+    }
+
+    /**
+     * Oublie la configuration lue : à appeler après toute écriture hors de save() (installation, désinstallation).
+     */
+    public static function reset(): void
+    {
+        self::$cache = null;
     }
 
     public static function value(string $key): mixed
@@ -77,10 +89,12 @@ class Config extends CommonGLPI
      */
     public static function save(array $input): array
     {
+        global $DB;
+
         Session::checkRight(Rights::CONFIG, UPDATE);
 
         $input   = array_intersect_key($input, ConfigValues::defaults());
-        $invalid = ConfigValues::validate($input);
+        $invalid = ConfigValues::validate($input, static fn (string $table, int $id): bool => count($DB->request(['SELECT' => ['id'], 'FROM' => $table, 'WHERE' => ['id' => $id], 'LIMIT' => 1])) > 0);
         if ($invalid !== []) {
             return array_map(
                 static fn (string $key): string => sprintf(__('Invalid value for the setting "%s": nothing was saved', 'points'), $key),
@@ -89,6 +103,7 @@ class Config extends CommonGLPI
         }
         $stored = ConfigValues::toStorage(array_merge(self::get(), $input));
         GlpiConfig::setConfigurationValues(self::CONTEXT, array_intersect_key($stored, $input));
+        self::reset();
 
         return [];
     }

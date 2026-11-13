@@ -86,6 +86,7 @@ final class GridAdmin
         }
         $canUpdate = Session::haveRight(Rights::GRID, UPDATE);
         $versions  = [];
+        $anyUsed   = false;
         $choices   = [0 => '-----'];
         foreach (Grid::versions($gridId) as $versionId => $begin) {
             $version = $DB->request(['FROM' => GridVersion::getTable(), 'WHERE' => ['id' => $versionId], 'LIMIT' => 1])->current();
@@ -93,7 +94,8 @@ final class GridAdmin
             foreach ($DB->request(['SELECT' => ['plugin_points_interventiontypes_id', 'daytype', 'cost'], 'FROM' => GridCost::getTable(), 'WHERE' => ['plugin_points_gridversions_id' => $versionId]]) as $row) {
                 $costs[(int) $row['plugin_points_interventiontypes_id']][(int) $row['daytype']] = Money::format(Money::parse((string) $row['cost']));
             }
-            $used = GridVersion::isUsed($versionId);
+            $used    = GridVersion::isUsed($versionId);
+            $anyUsed = $anyUsed || $used;
             $versions[] = [
                 'id'       => $versionId,
                 'begin'    => $begin,
@@ -107,8 +109,8 @@ final class GridAdmin
 
         return [
             'grid'       => ['id' => $gridId, 'name' => (string) $grid->fields['name'], 'comment' => (string) ($grid->fields['comment'] ?? ''), 'unit' => (int) $grid->fields['unit_minutes'], 'active' => (int) $grid->fields['is_active']],
-            'unit_locked' => Grid::hasUsedVersion($gridId),
-            'in_use'     => Grid::isUsedByContract($gridId) || Grid::hasUsedVersion($gridId),
+            'unit_locked' => $anyUsed,
+            'in_use'     => $anyUsed || Grid::isUsedByContract($gridId),
             'versions'   => $versions,
             'types'      => $types,
             'day_types'  => self::dayTypes(),

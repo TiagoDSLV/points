@@ -26,11 +26,11 @@ final class RuleViolation extends \DomainException
     public const ENVELOPE_ENDED      = 'envelope_ended';
     public const NOT_REPORTABLE      = 'not_reportable';
     public const NOT_A_DEBIT         = 'not_a_debit';
+    public const REFUND_NO_VALID_LOT = 'refund_no_valid_lot';
     // Décompte des tâches (lot c)
     public const NO_GRID             = 'no_grid';
     public const NO_GRID_VERSION     = 'no_grid_version';
     public const NO_COST             = 'no_cost';
-    public const INVALID_TASK        = 'invalid_task';
     public const ALREADY_DEBITED     = 'already_debited';
     public const TASK_TO_RESUME      = 'task_to_resume';
     // Forfaits (lot d)
@@ -43,9 +43,9 @@ final class RuleViolation extends \DomainException
     public const FLATRATE_VALIDATOR  = 'flatrate_validator';
     public const FLATRATE_TICKET_CLOSED = 'flatrate_ticket_closed';
     public const FLATRATE_REASON     = 'flatrate_reason';
+    public const FLATRATE_NO_ESTIMATE_TYPE = 'flatrate_no_estimate_type';
     // Reviews et compensations (lot e)
     public const REVIEW_STATE        = 'review_state';
-    public const REVIEW_REASON       = 'review_reason';
     public const COMPENSATION_STATE  = 'compensation_state';
     public const COMPENSATION_SELF   = 'compensation_self';
     public const COMPENSATION_AMOUNT = 'compensation_amount';

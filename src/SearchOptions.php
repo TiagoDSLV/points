@@ -26,6 +26,47 @@ final class SearchOptions
     private const ENTITY_BASE   = 9721;
 
     /**
+     * Numéros des options que le plugin ajoute au contrat et à l'entité natifs, par itemtype natif : ce que la désinstallation retire des
+     * préférences d'affichage et des recherches enregistrées.
+     *
+     * @return array<class-string, list<int>>
+     */
+    public static function numbers(): array
+    {
+        return [
+            \Contract::class => range(self::CONTRACT_BASE, self::CONTRACT_BASE + 6),
+            \Entity::class   => range(self::ENTITY_BASE, self::ENTITY_BASE + 4),
+        ];
+    }
+
+    /**
+     * Une recherche enregistrée (champ `query`, chaîne d'URL) utilise-t-elle l'une de ces options : critère, méta-critère ou tri ?
+     * Fonction pure.
+     *
+     * @param list<int> $numbers
+     */
+    public static function queryUses(string $query, array $numbers): bool
+    {
+        parse_str($query, $params);
+        $found = [];
+        $walk  = static function (mixed $node, bool $inField = false) use (&$walk, &$found): void {
+            if (is_array($node)) {
+                foreach ($node as $key => $child) {
+                    $walk($child, $inField || $key === 'field' || $key === 'sort');
+                }
+
+                return;
+            }
+            if ($inField && is_scalar($node) && preg_match('/^\d+$/', (string) $node) === 1) {
+                $found[] = (int) $node;
+            }
+        };
+        $walk($params);
+
+        return array_intersect($found, $numbers) !== [];
+    }
+
+    /**
      * Crochet CHANGE_PROFILE (src/Session.php:667 en 12.0.1) : les options sont reconstruites avec le droit du nouveau profil.
      */
     public static function resetCache(): void

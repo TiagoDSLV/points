@@ -431,7 +431,8 @@ v("(10) deux contrats Points liés au ticket", liens(t10), sorted([A, F]))
 cree, texte = tache(tech, t10, 900, mardi)
 v("(10) plusieurs contrats Points sans choix : tâche refusée, message invitant à choisir", (cree, nb_taches(t10), "choose the one" in texte), (False, 0, True))
 code, _ = poster(web, "ticket.form.php", {"update": "1", "tickets_id": str(t10), "contracts_id": str(G), "plugin_points_interventiontypes_id": "0", "is_billable": "1"})
-v("(10) contrat hors des contrats Points du ticket : réglage refusé", une(f"SELECT COUNT(*) FROM {T}tickets WHERE tickets_id = {t10}"), "0")
+# la ligne Points du ticket existe depuis sa création (type d'intervention figé) : le refus se lit au contrat, qui reste à 0
+v("(10) contrat hors des contrats Points du ticket : réglage refusé", une(f"SELECT COUNT(*) FROM {T}tickets WHERE tickets_id = {t10} AND contracts_id > 0"), "0")
 code, _ = poster(web, "ticket.form.php", {"update": "1", "tickets_id": str(t10), "contracts_id": str(F), "plugin_points_interventiontypes_id": str(URGENT), "is_billable": "1"})
 v("(10) choix du contrat et du type d'intervention enregistré", (code, sql(f"SELECT contracts_id, plugin_points_interventiontypes_id, is_billable, entities_id FROM {T}tickets WHERE tickets_id = {t10}")),
   (302, [[str(F), str(URGENT), "1", str(entite)]]))

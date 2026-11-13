@@ -258,6 +258,8 @@ for X in ("A", "B"):
     sql_ecrire(f"INSERT INTO {T}flatrates (entities_id, is_recursive, tickets_id, contracts_id, amount, description, status, users_id, approved_amount) "
                f"VALUES ({ent[X]}, 0, {TF[X]}, {CT[X]}, 1.00, 'forfait-{X}', 'draft', 1, 0);")
     TN[X] = ticket(f"clois-neuf-{X}", CT[X], X)
+    # ticket « neuf » : sans réglage Points, pour tester sa création par l'API (la ligne naît avec le ticket depuis le lot final : type figé)
+    sql_ecrire(f"DELETE FROM {T}tickets WHERE tickets_id = {TN[X]};")
 TR = ticket("clois-ticket-R", CT["R"], "F")
 tache_close(TR, dimanche, 1, "dimanche")
 clore(TR)

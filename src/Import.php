@@ -24,18 +24,29 @@ final class Import
 
     /**
      * Contrôle de TOUTES les lignes (rien n'est écrit) : contrat trouvé par son numéro, unique, non supprimé, d'un type à points ;
-     * ligne déjà importée ; doublon après résolution du contrat.
+     * ligne déjà importée ; doublon après résolution du contrat ; ligne NON importée mais semblable à une enveloppe déjà importée (même
+     * contrat, solde, début et fin, libellé différent : le libellé a sans doute été corrigé, et la ligne recréditerait le solde) : erreur
+     * de plan, sauf `$acceptSimilar` (option `--accept-similar` de la commande).
      *
      * @param list<array{line: int, contract: string, cents: int, begin: string, end: string, carry: bool, label: string}> $rows
      * @return list<array{row: array<string, mixed>, contracts_id: int, status: string, message: string, warnings: list<string>}>
      */
-    public static function plan(array $rows, ?string $today = null): array
+    public static function plan(array $rows, ?string $today = null, bool $acceptSimilar = false): array
     {
-        $today ??= date('Y-m-d');
+        $today ??= Billing::today();
         $types  = Config::value('contracttypes');
         $cache  = [];
         $seen   = [];
         $plan   = [];
+        // Empreintes de toutes les lignes du fichier : l'enveloppe « semblable » d'une AUTRE ligne du même fichier (import interrompu, repris)
+        // n'est pas un libellé corrigé
+        $fileKeys = [];
+        foreach ($rows as $row) {
+            $cache[$row['contract']] ??= self::resolve($row['contract'], $types);
+            if ($cache[$row['contract']][1] === null) {
+                $fileKeys[Ledger::importKey($cache[$row['contract']][0], ImportRules::effectiveLabel($row['label'], $row['begin'], $row['end']), $row['cents'], $row['begin'], $row['end'])] = true;
+            }
+        }
         foreach ($rows as $row) {
             $result = ['row' => $row, 'contracts_id' => 0, 'status' => self::STATUS_NEW, 'message' => '', 'warnings' => []];
             $cache[$row['contract']] ??= self::resolve($row['contract'], $types);
@@ -67,6 +78,9 @@ final class Import
             if (Ledger::importedEnvelope($contractsId, $name, $row['cents'], $row['begin'], $row['end']) !== null) {
                 $result['status']  = self::STATUS_SKIP;
                 $result['message'] = 'Already imported';
+            } elseif (!$acceptSimilar && ($similar = Ledger::similarImport($contractsId, $row['cents'], $row['begin'], $row['end'])) !== null && !isset($fileKeys[$similar['key']])) {
+                $plan[] = ['status' => self::STATUS_ERROR, 'message' => 'Same contract, balance and dates as the imported envelope #' . $similar['envelope'] . ' under another label: correct the label or use --accept-similar'] + $result;
+                continue;
             }
             $plan[] = $result;
         }

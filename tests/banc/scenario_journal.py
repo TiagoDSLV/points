@@ -170,7 +170,8 @@ v("(4) témoin : le solde exact passe", "ok" in led("debit", B, "debit_task", 10
 sur = ok(led("debit", B, "debit_task", 500, d(0), {"allow_overdraft": True}))
 v("(4) dépassement sur le lot valide le plus récent, signalé dans les détails",
   (affectations(sur["operations_id"]), sur["overdraft"],
-   lignes(f"SELECT details FROM {T}operations WHERE id = {sur['operations_id']}")), ([(eb["lots_id"], "-5.00")], 500, [['{"overdraft":"5.00"}']]))
+   lignes(f"SELECT details FROM {T}operations WHERE id = {sur['operations_id']}")),
+  ([(eb["lots_id"], "-5.00")], 500, [['{"overdraft":"5.00","overdraft_lot":%d}' % eb["lots_id"]]]))
 v("(4) lot en dépassement : reste -5.00 ; solde -5", (restes(B)[eb["lots_id"]], cache(B)[0][0]), ("-5.00", "-5.00"))
 v("(4) débit avant l'origine de tous les lots refusé même avec dépassement", led("debit", B, "debit_task", 100, d(-11), {"allow_overdraft": True}), {"violation": "no_valid_lot"})
 v("(4) débit le dernier jour de l'enveloppe accepté (borne incluse)", "ok" in led("debit", B, "debit_task", 100, d(100), {"allow_overdraft": True}), True)

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace GlpiPlugin\Points;
 
 use CommonDBTM;
-use Glpi\Exception\Database\StatementException;
 use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\NotFoundHttpException;
 use GlpiPlugin\Points\Domain\Dates;
@@ -13,7 +12,6 @@ use GlpiPlugin\Points\Domain\FlatrateRules;
 use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\OpType;
 use GlpiPlugin\Points\Domain\RuleViolation;
-use Log;
 use NotificationEvent;
 use Session;
 
@@ -33,6 +31,7 @@ use Session;
 class Flatrate extends CommonDBTM
 {
     use ProtectsFields;
+    use StateRecord;
 
     // src/CommonGLPI.php:109 en 12.0.1 : propriété typée
     public static string $rightname = Rights::FLATRATE;
@@ -307,18 +306,6 @@ class Flatrate extends CommonDBTM
     }
 
     /**
-     * @return array<string, mixed>|null
-     */
-    public static function row(int $id): ?array
-    {
-        global $DB;
-
-        $row = $DB->request(['FROM' => self::getTable(), 'WHERE' => ['id' => $id], 'LIMIT' => 1])->current();
-
-        return $row === null ? null : $row;
-    }
-
-    /**
      * Forfait lié à une validation native (TicketValidation), null s'il n'y en a pas.
      *
      * @return array<string, mixed>|null
@@ -366,29 +353,9 @@ class Flatrate extends CommonDBTM
             RuleViolation::FLATRATE_TICKET_CLOSED => __('A solved or closed ticket cannot receive a flatrate', 'points'),
             RuleViolation::FLATRATE_VALIDATOR     => __('The customer approver must be a user of the ticket or of its entity', 'points'),
             RuleViolation::FLATRATE_REASON        => __('A comment is required to refuse a flatrate', 'points'),
+            RuleViolation::FLATRATE_NO_ESTIMATE_TYPE => sprintf(__('The estimate reads the price of the intervention type "%s", which does not exist: restore it in the intervention types', 'points'), Install::INTERVENTION_TYPES[1]),
             default                               => Billing::describe($e),
         };
-    }
-
-    /**
-     * Exécute une action de formulaire sur un forfait, signale le résultat et revient à la page précédente. Un refus de
-     * règle devient un message d'erreur (rien n'est écrit) ; un refus de droit (exception HTTP) n'est pas intercepté.
-     *
-     * @param callable():(bool|null) $action
-     * @param string $success message de réussite, déjà échappé (__s)
-     */
-    public static function respond(callable $action, string $success): never
-    {
-        try {
-            if ($action() !== false) {
-                Session::addMessageAfterRedirect($success);
-            }
-        } catch (RuleViolation $e) {
-            Session::addMessageAfterRedirect(htmlescape(self::describe($e)), false, ERROR);
-        } catch (\InvalidArgumentException) {
-            Session::addMessageAfterRedirect(__s('The amount or the date is not valid', 'points'), false, ERROR);
-        }
-        \Html::back();
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -487,16 +454,29 @@ class Flatrate extends CommonDBTM
         if (!self::move($id, [$from], FlatrateRules::CANCELLED)) {
             throw new RuleViolation(RuleViolation::FLATRATE_STATE);
         }
-        if ($from === FlatrateRules::PROPOSED && (int) $item->fields['ticketvalidations_id'] > 0) {
-            // La demande en attente est supprimée par GLPI (purge) : le statut global de validation du ticket est recalculé
-            // (CommonITILValidation::post_purgeItem). L'état « annulé » ne protège plus la validation (keepsValidation).
-            (new \TicketValidation())->delete(['id' => (int) $item->fields['ticketvalidations_id']], true);
-            // GLPI 12 recalcule le statut AVANT de supprimer l'étape de validation devenue vide (CommonITILValidation::post_purgeItem,
-            // src/CommonITILValidation.php:533-538) : il resterait « refusé ». Recalcul après la purge.
-            $ticket = new \Ticket();
-            if ($ticket->getFromDB((int) $item->fields['tickets_id'])) {
-                $ticket->update(['id' => $ticket->getID(), 'global_validation' => \TicketValidation::computeValidationStatus($ticket), '_from_itilvalidation' => true]);
-            }
+        if ($from === FlatrateRules::PROPOSED) {
+            self::purgeProposedValidation($item->fields);
+        }
+    }
+
+    /**
+     * Supprime la validation native en attente d'un forfait proposé : GLPI la purge et le statut global de validation du ticket est
+     * recalculé. À appeler une fois le forfait sorti de l'état « proposé » (l'état « annulé » ne protège plus la validation :
+     * keepsValidation), par l'annulation du forfait et par la désinstallation du plugin.
+     *
+     * @param array<string, mixed> $row ligne du forfait
+     */
+    public static function purgeProposedValidation(array $row): void
+    {
+        if ((int) $row['ticketvalidations_id'] < 1) {
+            return;
+        }
+        (new \TicketValidation())->delete(['id' => (int) $row['ticketvalidations_id']], true);
+        // GLPI 12 recalcule le statut AVANT de supprimer l'étape de validation devenue vide (CommonITILValidation::post_purgeItem,
+        // src/CommonITILValidation.php:533-538) : il resterait « refusé ». Recalcul après la purge.
+        $ticket = new \Ticket();
+        if ($ticket->getFromDB((int) $row['tickets_id'])) {
+            $ticket->update(['id' => $ticket->getID(), 'global_validation' => \TicketValidation::computeValidationStatus($ticket), '_from_itilvalidation' => true]);
         }
     }
 
@@ -540,7 +520,7 @@ class Flatrate extends CommonDBTM
         }
         // Le débit doit être possible à la date d'approbation (comme un débit de tâche : dépassement selon allow_overdraft)
         $cents = Money::parse((string) $row['amount']);
-        Ledger::assertDebitable((int) $row['contracts_id'], [[$cents, self::today()]]);
+        Ledger::assertDebitable((int) $row['contracts_id'], [[$cents, Billing::today()]]);
 
         // Prise de l'état d'abord (atomique), validation native ensuite : deux Responsables BU ne créent jamais deux validations
         if (!self::move($id, [FlatrateRules::SUBMITTED], FlatrateRules::PROPOSED, $set + ['users_id_validate' => $validator])) {
@@ -602,9 +582,9 @@ class Flatrate extends CommonDBTM
         }
         if ((int) $input['status'] === \CommonITILValidation::ACCEPTED) {
             try {
-                Ledger::assertDebitable((int) $flatrate['contracts_id'], [[Money::parse((string) $flatrate['amount']), self::today()]]);
+                Ledger::assertDebitable((int) $flatrate['contracts_id'], [[Money::parse((string) $flatrate['amount']), Billing::today()]]);
             } catch (RuleViolation $e) {
-                return sprintf(__('The flatrate cannot be debited: %s', 'points'), Billing::describe($e));
+                return sprintf(__('The flatrate cannot be debited: %s', 'points'), self::describe($e));
             }
         }
 
@@ -739,14 +719,7 @@ class Flatrate extends CommonDBTM
 
     private static function debitedOperation(int $id): int
     {
-        global $DB;
-
-        $row = $DB->request([
-            'SELECT' => ['id'], 'FROM' => 'glpi_plugin_points_operations',
-            'WHERE'  => ['type' => OpType::DEBIT_FLATRATE, 'itemtype' => self::class, 'items_id' => $id], 'LIMIT' => 1,
-        ])->current();
-
-        return $row === null ? 0 : (int) $row['id'];
+        return Ledger::debitOf(OpType::DEBIT_FLATRATE, self::class, $id);
     }
 
     /**
@@ -787,7 +760,7 @@ class Flatrate extends CommonDBTM
                 self::assertCandidateContract($row);
                 Ledger::assertDebitable((int) $row['contracts_id'], [[Money::parse((string) $row['approved_amount']), self::approvalDay($row)]]);
             } catch (RuleViolation $e) {
-                return sprintf(__('The flatrate cannot be debited: %s', 'points'), Billing::describe($e));
+                return sprintf(__('The flatrate cannot be debited: %s', 'points'), self::describe($e));
             }
         }
 
@@ -1002,9 +975,14 @@ class Flatrate extends CommonDBTM
         }
         $ctx = Billing::context($ticketsId);
         $type = $DB->request(['SELECT' => ['id'], 'FROM' => InterventionType::getTable(), 'WHERE' => ['name' => Install::INTERVENTION_TYPES[1]], 'LIMIT' => 1])->current();
-        if ($hoursCents <= 0 || $ctx['contracts_id'] < 1 || $type === null) {
+        if ($hoursCents <= 0 || $ctx['contracts_id'] < 1) {
             throw new RuleViolation(RuleViolation::INVALID_AMOUNT);
         }
+        if ($type === null) {
+            // Le type est celui du vocabulaire métier semé à l'installation ; renommé ou supprimé, l'estimation n'a plus de prix à lire
+            throw new RuleViolation(RuleViolation::FLATRATE_NO_ESTIMATE_TYPE, 'The intervention type used for the estimate does not exist');
+        }
+        // Estimation d'un autre type : lecture seule, le réglage du ticket n'est pas touché
         $ctx['interventiontypes_id'] = (int) $type['id'];
         $r = Billing::evaluate($ctx, ['actiontime' => $hoursCents * 36, 'date' => self::now()]);
 
@@ -1038,43 +1016,6 @@ class Flatrate extends CommonDBTM
     }
 
     /**
-     * Transition atomique : mise à jour conditionnelle sur l'ancien état. Vrai si cette requête a fait la transition.
-     *
-     * @param list<string> $from
-     * @param array<string, mixed> $set champs écrits en plus
-     */
-    private static function move(int $id, array $from, string $to, array $set = []): bool
-    {
-        global $DB;
-
-        $current = self::row($id);
-        try {
-            $DB->update(self::getTable(), ['status' => $to, 'date_mod' => self::now()] + $set, ['id' => $id, 'status' => $from]);
-        } catch (StatementException $e) {
-            // Dans la transaction du journal, sous isolation par instantané (MariaDB 11.x) : erreur 1020 « Record has changed since
-            // last read » quand une autre décision a validé la ligne entre-temps. Même cas qu'une ligne déjà modifiée : transition perdue.
-            if ($e->getCode() === 1020) {
-                return false;
-            }
-            throw $e;
-        }
-        $done = $DB->getAffectedRows() === 1;
-        if ($done) {
-            self::history($id, (string) ($current['status'] ?? ''), $to);
-        }
-
-        return $done;
-    }
-
-    /**
-     * Historique des états (glpi_logs : date, utilisateur, ancien et nouvel état).
-     */
-    private static function history(int $id, string $old, string $new): void
-    {
-        Log::history($id, self::class, [0, $old, $new], '', Log::HISTORY_PLUGIN);
-    }
-
-    /**
      * Notification native (événements flatrate_submitted et flatrate_decided de NotificationTargetFlatrate).
      */
     private static function notify(string $event, int $id): void
@@ -1083,17 +1024,6 @@ class Flatrate extends CommonDBTM
         if ($item->getFromDB($id)) {
             NotificationEvent::raiseEvent($event, $item, ['entities_id' => (int) $item->fields['entities_id']]);
         }
-    }
-
-    private static function now(): string
-    {
-        return Session::getCurrentTime() ?? date('Y-m-d H:i:s');
-    }
-
-    /** Jour courant dans le fuseau de référence (date métier d'une approbation qui a lieu maintenant). */
-    private static function today(): string
-    {
-        return Dates::day(Billing::toReference(self::now()));
     }
 
     public function rawSearchOptions()

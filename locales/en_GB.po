@@ -937,3 +937,27 @@ msgstr "Points next expiry"
 
 msgid "Points threshold reached"
 msgstr "Points threshold reached"
+
+msgid "A contract with a Points journal cannot be deleted permanently"
+msgstr "A contract with a Points journal cannot be deleted permanently"
+
+msgid "A refund of an ended lot is credited"
+msgstr "A refund of an ended lot is credited"
+
+msgid "Expiry reversal"
+msgstr "Expiry reversal"
+
+msgid "On the most recent valid envelope (refused if none)"
+msgstr "On the most recent valid envelope (refused if none)"
+
+msgid "On the original envelope (the points expire at once)"
+msgstr "On the original envelope (the points expire at once)"
+
+msgid "The estimate reads the price of the intervention type \"%s\", which does not exist: restore it in the intervention types"
+msgstr "The estimate reads the price of the intervention type \"%s\", which does not exist: restore it in the intervention types"
+
+msgid "The original envelope has ended and no envelope is valid today to receive the points given back"
+msgstr "The original envelope has ended and no envelope is valid today to receive the points given back"
+
+msgid "Debited on the main ticket"
+msgstr "Debited on the main ticket"

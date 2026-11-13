@@ -8,7 +8,6 @@ use CommonDBTM;
 use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\NotFoundHttpException;
 use Glpi\Search\DefaultSearchRequestInterface;
-use GlpiPlugin\Points\Domain\Dates;
 use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\OpType;
 use GlpiPlugin\Points\Domain\ReviewRules;
@@ -198,7 +197,7 @@ class Review extends CommonDBTM implements DefaultSearchRequestInterface
         if ($comment === '') {
             throw new RuleViolation(RuleViolation::REASON_REQUIRED, 'A reason is required for an adjustment');
         }
-        $debit = self::debitOf((int) $row['operations_id']);
+        $debit = Operation::read((int) $row['operations_id']);
         if ($debit === null) {
             throw new RuleViolation(RuleViolation::UNKNOWN_OPERATION, 'Unknown debit');
         }
@@ -218,7 +217,7 @@ class Review extends CommonDBTM implements DefaultSearchRequestInterface
         ];
         if ($cents > 0) {
             // Remboursement aux lots du débit, dans l'ordre inverse, au plus ce que le débit a pris (Ledger::refund)
-            Ledger::refund($debit['contracts_id'], $debit['id'], $cents, OpType::REVIEW_ADJUSTMENT, self::today(), $comment, $common);
+            Ledger::refund($debit['contracts_id'], $debit['id'], $cents, OpType::REVIEW_ADJUSTMENT, Billing::today(), $comment, $common);
 
             return;
         }
@@ -248,29 +247,6 @@ class Review extends CommonDBTM implements DefaultSearchRequestInterface
         return $row;
     }
 
-    /**
-     * Débit contrôlé (lecture du journal).
-     *
-     * @return array{id: int, contracts_id: int, tickets_id: int, date: string, amount: int}|null
-     */
-    private static function debitOf(int $operationId): ?array
-    {
-        global $DB;
-
-        $row = $DB->request(['SELECT' => ['id', 'contracts_id', 'tickets_id', 'date', 'amount'], 'FROM' => 'glpi_plugin_points_operations', 'WHERE' => ['id' => $operationId], 'LIMIT' => 1])->current();
-
-        return $row === null ? null : [
-            'id' => (int) $row['id'], 'contracts_id' => (int) $row['contracts_id'], 'tickets_id' => (int) $row['tickets_id'],
-            'date' => (string) $row['date'], 'amount' => Money::parse((string) $row['amount']),
-        ];
-    }
-
-    /** Jour courant dans le fuseau de référence (date métier d'une décision qui a lieu maintenant). */
-    private static function today(): string
-    {
-        return Dates::day(Billing::toReference(self::now()));
-    }
-
     // ---------------------------------------------------------------------------------------------------------
     // Libellés
     // ---------------------------------------------------------------------------------------------------------
@@ -287,13 +263,7 @@ class Review extends CommonDBTM implements DefaultSearchRequestInterface
 
     public static function reasonLabel(string $stored): string
     {
-        return implode(', ', array_map(static fn (string $reason): string => match ($reason) {
-            'saturday'  => __('Saturday', 'points'),
-            'sunday'    => __('Sunday', 'points'),
-            'holiday'   => __('Holiday', 'points'),
-            'off_hours' => __('Outside working hours', 'points'),
-            default     => $reason,
-        }, ReviewRules::reasons($stored)));
+        return implode(', ', array_map(Billing::flagLabel(...), ReviewRules::reasons($stored)));
     }
 
     public static function describe(RuleViolation $e): string
@@ -385,11 +355,10 @@ class Review extends CommonDBTM implements DefaultSearchRequestInterface
             if (!Session::haveAccessToEntity((int) $review['entities_id'])) {
                 continue;
             }
-            $debit = self::debitOf((int) $review['operations_id']);
-            $task  = $DB->request(['SELECT' => ['items_id'], 'FROM' => 'glpi_plugin_points_operations', 'WHERE' => ['id' => $review['operations_id']], 'LIMIT' => 1])->current();
+            $debit = Operation::read((int) $review['operations_id']);
             $rows[] = [
                 'id'          => (int) $review['id'],
-                'task'        => (int) ($task['items_id'] ?? 0),
+                'task'        => $debit['items_id'] ?? 0,
                 'reason'      => self::reasonLabel((string) $review['reason']),
                 'status'      => (string) $review['status'],
                 'status_label' => self::statusLabel((string) $review['status']),

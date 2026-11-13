@@ -937,3 +937,27 @@ msgstr "Prochaine échéance des points"
 
 msgid "Points threshold reached"
 msgstr "Seuil de points atteint"
+
+msgid "A contract with a Points journal cannot be deleted permanently"
+msgstr "Un contrat qui a un journal de points ne peut pas être supprimé définitivement"
+
+msgid "A refund of an ended lot is credited"
+msgstr "Un remboursement d'un lot échu est crédité"
+
+msgid "Expiry reversal"
+msgstr "Reprise d'expiration"
+
+msgid "On the most recent valid envelope (refused if none)"
+msgstr "Sur l'enveloppe valide la plus récente (refusé s'il n'y en a aucune)"
+
+msgid "On the original envelope (the points expire at once)"
+msgstr "Sur l'enveloppe d'origine (les points expirent aussitôt)"
+
+msgid "The estimate reads the price of the intervention type \"%s\", which does not exist: restore it in the intervention types"
+msgstr "L'estimation lit le prix du type d'intervention « %s », qui n'existe pas : le recréer dans les types d'intervention"
+
+msgid "The original envelope has ended and no envelope is valid today to receive the points given back"
+msgstr "L'enveloppe d'origine est terminée et aucune enveloppe n'est valide aujourd'hui pour recevoir les points rendus"
+
+msgid "Debited on the main ticket"
+msgstr "Débitée sur le ticket principal"

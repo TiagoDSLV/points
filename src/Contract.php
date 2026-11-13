@@ -205,8 +205,9 @@ class Contract extends CommonDBTM implements DefaultSearchRequestInterface
     // ---------------------------------------------------------------------------------------------------------
 
     /**
-     * Contrat natif demandé par une page d'écriture : il doit exister et être lisible par l'utilisateur
-     * (\Contract::can(READ) : droit du cœur et entité). Le droit du plugin est vérifié par la page elle-même.
+     * Contrat natif demandé par une page d'écriture : il doit exister, être lisible par l'utilisateur (\Contract::can(READ) : droit du
+     * cœur et entité) et porter des points (carriesPoints : ligne Points existante, ou type de contrat du paramétrage). Le droit du
+     * plugin est vérifié par la page elle-même.
      *
      * @throws NotFoundHttpException|AccessDeniedHttpException
      */
@@ -219,6 +220,11 @@ class Contract extends CommonDBTM implements DefaultSearchRequestInterface
         // Contrat récursif d'une entité mère : \Contract::can(READ) l'ouvre aux entités filles, mais une écriture du journal
         // exige l'accès à l'entité DU contrat (non récursif), comme la lecture des lignes du plugin (docs/conception.md, « Contrat récursif »)
         if (!$contract->can($contractsId, READ) || !self::haveEntityAccess($contract)) {
+            throw new AccessDeniedHttpException();
+        }
+        // Un contrat d'un autre type ne reçoit ni réglage ni écriture du journal (lecture et écriture restent possibles s'il a déjà une
+        // ligne Points : un type retiré du paramétrage ne rend pas son journal inaccessible)
+        if (!self::carriesPoints($contract)) {
             throw new AccessDeniedHttpException();
         }
 
@@ -243,6 +249,22 @@ class Contract extends CommonDBTM implements DefaultSearchRequestInterface
         }
         $contract->input = false;
         Session::addMessageAfterRedirect(__s('The entity of a contract with a Points journal cannot be changed', 'points'), false, ERROR);
+    }
+
+    /**
+     * Hook PRE_ITEM_PURGE du contrat natif : un contrat qui a une ligne Points ne se purge pas. Le journal (opérations, lots, affectations)
+     * est en ajout seul et porte l'id du contrat ; le purger laisserait un journal orphelin, et sa ligne Points avec. Le contrat à la
+     * corbeille (suppression sans purge) reste possible : le journal reste lisible par l'entité.
+     */
+    public static function contractPrePurge(\Contract $contract): void
+    {
+        global $DB;
+
+        if (count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['contracts_id' => $contract->getID()], 'LIMIT' => 1])) === 0) {
+            return;
+        }
+        $contract->input = false;
+        Session::addMessageAfterRedirect(__s('A contract with a Points journal cannot be deleted permanently', 'points'), false, ERROR);
     }
 
     /**

@@ -27,7 +27,7 @@ test('Hooks : les huit crochets du décompte sont enregistrés par setup.php', f
     foreach ([
         'POST_PREPAREADD' => 'taskPostPrepareAdd', 'ITEM_ADD' => 'taskItemAdd', 'POST_PREPAREUPDATE' => 'taskPostPrepareUpdate',
         'PRE_ITEM_PURGE' => 'taskPrePurge', 'PRE_ITEM_UPDATE' => 'ticketPreUpdate', 'ticketItemUpdate' => 'ticketItemUpdate', 'taskItemUpdate' => 'taskItemUpdate',
-        'ticketPrePurge' => 'ticketPrePurge', 'ITEM_PURGE' => 'ticketItemPurge',
+        'ticketPrePurge' => 'ticketPrePurge', 'ITEM_PURGE' => 'ticketItemPurge', 'ticketItemAdd' => 'ticketItemAdd',
     ] as $hook => $method) {
         assertTrue(str_contains($code, $hook) && str_contains($code, "'$method'"), "$hook / $method");
         assertTrue(method_exists(\GlpiPlugin\Points\ItilHooks::class, $method), "ItilHooks::$method existe");
@@ -57,16 +57,20 @@ test('Réglage ticket : droit plugin_points_ticket, jamais de suppression', func
 
 test('Ledger : l\'unicité d\'un débit est revérifiée dans writeDebit (donc sous le verrou), et Billing la demande', function (): void {
     $ledger = file_get_contents(__DIR__ . '/../../src/Ledger.php');
-    assertTrue(preg_match('/function writeDebit\(.*?\{\s*if \(!empty\(\$opts\[\'unique\'\]\) && self::alreadyDebited\(/s', $ledger) === 1, 'alreadyDebited est appelé en tête de writeDebit');
+    assertTrue(preg_match('/function writeDebit\(.*?\{\s*if \(!empty\(\$opts\[\'unique\'\]\) && self::debitOf\(/s', $ledger) === 1, 'debitOf est appelé en tête de writeDebit');
     $billing = file_get_contents(__DIR__ . '/../../src/Billing.php');
     assertTrue(str_contains($billing, "'unique'     => true") && str_contains($billing, "'inside'"), 'Billing demande l\'unicité et écrit la ligne verrouillée dans la transaction');
     assertTrue(str_contains($billing, 'ALREADY_DEBITED'), 'Billing traite le refus ALREADY_DEBITED');
 });
 
-test('Ledger : le débit est définitif, alreadyDebited ignore les remboursements', function (): void {
+test('Ledger : le débit est définitif, debitOf ignore les remboursements (et Billing, Flatrate l\'utilisent)', function (): void {
     $ledger = file_get_contents(__DIR__ . '/../../src/Ledger.php');
-    preg_match('/private static function alreadyDebited\(.*?\n    \}\n/s', $ledger, $m);
-    assertTrue($m !== [], 'alreadyDebited trouvée');
+    preg_match('/public static function debitOf\(.*?\n    \}\n/s', $ledger, $m);
+    assertTrue($m !== [], 'debitOf trouvée');
+    foreach (['Billing', 'Flatrate'] as $class) {
+        assertTrue(str_contains(file_get_contents(__DIR__ . "/../../src/$class.php"), 'Ledger::debitOf('), "$class lit le débit par Ledger::debitOf");
+    }
+    assertSame(1, substr_count($ledger, "'type' => \$type, 'itemtype' => \$itemtype, 'items_id' => \$itemsId"), 'une seule lecture de débit par clé dans Ledger');
     assertSame(0, preg_match('/operations_id_origin|refund|amount/i', $m[0]), 'ni remboursement ni montant : la clé seule compte');
 });
 

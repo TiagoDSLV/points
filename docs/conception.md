@@ -48,8 +48,8 @@ Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recu
 | `glpi_plugin_points_operations` | **journal en ajout seul** | `contracts_id`, `type`, `amount` (signé : + crédit, − débit), `date` (`DATE`, date métier : date de la tâche, de l'approbation… ; l'heure d'une tâche reste dans `details`), `tickets_id`, `itemtype` / `items_id` (TicketTask, forfait, compensation, review, enveloppe), `operations_id_origin` (opération corrigée ou liée), `comment` (motif), `details` (JSON : minutes saisies et comptées, type de jour, version de grille, coût unitaire, type d'intervention), `users_id`, `date_creation` |
 | `glpi_plugin_points_lots` | lot de points créé par un crédit (FIFO, expiration) | `operations_id` (crédit, report entrant, import), `plugin_points_envelopes_id`, `contracts_id`, `origin_date` (date d'achat d'origine, conservée au report), `expiry_date` = min(fin de l'enveloppe, `origin_date` + 24 mois), `initial` |
 | `glpi_plugin_points_allocations` | répartition d'une opération sur les lots | `operations_id`, `plugin_points_lots_id`, `amount` (signé) ; reste d'un lot = somme de ses affectations |
-| `glpi_plugin_points_tickets` | réglage Points d'un ticket | `tickets_id` unique, `contracts_id` (contrat Points retenu), `plugin_points_interventiontypes_id`, `is_billable` |
-| `glpi_plugin_points_tasks` | état de décompte d'une tâche | `tickettasks_id` unique, `tickets_id`, `operations_id` (débit, 0 tant que non débitée), `is_locked` |
+| `glpi_plugin_points_tickets` | réglage Points d'un ticket | `tickets_id` unique, `contracts_id` (contrat Points retenu), `plugin_points_interventiontypes_id`, `is_billable` ; la ligne est écrite pour tout ticket À LA CRÉATION (crochet ITEM_ADD du ticket) avec le type d'intervention du paramétrage de ce moment : le changer ensuite n'affecte plus les tickets existants ; un ticket sans ligne (antérieur au plugin) la reçoit au premier chemin d'ÉCRITURE (ajout ou modification d'une tâche, débit : `Billing::freezeType`), jamais en lecture (onglet, contrôle de clôture) ; la ligne suit l'entité de son ticket (`entities_id`, crochet ITEM_UPDATE du ticket) et se lit avec le droit du plugin, l'accès à son entité ET la lecture du ticket ; un type d'intervention qui a été le défaut d'un ticket n'est plus supprimable (la ligne le référence) ; l'onglet n'apparaît que si la ligne porte un contrat ou un ticket non facturable |
+| `glpi_plugin_points_tasks` | état de décompte d'une tâche | `tickettasks_id` unique, `tickets_id`, `operations_id` (débit, 0 tant que non débitée), `is_locked`, `plugin_points_gridversions_id` (version de grille du débit, indexée, écrite dans la transaction du débit : une version utilisée n'est plus modifiable, `GridVersion::isUsed` lit cet index ; migration : reprise depuis les détails des opérations à chaque installation, pour les lignes encore à 0) |
 | `glpi_plugin_points_flatrates` | forfait | `tickets_id`, `contracts_id`, `amount` (chiffré), `description`, `status`, `users_id` (technicien), `users_id_bu`, `date_bu`, `bu_comment`, `users_id_validate` (validateur client), `ticketvalidations_id`, `approved_amount` (figé), `operations_id` |
 | `glpi_plugin_points_reviews` | contrôle d'un débit hors créneau ou férié | `operations_id` (débit), `tickets_id` et `contracts_id` (copies du débit, pour les filtres de la recherche), `reason` (samedi, dimanche, férié, hors créneau), `status` (à contrôler, confirmé, ajusté), `users_id`, `date_mod`, `comment`, `operations_id_adjustment` |
 | `glpi_plugin_points_compensations` | demande de compensation | `operations_id` (débit visé), `tickets_id`, `contracts_id` (copie du débit), `amount` (demandé), `comment` (motif obligatoire), `status` (en attente, approuvée, rejetée), `users_id` (demandeur), `users_id_decision`, `date_decision`, `decision_comment`, `approved_amount`, `operations_id_credit` |
@@ -81,9 +81,15 @@ Valeurs codées (`varchar(30)`) : forfait `draft`, `submitted`, `bu_refused`, `p
 `sunday`, `holiday`, `off_hours` (plusieurs séparées par une virgule) ; compensation `pending`, `approved`, `rejected`.
 
 Invariants (contrôlés par les tests et par `points:check` en console) : somme des `amount` d'une opération = somme de
-ses affectations ; reste d'un lot ≥ 0, sauf dépassement autorisé sur le lot de dépassement ; solde du contrat =
+ses affectations ; reste d'un lot ≥ 0, sauf sur un lot qui a reçu une affectation de dépassement (l'opération de débit porte `details.overdraft_lot` : le paramètre `allow_overdraft` du moment n'entre pas dans le contrôle, il a pu changer depuis ; tout autre reste négatif est un écart) ; solde du contrat =
 somme du journal = somme des restes des lots ; aucune ligne de `operations`, `lots`, `allocations` n'est modifiée
-ni supprimée (pas de `date_mod`).
+ni supprimée (pas de `date_mod`). La commande `php bin/console plugins:points:check` contrôle ces invariants pour tous les contrats (`Ledger::checkAll`), en lecture seule, et sort avec un code non nul au moindre écart (supervision).
+
+## Date du jour
+
+La date métier de tout ce qui a lieu « maintenant » (crédit sans date, décision d'une compensation ou d'une review, correction, approbation et débit
+d'un forfait, passage de l'action automatique d'expiration et d'alerte, notification du seuil, plan d'import) est le jour du **fuseau de référence**
+(règle 2) : `Billing::today()`, calculé par `Dates::todayIn`. Jamais le jour du fuseau de la session ou du processus.
 
 ## Règles de calcul
 
@@ -113,7 +119,7 @@ ni supprimée (pas de `date_mod`).
    exige un solde suffisant.
    Une tâche débitée l'est **définitivement** : un remboursement ou une compensation ne la rend jamais débitable une
    seconde fois (même règle pour un forfait). Une tâche recopiée par la fusion de tickets (`sourceitems_id`) depuis
-   une tâche débitée est enregistrée verrouillée, sans nouveau débit. Une clôture impossible laisse le ticket Résolu
+   une tâche débitée est enregistrée verrouillée, sans nouveau débit ; une tâche NON débitée copiée par la fusion (`sourceitems_id` = le ticket source, même durée, dates, contenu et technicien) n'est débitée que sur le ticket principal, pourvu que le ticket de la copie soit lié au ticket source par le lien natif de la fusion (`glpi_tickets_tickets`, `tickets_id_1` = source, `tickets_id_2` = principal, `link` = SON_OF : lu 12.0.1 `src/Ticket.php:5918-5922`) : une copie posée à la main sans fusion n'exclut rien. Le ticket source, restauré puis clos, ne débite donc pas ses originaux une seconde fois (`Billing::pendingTasks`, `mergedElsewhere`) ; son onglet les montre « débitées sur le ticket principal », hors total ; une tâche ajoutée au ticket restauré, sans copie ailleurs, se débite normalement. Une clôture impossible laisse le ticket Résolu
    (avec un message, et une trace pour la clôture automatique), jamais dans un état intermédiaire.
 7. **Moment du débit** (paramètre `debit_moment`) : `closure` (défaut, ticket passé à Clos) ou `task` (à l'ajout de
    la tâche). Une tâche ajoutée après une réouverture est débitée à la clôture suivante.
@@ -144,6 +150,14 @@ ni supprimée (pas de `date_mod`).
    récent du contrat, nouveau lot daté du jour ; refus si aucun lot valide — question 10 du cahier des charges,
    paramètre `compensation_on_expired` = `valid_lot` par défaut, `origin` sinon) : motif obligatoire ; montant approuvé ≤ débit visé − compensations déjà approuvées ; crédit lié
     (`compensation`, réaffecté aux lots du débit d'origine) ; demandeur notifié.
+    Un lot échu EN DÉPASSEMENT (reste négatif) garde d'abord la part qui comble ce reste (min(part, −reste)) : seul le surplus est redirigé,
+    sinon le remboursement créerait des points (ex. lot de 10, débit de 30 → −20 ; une compensation de 30 rend 20 au lot échu et 10 au nouveau lot).
+    Mise en œuvre (lot final, `Ledger::writeRefund`, commune à la compensation, à la correction + et à l'ajustement + de review) : « échu » =
+    échéance du lot avant le jour de l'opération ; la part qui retombe sur un lot échu est créditée sur un NOUVEAU lot (origine = jour de
+    l'opération, échéance = min(fin de l'enveloppe du lot valide le plus récent, jour + durée de vie), `initial` = la part) ; refus
+    `refund_no_valid_lot` (rien d'écrit) s'il n'y a aucun lot valide ce jour-là. La part redirigée est notée dans les détails de
+    l'opération (`redirected` : lot d'origine → centièmes) : elle compte comme déjà rendue sur le lot d'origine (`refundedByLot`), donc le
+    plafond (`Ledger::refundable`) ne la rend pas une seconde fois. Avec `origin`, comportement d'avant : la part est rendue au lot échu.
     Précisions (lot e) : on ne compense qu'un débit de tâche ou de forfait ; demander exige le bit CREATE, l'accès à
     l'entité du débit et la lecture du ticket (`Ticket::can`) ; décider exige le bit VALIDATE et l'accès à l'entité (pas
     la lecture du ticket : la décision est financière) ; la demande est positive et au plus égale à ce que le débit peut encore rendre
@@ -155,7 +169,7 @@ ni supprimée (pas de `date_mod`).
     (modèle FR/EN semé, cible : auteur de la demande), déclenchée à l'approbation comme au rejet.
 12. **Alerte** (action automatique `pointsalert`) : consommé / crédité des lots valides ≥ seuil du contrat →
     notification `threshold`, une fois par passage du seuil (alerte native `glpi_alerts`, remise à zéro par un crédit).
-    Précisions (lot g) : « crédité » et « consommé » des lots valides sont définis dans « Cache du contrat ». L'action quotidienne
+    Un lot créé par la redirection d'un remboursement (règle 11) rend des points, il n'en achète pas : il est exclu du crédité et son reste vient en déduction du consommé (jamais sous 0). Précisions (lot g) : « crédité » et « consommé » des lots valides sont définis dans « Cache du contrat ». L'action quotidienne
     (`Cron::cronPointsalert`, `ThresholdAlert::run`) parcourt les lignes Points actives (`is_active` = 1) dont le contrat natif n'est ni supprimé ni
     un modèle ; elle lève l'événement natif `threshold` (objet : la ligne Points, classe `NotificationTargetContract`) puis mémorise le passage
     dans `glpi_alerts` (type `Alert::THRESHOLD`, `items_id` = ligne Points) ; rien n'est mémorisé si la levée échoue (retentée le lendemain) ; un
@@ -167,6 +181,18 @@ ni supprimée (pas de `date_mod`).
     l'interface. Modèle FR/EN semé (rejouable, supprimé à la désinstallation) ; balises : `##points.contract##` (contrat), `##points.client##`
     (entité), `##points.balance##` (solde du cache), `##points.credited##` et `##points.consumed##` (lots valides), `##points.percent##` (% consommé
     des lots valides), `##points.threshold##` (seuil), `##points.expiry##` (prochaine échéance), `##points.url##`, `##points.action##`.
+
+## Désinstallation (lot final)
+
+`Install::uninstall` supprime, dans l'ordre : (1) les validations de ticket natives EN ATTENTE des forfaits proposés (le forfait passe à
+« annulé », GLPI purge la validation et le statut global de validation du ticket est recalculé : `Flatrate::purgeProposedValidation`, le
+même chemin que l'annulation d'un forfait) ; (2) les tables du plugin, les droits, la configuration, les actions automatiques ; (3) les
+notifications, modèles, alertes, courriels en file d'attente (`glpi_queuednotifications`), historiques et préférences d'affichage dont l'itemtype est une classe du plugin ; (4) les colonnes
+d'affichage du contrat et de l'entité natifs portant les options 9701-9707 et 9721-9725 ; (5) les recherches enregistrées qui utilisent
+l'une de ces options (critère, méta-critère ou tri : `SearchOptions::queryUses`) ou dont l'itemtype est une classe du plugin, par
+`SavedSearch::delete(…, true)` qui supprime aussi leurs tables filles (utilisateurs par défaut, alertes). Les recherches et colonnes du cœur
+restent. Vérifié au banc APRÈS usage réel (`scenario_zdesinstallation.py`) : aucune ligne du cœur ne porte plus un itemtype du plugin,
+puis réinstallation propre.
 
 ## Droits du plugin
 
@@ -193,8 +219,8 @@ les comptes de service : 0 partout.
 
 | Où | Contenu | Droit |
 |---|---|---|
-| Contrat, onglet « Points » | réglage (grille, seuil), solde, enveloppes, registre ; actions ADV : créer une enveloppe, créditer, corriger, reporter | balance READ ; envelope pour écrire |
-| Ticket, onglet « Points » | contrat Points, type d'intervention, tâches et débits, forfait (chiffrer, soumettre, valider BU, proposer), compensation | ticket, flatrate, compensation |
+| Contrat, onglet « Points » | réglage (grille, seuil), solde, enveloppes, registre ; actions ADV : créer une enveloppe, créditer, corriger, reporter (un contrat dont le type n'est pas dans `contracttypes` n'a ni onglet ni écriture, sauf s'il a déjà une ligne Points) | balance READ ; envelope pour écrire |
+| Ticket, onglet « Points » | contrat Points, type d'intervention, tâches et débits (total = débit net signé du journal, `Ledger::netDebits` : débit moins remboursements, corrections +, compensations, ajustements + plus débits en plus), forfait (chiffrer, soumettre, valider BU, proposer), compensation | ticket, flatrate, compensation |
 | Entité, onglet « Points » | soldes des contrats à points de l'entité elle-même (entité propre, pas ses sous-entités ni un contrat d'une entité mère) : BU, solde, crédité, consommé, % consommé, seuil, prochaine échéance, lien vers chaque contrat (si le contrat est lisible) ; onglet absent s'il n'y a aucun contrat | balance READ + lecture native de l'entité (`Entity::can`) + accès à l'entité |
 | Interface simplifiée (Responsable client) | entrée « Points » du menu (`Hooks::HELPDESK_MENU_ENTRY` + icône, `front/points.php`, classe `Simplified`) : pour chaque contrat à points de ses entités actives, solde, enveloppes (échéances, reste) et registre (date, type, points, ticket ; ni auteur ni commentaire) ; lecture seule, aucun formulaire ; pas d'onglet sur la fiche contrat, **refusée en interface simplifiée** (fiche servie par un contrôleur moderne, stratégie par défaut `central_access` qui refuse un profil `helpdesk` : lu 12.0.1 `src/Glpi/Http/Firewall.php:152,170-190`, `src/Session.php:1219-1224` ; **vérifié au banc 12.0.1** : 403 sur `/front/contract.form.php?id=…` pour le profil simplifié, y compris pour son propre contrat, 200 pour le même contrat en interface standard) | balance READ |
 | Outils > Points | « Contrats à points » (`front/contract.php`, recherche native, filtres, tri, export CSV : contrat, client = entité, BU = type de contrat, grille, solde, crédité, consommé, % consommé, prochaine échéance, seuil, actif), reviews à contrôler, compensations en attente ; options de recherche ajoutées au Contract et à l'Entity natifs pour le portefeuille (crochet `plugin_points_getAddSearchOptionsNew`, numéros 9701-9707 et 9721-9725) | balance READ (contrats) ; review, compensation |
@@ -254,6 +280,11 @@ delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/repor
   cellule regroupe une valeur par contrat à points de l'entité. La recherche de l'Entity exige en plus le droit natif de lecture des entités (un
   Responsable client sans ce droit passe par l'onglet du contrat ou la page de l'interface simplifiée). Vérifié au banc (`scenario_alerte.py`, deux
   clients, entité fille, contrat récursif, compte sans droit, mutations à l'appui).
+- **Purge d'un contrat à points** : `Contract::contractPrePurge` (hook PRE_ITEM_PURGE sur le contrat natif) refuse la purge d'un contrat qui a une
+  ligne Points (message) : le journal, en ajout seul, porte l'id du contrat. La mise à la corbeille reste possible.
+- **Type du contrat** : `Contract::requireContract` (gardes de `contract.form.php`, `credit.form.php`, `envelope.form.php`, `correction.form.php`,
+  `carryover.form.php`) refuse (403) un contrat dont le type n'est pas dans `contracttypes`, sauf s'il a déjà une ligne Points (un type retiré du
+  paramétrage ne rend pas son journal inaccessible).
 - **Entité d'un contrat à points** : `Contract::contractPreUpdate` (hook PRE_ITEM_UPDATE sur le contrat natif) refuse tout changement d'`entities_id` d'un
   contrat qui a une ligne Points (message) : les lignes du journal portent l'entité du contrat et ne se modifient pas. Le transfert natif passe par
   `$item->update()` (`Transfer::transferItem`, `src/Transfer.php:1240` en 12.0.1) : il est donc refusé aussi (vérifié au banc par `Transfer::moveItems`).
@@ -277,13 +308,19 @@ delete par l'API v1, onglets, formulaires, pages, export CSV natif (`front/repor
 | `retention_months` | 24 | durée maximale de vie d'un point ; ne peut pas dépasser 24 |
 | `flatrate_separation` | 1 | 1 : le Responsable BU ne valide pas un forfait qu'il a chiffré (question 8) ; 0 : permis |
 | `compensation_separation` | 1 | 1 : celui qui a demandé une compensation ne la décide pas lui-même ; 0 : permis (règle 11, lot e) |
+| `compensation_on_expired` | `valid_lot` | part d'un remboursement (compensation, correction +, ajustement + de review) qui retomberait sur un lot échu : `valid_lot` la crédite sur le lot valide le plus récent, refus s'il n'y en a aucun ; `origin` la rend au lot échu (elle expire aussitôt) (règle 11, question 10 du cahier des charges) |
+
+Une saisie est refusée en entier si une valeur est invalide ; `default_interventiontypes_id` et `calendars_id` doivent désigner une ligne qui existe
+(le calendrier 0 = celui de l'entité est permis ; le type par défaut ne peut pas être 0 une fois des types créés). La configuration est lue une fois par
+processus (`Config::get`) et le cache est vidé par `Config::save` et par l'installation. L'estimation d'un forfait lit le prix du type « Ordre de travail » :
+renommé ou supprimé, elle le dit (`flatrate_no_estimate_type`) au lieu d'annoncer un montant invalide.
 
 ## Import des soldes du BPM Kiwi (lot h)
 
 Commande console du plugin : `php bin/console plugins:points:import fichier.csv [--apply]` (classe `Console\ImportCommand`). Le nom
 porte le préfixe `plugins:points:` : le chargeur des commandes de plugin ignore, avec un avertissement, toute commande qui ne le porte pas
 (lu 12.0.1 `src/Glpi/Console/CommandLoader.php:261-280`). Sans `--apply` : simulation, rapport ligne à ligne, aucune écriture (pas même la
-ligne Points d'un contrat). Seule option : `--apply`.
+ligne Points d'un contrat). Options : `--apply`, `--accept-similar` (voir « Comportement »).
 
 **Format.** Texte UTF-8 (BOM toléré), fins de ligne Unix, Windows ou Mac, séparateur `;`, première ligne = en-tête exact (casse libre)
 `contrat;solde;debut;fin;report;libelle`, une enveloppe par ligne, lignes vides ignorées, espaces autour des cellules retirés. Une cellule peut
@@ -307,6 +344,7 @@ ligne Points d'un contrat). Seule option : `--apply`.
   (date = début, montant = solde) + lot (origine = début, échéance = min(fin, début + 24 mois)) + affectation. Le cache du contrat (`credited`, `balance`) en
   tient compte comme d'un crédit. Une ligne en échec arrête l'application (code non nul) ; les lignes déjà écrites restent (journal en ajout seul) et
   un nouveau lancement les saute.
+- Ligne semblable : une ligne NON importée mais de même contrat, même solde, même début et même fin qu'une enveloppe déjà importée, sous un autre libellé (libellé corrigé : l'empreinte change, la ligne recréditerait le solde) est une **erreur de plan** (`Ledger::similarImport`), sauf si l'enveloppe trouvée porte l'empreinte d'une AUTRE ligne du même fichier (import interrompu puis repris) ; `--accept-similar` la laisse passer (deux soldes distincts de mêmes montant et dates).
 - Rejouable : une ligne déjà importée est sautée (`SKIP`). L'empreinte de la ligne (SHA-256 de : id du contrat, solde en centièmes, dates, libellé
   effectif sans casse) est stockée dans `details.import_key` de l'opération `import` (jamais modifiée) et cherchée par `Ledger::importedEnvelope` : le
   nom de l'enveloppe, modifiable, ne compte pas (renommer une enveloppe ne fait pas recréditer au rejeu ; vérifié au banc). Le contrôle est refait SOUS

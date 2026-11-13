@@ -9,7 +9,6 @@ use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\NotFoundHttpException;
 use Glpi\Search\DefaultSearchRequestInterface;
 use GlpiPlugin\Points\Domain\CompensationRules;
-use GlpiPlugin\Points\Domain\Dates;
 use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\OpType;
 use GlpiPlugin\Points\Domain\RuleViolation;
@@ -92,7 +91,7 @@ class Compensation extends CommonDBTM implements DefaultSearchRequestInterface
 
     public function canCreateItem(): bool
     {
-        $debit = self::debitOf((int) ($this->input['operations_id'] ?? 0));
+        $debit = Operation::read((int) ($this->input['operations_id'] ?? 0));
 
         return static::canCreate() && $debit !== null && Session::haveAccessToEntity($debit['entities_id']) && self::canReadTicket($debit['tickets_id']);
     }
@@ -132,7 +131,7 @@ class Compensation extends CommonDBTM implements DefaultSearchRequestInterface
     public function prepareInputForAdd($input)
     {
         try {
-            $debit = self::debitOf((int) ($input['operations_id'] ?? 0));
+            $debit = Operation::read((int) ($input['operations_id'] ?? 0));
             if ($debit === null || !in_array($debit['type'], CompensationRules::TARGET_TYPES, true) || $debit['amount'] >= 0) {
                 throw new RuleViolation(RuleViolation::COMPENSATION_TARGET, 'A compensation can only target a task or flatrate debit');
             }
@@ -233,7 +232,7 @@ class Compensation extends CommonDBTM implements DefaultSearchRequestInterface
         }
 
         $cents = CompensationRules::approvedAmount($approved, Money::parse((string) $row['amount']));
-        $debit = self::debitOf((int) $row['operations_id']);
+        $debit = Operation::read((int) $row['operations_id']);
         if ($debit === null) {
             throw new RuleViolation(RuleViolation::UNKNOWN_OPERATION, 'Unknown debit');
         }
@@ -241,7 +240,7 @@ class Compensation extends CommonDBTM implements DefaultSearchRequestInterface
         try {
             // Le plafond est revérifié par Ledger sous le verrou du contrat (restes des lots du débit, toutes compensations
             // et corrections comprises) ; le passage à « approuvée » est écrit dans la même transaction
-            Ledger::refund($debit['contracts_id'], $debit['id'], $cents, OpType::COMPENSATION, self::today(), $comment !== '' ? $comment : (string) $row['comment'], [
+            Ledger::refund($debit['contracts_id'], $debit['id'], $cents, OpType::COMPENSATION, Billing::today(), $comment !== '' ? $comment : (string) $row['comment'], [
                 'itemtype'   => self::class,
                 'items_id'   => $id,
                 'tickets_id' => $debit['tickets_id'],
@@ -266,37 +265,6 @@ class Compensation extends CommonDBTM implements DefaultSearchRequestInterface
             throw $e;
         }
         self::notify($id);
-    }
-
-    // ---------------------------------------------------------------------------------------------------------
-    // Lecture du journal
-    // ---------------------------------------------------------------------------------------------------------
-
-    /**
-     * Débit visé (lecture du journal) : toute opération, le type est contrôlé par l'appelant.
-     *
-     * @return array{id: int, type: string, amount: int, contracts_id: int, tickets_id: int, entities_id: int, date: string}|null
-     */
-    private static function debitOf(int $operationId): ?array
-    {
-        global $DB;
-
-        if ($operationId < 1) {
-            return null;
-        }
-        $row = $DB->request(['SELECT' => ['id', 'type', 'amount', 'contracts_id', 'tickets_id', 'entities_id', 'date'], 'FROM' => 'glpi_plugin_points_operations', 'WHERE' => ['id' => $operationId], 'LIMIT' => 1])->current();
-
-        return $row === null ? null : [
-            'id' => (int) $row['id'], 'type' => (string) $row['type'], 'amount' => Money::parse((string) $row['amount']),
-            'contracts_id' => (int) $row['contracts_id'], 'tickets_id' => (int) $row['tickets_id'], 'entities_id' => (int) $row['entities_id'],
-            'date' => (string) $row['date'],
-        ];
-    }
-
-    /** Jour courant dans le fuseau de référence (date métier d'une décision qui a lieu maintenant). */
-    private static function today(): string
-    {
-        return Dates::day(Billing::toReference(self::now()));
     }
 
     /**

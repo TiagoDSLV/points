@@ -35,7 +35,7 @@ final class Cron
      */
     public static function cronPointsexpire(CronTask $task): int
     {
-        $result = Ledger::expireDue(date('Y-m-d'));
+        $result = Ledger::expireDue(Billing::today());
         $task->setVolume($result['lots']);
         $task->log(sprintf('lots: %d, expired: %s, carried over: %s', $result['lots'], Domain\Money::format($result['expired']), Domain\Money::format($result['carried'])));
         foreach ($result['errors'] as $error) {
@@ -56,7 +56,7 @@ final class Cron
      */
     public static function cronPointsalert(CronTask $task): int
     {
-        $result = ThresholdAlert::run(date('Y-m-d'));
+        $result = ThresholdAlert::run(Billing::today());
         $task->setVolume($result['raised']);
         $task->log(sprintf('contracts: %d, alerts raised: %d, alerts reset: %d', $result['checked'], $result['raised'], $result['reset']));
         foreach ($result['errors'] as $error) {

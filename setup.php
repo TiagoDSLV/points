@@ -45,7 +45,11 @@ function plugin_init_points(): void
     // Décompte des tâches (lot c) : refus et débit autour de TicketTask et du passage du ticket à Clos.
     // Un seul rappel par itemtype et par crochet (src/Plugin.php:1802 en 12.0.1 : $tab[$itemtype]).
     $PLUGIN_HOOKS[Hooks::POST_PREPAREADD]['points']    = ['TicketTask' => [ItilHooks::class, 'taskPostPrepareAdd']];
-    $PLUGIN_HOOKS[Hooks::ITEM_ADD]['points']           = ['TicketTask' => [ItilHooks::class, 'taskItemAdd']];
+    $PLUGIN_HOOKS[Hooks::ITEM_ADD]['points']           = [
+        'TicketTask' => [ItilHooks::class, 'taskItemAdd'],
+        // Type d'intervention du paramétrage figé dans la ligne Points du ticket créé
+        'Ticket'     => [ItilHooks::class, 'ticketItemAdd'],
+    ];
     $PLUGIN_HOOKS[Hooks::POST_PREPAREUPDATE]['points'] = [
         'TicketTask'       => [ItilHooks::class, 'taskPostPrepareUpdate'],
         'TicketValidation' => [ItilHooks::class, 'validationPostPrepareUpdate'],
@@ -64,6 +68,8 @@ function plugin_init_points(): void
         'TicketTask' => [ItilHooks::class, 'taskPrePurge'],
         'Ticket'     => [ItilHooks::class, 'ticketPrePurge'],
         'TicketValidation' => [ItilHooks::class, 'validationPrePurge'],
+        // Contrat natif : un contrat qui a une ligne Points ne se purge pas (le journal y fait référence)
+        'Contract'   => [\GlpiPlugin\Points\Contract::class, 'contractPrePurge'],
     ];
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['points']         = ['Ticket' => [ItilHooks::class, 'ticketItemPurge']];
 

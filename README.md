@@ -26,7 +26,7 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 scripts/check.sh            # php -l, tests unitaires, .mo à jour ; le banc est SAUTÉ (pas vert)
 scripts/check.sh --banc     # idem + banc GLPI 12 jetable sous Docker (images figées par digest)
 php tests/unit/run.php      # tests unitaires seuls, sans GLPI
-tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, forfaits, import, journal, socle, taches) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
+tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, final, forfaits, import, journal, socle, taches, zdesinstallation) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
 ```
 
 Le banc crée les conteneurs `points-banc-app` et `points-banc-db` (réseau `points-banc`), installe le plugin par la
@@ -37,6 +37,15 @@ console puis joue les scénarios `tests/banc/scenario_*.py`.
 ```bash
 php bin/console plugins:points:import fichier.csv           # simulation : rapport ligne à ligne, rien n'est écrit
 php bin/console plugins:points:import fichier.csv --apply   # écrit une enveloppe et une opération « import » par ligne
+```
+
+Une ligne de même contrat, solde et dates qu'une enveloppe déjà importée, sous un autre libellé, est une erreur de plan (le libellé a sans doute
+été corrigé) : `--accept-similar` la laisse passer.
+
+## Contrôler le journal
+
+```bash
+php bin/console plugins:points:check   # lecture seule : invariants du journal de tous les contrats, code de sortie non nul au moindre écart
 ```
 
 CSV UTF-8, séparateur `;`, en-tête `contrat;solde;debut;fin;report;libelle` (exemple fictif : `tests/banc/import-exemple.csv`). Tout le

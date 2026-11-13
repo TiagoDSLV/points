@@ -157,11 +157,14 @@ v("(4) l'empreinte est dans les détails de l'opération import", sql(f"SELECT C
 f_plus = deposer("plus.csv", ok + f"{num('IMP-004')};5;{d(-10)};{d(100)};0;Nouveau\n")
 p = importer(f_plus, "--apply")
 v("(4) fichier complété : seule la ligne nouvelle est écrite", (p.returncode, [int(a) - int(b) for a, b in zip(comptes(), avant)]), (0, [1, 1, 1, 1, 1]))
-# la même clé avec un autre solde ou un autre libellé est une autre enveloppe
+# la même clé avec un autre solde est une autre enveloppe ; avec un autre libellé seulement (mêmes solde et dates), c'est une ligne « semblable » :
+# erreur de plan (le libellé a sans doute été corrigé), sauf --accept-similar (lot final)
 f_autre = deposer("autre.csv", csv(f"{num('IMP-004')};5.01;{d(-10)};{d(100)};0;Nouveau", f"{num('IMP-004')};5;{d(-10)};{d(100)};0;Nouveau bis"))
 avant = comptes()
 p = importer(f_autre, "--apply")
-v("(4) solde ou libellé différent : deux nouvelles enveloppes", (p.returncode, [int(a) - int(b) for a, b in zip(comptes(), avant)]), (0, [2, 2, 2, 2, 0]))
+v("(4) libellé seul différent : ligne semblable refusée, rien d'écrit (même la ligne au solde différent)", (p.returncode != 0, "--accept-similar" in sortie(p), comptes() == avant), (True, True, True))
+p = importer(f_autre, "--apply", "--accept-similar")
+v("(4) solde ou libellé différent avec --accept-similar : deux nouvelles enveloppes", (p.returncode, [int(a) - int(b) for a, b in zip(comptes(), avant)]), (0, [2, 2, 2, 2, 0]))
 
 # --- (5) lignes invalides : rien d'écrit, même avec --apply et même si d'autres lignes sont bonnes
 bonne = f"{num('IMP-004')};9;{d(-5)};{d(50)};0;Bonne ligne"

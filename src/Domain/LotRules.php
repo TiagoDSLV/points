@@ -79,8 +79,8 @@ final class LotRules
      *
      * @param list<array{id: int, origin_date: string, expiry_date: string, remaining: int}> $lots
      * @param int $amount montant du débit, positif, en centièmes
-     * @return array{allocations: list<array{lot: int, amount: int}>, overdraft: int} affectations (montants négatifs,
-     *         une par lot) et part en dépassement (positive, comprise dans les affectations)
+     * @return array{allocations: list<array{lot: int, amount: int}>, overdraft: int, overdraft_lot: int|null} affectations (montants
+     *         négatifs, une par lot), part en dépassement (positive, comprise dans les affectations) et lot qui la porte (null sans dépassement)
      * @throws RuleViolation
      */
     public static function allocateDebit(array $lots, string $date, int $amount, bool $allowOverdraft): array
@@ -111,7 +111,8 @@ final class LotRules
             $take[$lot['id']] = -$part;
             $left -= $part;
         }
-        $overdraft = 0;
+        $overdraft    = 0;
+        $overdraftLot = null;
         if ($left > 0) {
             if (!$allowOverdraft) {
                 throw new RuleViolation(RuleViolation::INSUFFICIENT, 'Insufficient points and overdraft not allowed');
@@ -119,13 +120,14 @@ final class LotRules
             $latest            = $valid[array_key_last($valid)]['id'];
             $take[$latest]     = ($take[$latest] ?? 0) - $left;
             $overdraft         = $left;
+            $overdraftLot      = $latest;
         }
         $allocations = [];
         foreach ($take as $lotId => $part) {
             $allocations[] = ['lot' => $lotId, 'amount' => $part];
         }
 
-        return ['allocations' => $allocations, 'overdraft' => $overdraft];
+        return ['allocations' => $allocations, 'overdraft' => $overdraft, 'overdraft_lot' => $overdraftLot];
     }
 
     /**
@@ -201,6 +203,76 @@ final class LotRules
         }
         if ($left > 0) {
             throw new RuleViolation(RuleViolation::NOTHING_TO_REFUND, 'Amount exceeds what the origin debit can give back');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Lot valide le plus récent à un jour (origine la plus récente, puis id le plus grand) : le lot qui reçoit un remboursement dont
+     * le lot d'origine est échu (règle 11, `compensation_on_expired` = `valid_lot`). Null s'il n'y en a aucun.
+     *
+     * @param list<array{id: int, origin_date: string, expiry_date: string, envelope?: int}> $lots
+     * @return array{id: int, origin_date: string, expiry_date: string, envelope?: int}|null
+     */
+    public static function latestValidLot(array $lots, string $day): ?array
+    {
+        $valid = array_values(array_filter($lots, static fn (array $lot): bool => self::isValidOn($lot, $day)));
+        usort($valid, static fn (array $a, array $b): int => [$a['origin_date'], $a['id']] <=> [$b['origin_date'], $b['id']]);
+
+        return $valid === [] ? null : $valid[array_key_last($valid)];
+    }
+
+    /**
+     * Remboursement dont une part retombe sur un lot échu au jour de l'opération : cette part n'est pas rendue à ce lot (elle
+     * expirerait aussitôt), elle est comptée à part pour être créditée sur un lot valide.
+     *
+     * @param list<array{lot: int, amount: int}> $allocations affectations positives du remboursement (LotRules::refund)
+     * Un lot échu en dépassement (reste négatif, dépassement autorisé) garde d'abord la part qui comble son reste : min(part, -reste). Seul
+     * le surplus est redirigé ; sans cela le remboursement créerait des points (le dépassement n'aurait jamais été payé).
+     *
+     * @param list<array{id: int, expiry_date: string, remaining?: int}> $lots lots du contrat
+     * @return array{kept: list<array{lot: int, amount: int}>, redirected: int, from: array<int, int>} parts gardées, total
+     *         redirigé et origine de ce total (lot échu => centièmes)
+     */
+    public static function redirectExpired(array $allocations, array $lots, string $day): array
+    {
+        $expiry    = array_column($lots, 'expiry_date', 'id');
+        $remaining = array_column($lots, 'remaining', 'id');
+        $out       = ['kept' => [], 'redirected' => 0, 'from' => []];
+        foreach ($allocations as $allocation) {
+            if (isset($expiry[$allocation['lot']]) && $expiry[$allocation['lot']] < $day) {
+                $fill    = min($allocation['amount'], max(0, -($remaining[$allocation['lot']] ?? 0)));
+                $surplus = $allocation['amount'] - $fill;
+                if ($fill > 0) {
+                    $out['kept'][] = ['lot' => $allocation['lot'], 'amount' => $fill];
+                }
+                if ($surplus > 0) {
+                    $out['redirected']               += $surplus;
+                    $out['from'][$allocation['lot']]  = ($out['from'][$allocation['lot']] ?? 0) + $surplus;
+                }
+                continue;
+            }
+            $out['kept'][] = $allocation;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Ce qu'une opération de remboursement a redirigé, par lot d'origine, lu dans ses détails (`redirected` : lot => centièmes) ; compte
+     * dans ce que le débit a déjà rendu, sans quoi la part redirigée pourrait être rendue de nouveau.
+     *
+     * @param array<string, mixed>|null $details détails décodés d'une opération
+     * @return array<int, int>
+     */
+    public static function redirectedFrom(?array $details): array
+    {
+        $out = [];
+        foreach ((array) ($details['redirected'] ?? []) as $lot => $cents) {
+            if (is_int($cents) && $cents > 0) {
+                $out[(int) $lot] = $cents;
+            }
         }
 
         return $out;

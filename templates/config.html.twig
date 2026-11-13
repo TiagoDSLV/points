@@ -35,6 +35,9 @@
             {{ fields.dropdownArrayField('compensation_separation', config.compensation_separation, separation_choices, __('A user may decide a compensation they requested', 'points'), {
                 disabled: not can_edit
             }) }}
+            {{ fields.dropdownArrayField('compensation_on_expired', config.compensation_on_expired, on_expired_choices, __('A refund of an ended lot is credited', 'points'), {
+                disabled: not can_edit
+            }) }}
             {{ fields.dropdownField('Calendar', 'calendars_id', config.calendars_id, __('Calendar for day types (empty: entity calendar)', 'points'), {
                 disabled: not can_edit
             }) }}

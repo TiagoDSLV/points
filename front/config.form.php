@@ -47,7 +47,12 @@ TemplateRenderer::getInstance()->display('@points/config.html.twig', [
         1 => __('Refused (separation of duties)', 'points'),
         0 => __('Allowed', 'points'),
     ],
-    'intervention_types' => Config::interventionTypes(),
+    'on_expired_choices' => [
+        ConfigValues::ON_EXPIRED_VALID_LOT => __('On the most recent valid envelope (refused if none)', 'points'),
+        ConfigValues::ON_EXPIRED_ORIGIN    => __('On the original envelope (the points expire at once)', 'points'),
+    ],
+    // Le type par défaut doit exister : « ----- » (0) n'est proposé que tant que le réglage vaut 0
+    'intervention_types' => array_filter(Config::interventionTypes(), static fn (int $id): bool => $id > 0 || (int) Config::value('default_interventiontypes_id') === 0, ARRAY_FILTER_USE_KEY),
     'max_retention'      => ConfigValues::MAX_RETENTION_MONTHS,
     'grids_url'          => Session::haveRight(Rights::GRID, READ) ? $CFG_GLPI['root_doc'] . '/plugins/points/front/grid.php' : '',
 ]);

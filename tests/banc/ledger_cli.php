@@ -23,7 +23,7 @@ $kernel = new Glpi\Kernel\Kernel();
 $kernel->boot();
 
 $request = json_decode((string) stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-$allowed = ['createEnvelope', 'credit', 'debit', 'correction', 'refund', 'carryover', 'expireDue', 'check', 'recomputeCache', 'cached', 'remainingByEnvelope'];
+$allowed = ['createEnvelope', 'credit', 'debit', 'correction', 'refund', 'carryover', 'expireDue', 'check', 'recomputeCache', 'cached', 'remainingByEnvelope', 'refundable', 'netDebits', 'debitOf', 'checkAll', 'similarImport', 'validTotals'];
 try {
     if (!in_array($request['call'], $allowed, true)) {
         throw new InvalidArgumentException('call not allowed');

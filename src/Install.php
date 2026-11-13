@@ -7,6 +7,7 @@ namespace GlpiPlugin\Points;
 use Config as GlpiConfig;
 use CronTask;
 use DBConnection;
+use GlpiPlugin\Points\Domain\FlatrateRules;
 use Migration;
 use Notification;
 use NotificationTemplate;
@@ -206,9 +207,12 @@ final class Install
                     'tickets_id'     => $fk,
                     'operations_id'  => $fk, // 0 tant que la tâche n'est pas débitée
                     'is_locked'      => $flag(0),
+                    // Version de grille du débit (écrite avec lui) : GridVersion::isUsed la lit par cet index au lieu de fouiller les détails
+                    'plugin_points_gridversions_id' => $fk,
                 ] + $stamps,
                 'keys' => [
                     $unique('tickettasks_id', 'tickettasks_id'),
+                    $idx('plugin_points_gridversions_id'),
                     $idx('tickets_id'), $idx('operations_id'), $idx('entities_id'), $idx('date_creation'), $idx('date_mod'),
                 ],
             ],
@@ -339,6 +343,16 @@ final class Install
         if ($backfill) {
             foreach ($DB->request(['SELECT' => ['contracts_id'], 'FROM' => 'glpi_plugin_points_contracts']) as $row) {
                 Ledger::recomputeCache((int) $row['contracts_id']);
+            }
+        }
+
+        // Version de grille des tâches déjà débitées : reprise depuis les détails de leur opération de débit, à CHAQUE installation (une
+        // migration interrompue entre l'ajout de la colonne et la reprise se rattrape au rejeu). Seules les lignes à 0 sont lues et
+        // complétées : un rejeu complet ne réécrit rien.
+        foreach ($DB->request(['SELECT' => ['id', 'operations_id'], 'FROM' => 'glpi_plugin_points_tasks', 'WHERE' => ['is_locked' => 1, 'plugin_points_gridversions_id' => 0, 'operations_id' => ['>', 0]]]) as $row) {
+            $version = Operation::gridVersionOf((int) $row['operations_id']);
+            if ($version > 0) {
+                $DB->update('glpi_plugin_points_tasks', ['plugin_points_gridversions_id' => $version], ['id' => $row['id']]);
             }
         }
 
@@ -531,6 +545,7 @@ final class Install
         if ($missing !== []) {
             GlpiConfig::setConfigurationValues(Config::CONTEXT, $missing);
         }
+        Config::reset();
     }
 
     /**
@@ -579,19 +594,65 @@ final class Install
     {
         global $DB;
 
+        // Avant de supprimer les tables : les validations de ticket en attente créées pour des forfaits proposés ne doivent pas rester
+        // sans réponse possible (le ticket garderait un statut de validation « en attente » sans fin)
+        self::purgeProposedValidations();
         foreach (self::tableNames() as $table) {
             $DB->dropTable($table, true);
         }
         ProfileRight::deleteProfileRights(Rights::names());
         $DB->delete(GlpiConfig::getTable(), ['context' => Config::CONTEXT]);
+        Config::reset();
         CronTask::unregister('points');
         self::removeNotificationsAndAlerts();
+        self::removeSearchTraces();
 
         return true;
     }
 
     /**
-     * Notifications, modèles, alertes, préférences d'affichage, recherches enregistrées et historiques dont l'itemtype est une classe du plugin.
+     * Forfaits proposés au client : le forfait est annulé (il ne protège plus sa validation) puis la validation native en attente est
+     * purgée par GLPI, qui recalcule le statut global de validation du ticket (Flatrate::purgeProposedValidation). Sans objet si la table
+     * des forfaits n'existe pas.
+     */
+    private static function purgeProposedValidations(): void
+    {
+        global $DB;
+
+        if (!$DB->tableExists(Flatrate::getTable(), false)) {
+            return;
+        }
+        foreach ($DB->request(['FROM' => Flatrate::getTable(), 'WHERE' => ['status' => FlatrateRules::PROPOSED, 'ticketvalidations_id' => ['>', 0]]]) as $row) {
+            $DB->update(Flatrate::getTable(), ['status' => FlatrateRules::CANCELLED], ['id' => $row['id']]);
+            Flatrate::purgeProposedValidation($row);
+        }
+    }
+
+    /**
+     * Ce que le plugin a ajouté au contrat et à l'entité natifs : colonnes de la liste (préférences d'affichage) portant ses options de
+     * recherche, et recherches enregistrées qui les utilisent (supprimées par SavedSearch::delete avec leurs tables filles : utilisateurs
+     * par défaut, alertes). Les recherches enregistrées sur les classes du plugin sont supprimées de la même façon.
+     */
+    private static function removeSearchTraces(): void
+    {
+        global $DB;
+
+        foreach (SearchOptions::numbers() as $itemtype => $numbers) {
+            $DB->delete('glpi_displaypreferences', ['itemtype' => $itemtype, 'num' => $numbers]);
+            foreach ($DB->request(['SELECT' => ['id', 'query'], 'FROM' => 'glpi_savedsearches', 'WHERE' => ['itemtype' => $itemtype]]) as $row) {
+                if (SearchOptions::queryUses((string) $row['query'], $numbers)) {
+                    (new \SavedSearch())->delete(['id' => (int) $row['id']], true);
+                }
+            }
+        }
+        foreach ($DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_savedsearches', 'WHERE' => ['itemtype' => ['LIKE', self::LIKE_CLASSES]]]) as $row) {
+            (new \SavedSearch())->delete(['id' => (int) $row['id']], true);
+        }
+    }
+
+    /**
+     * Notifications, modèles, alertes, courriels en file d'attente, préférences d'affichage et historiques dont l'itemtype est une classe du plugin (les recherches
+     * enregistrées : removeSearchTraces).
      * Les notifications des forfaits et des compensations sont créées par seedNotifications ; les alertes de seuil (glpi_alerts) sont celles du contrat à points.
      */
     public static function removeNotificationsAndAlerts(): void
@@ -606,8 +667,9 @@ final class Install
             }
         }
         $DB->delete('glpi_alerts', ['itemtype' => $like]);
+        // Courriels en file d'attente d'un objet du plugin : ils ne pourraient plus être rendus sans leur classe
+        $DB->delete('glpi_queuednotifications', ['itemtype' => $like]);
         $DB->delete('glpi_displaypreferences', ['itemtype' => $like]);
-        $DB->delete('glpi_savedsearches', ['itemtype' => $like]);
         $DB->delete('glpi_logs', ['itemtype' => $like]);
     }
 }

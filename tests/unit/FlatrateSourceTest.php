@@ -14,7 +14,10 @@ test('Flatrate : le journal n\'est écrit que par Ledger::debit, jamais depuis u
         assertTrue(in_array(trim($write[2]), ['self::getTable()', "'glpi_logs'"], true), 'Flatrate écrit ' . $write[2] . ' : état du forfait et historique seulement');
     }
     assertTrue(str_contains($code, 'Ledger::debit(') && str_contains($code, "'unique'     => true") && str_contains($code, 'OpType::DEBIT_FLATRATE'), 'débit définitif : Ledger::debit avec clé d\'unicité');
-    assertTrue(preg_match('/function move\(.*?\'status\' => \$from\]/s', $code) === 1, 'transition atomique : mise à jour conditionnelle sur l\'ancien état');
+    assertTrue(str_contains($code, 'use StateRecord;'), 'Flatrate utilise le trait StateRecord (transition, historique, réponse de formulaire)');
+    assertSame(0, preg_match('/function (move|history|respond|now|row|today)\(/', $code), 'aucune des cinq copies de StateRecord dans Flatrate');
+    $trait = file_get_contents(__DIR__ . '/../../src/StateRecord.php');
+    assertTrue(preg_match('/function move\(.*?\'status\' => \$from\]/s', $trait) === 1, 'transition atomique : mise à jour conditionnelle sur l\'ancien état');
 });
 
 test('Flatrate : can* redéfinis, droit plugin_points_flatrate, jamais de suppression', function (): void {

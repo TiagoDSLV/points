@@ -9,7 +9,7 @@ $src = static fn (string $file): string => (string) file_get_contents(__DIR__ . 
 
 test('Alerte : action automatique pointsalert enregistrée et routée vers ThresholdAlert', function () use ($src): void {
     assertTrue(str_contains($src('src/Install.php'), 'CronTask::register(Cron::class, Cron::ALERT, DAY_TIMESTAMP'), 'enregistrée, quotidienne');
-    assertTrue(preg_match('/function cronPointsalert.*?ThresholdAlert::run\(date\(/s', $src('src/Cron.php')) === 1, 'cronPointsalert appelle ThresholdAlert::run');
+    assertTrue(preg_match('/function cronPointsalert.*?ThresholdAlert::run\(Billing::today\(\)/s', $src('src/Cron.php')) === 1, 'cronPointsalert appelle ThresholdAlert::run');
     assertTrue(str_contains($src('src/Cron.php'), "self::ALERT  => ['description'"), 'cronInfo');
 });
 
@@ -33,7 +33,7 @@ test('Install : reprise des colonnes de recherche seulement à leur ajout', func
 });
 
 test('Alerte : Ledger remet l\'alerte à zéro dans la transaction qui écrit le cache', function () use ($src): void {
-    assertTrue(preg_match('/function writeCache.*?ContractCache::nextExpiry\(\$lots\).*?ContractCache::percent\(.*?ThresholdAlert::resetIfBelow\(.*?self::today\(\)/s', $src('src/Ledger.php')) === 1, 'cache, colonnes de recherche et remise à zéro ensemble');
+    assertTrue(preg_match('/function writeCache.*?ContractCache::nextExpiry\(\$lots\).*?ContractCache::percent\(.*?ThresholdAlert::resetIfBelow\(.*?Billing::today\(\)/s', $src('src/Ledger.php')) === 1, 'cache, colonnes de recherche et remise à zéro ensemble');
 });
 
 test('Alerte : notification threshold, cible par défaut = administrateur de l\'entité, classe enregistrée', function () use ($src): void {

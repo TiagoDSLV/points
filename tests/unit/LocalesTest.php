@@ -31,6 +31,8 @@ function sourceMsgids(): array
     $root = dirname(__DIR__, 2);
     $files = array_merge(
         glob($root . '/src/*.php') ?: [],
+        glob($root . '/src/Domain/*.php') ?: [],
+        glob($root . '/src/Console/*.php') ?: [],
         glob($root . '/front/*.php') ?: [],
         glob($root . '/templates/*.twig') ?: [],
     );

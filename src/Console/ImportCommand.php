@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Le nom porte le préfixe `plugins:points:` exigé par le chargeur des commandes de plugin (src/Glpi/Console/CommandLoader.php:261-280
  * en 12.0.1 : sans lui la commande est ignorée avec un avertissement).
  *
- * Simulation par défaut ; `--apply` écrit. Tout le fichier est contrôlé avant la première écriture : une ligne invalide
+ * Simulation par défaut ; `--apply` écrit ; `--accept-similar` laisse passer une ligne semblable à une enveloppe déjà importée. Tout le fichier est contrôlé avant la première écriture : une ligne invalide
  * (format, contrat, dates, doublon) donne un code de sortie non nul et rien n'est écrit. Pas de session utilisateur en console :
  * les écritures portent `users_id` = 0 (voir Import).
  */
@@ -34,7 +34,8 @@ final class ImportCommand extends AbstractCommand
         $this->setName('plugins:points:import')
             ->setDescription('Import the opening points balances of the BPM Kiwi (dry run unless --apply)')
             ->addArgument('file', InputArgument::REQUIRED, 'CSV file (UTF-8, ";" separator): contrat;solde;debut;fin;report;libelle')
-            ->addOption('apply', null, InputOption::VALUE_NONE, 'Write the envelopes (without it: dry run, nothing is written)');
+            ->addOption('apply', null, InputOption::VALUE_NONE, 'Write the envelopes (without it: dry run, nothing is written)')
+            ->addOption('accept-similar', null, InputOption::VALUE_NONE, 'Accept a line with the balance and dates of an already imported envelope but another label (otherwise an error)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -58,7 +59,7 @@ final class ImportCommand extends AbstractCommand
         }
         $parsed = ImportRules::parse((string) file_get_contents($path));
         $errors = $parsed['errors'];
-        $plan   = Import::plan($parsed['rows']);
+        $plan   = Import::plan($parsed['rows'], null, (bool) $input->getOption('accept-similar'));
 
         foreach ($plan as $item) {
             if ($item['status'] === Import::STATUS_ERROR) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace GlpiPlugin\Points;
 
+use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\OpType;
 
 /**
@@ -56,6 +57,46 @@ class Operation extends ReadOnlyRecord
     }
 
     /**
+     * Lecture d'une opération par son identifiant (lecture du journal, sans contrôle de droit : l'appelant contrôle l'accès).
+     * Seule lecture à l'unité du plugin : débit visé d'une review ou d'une compensation, opération d'origine d'une correction.
+     *
+     * @return array{id: int, type: string, amount: int, date: string, contracts_id: int, tickets_id: int, entities_id: int, itemtype: string, items_id: int, details: array<string, mixed>}|null
+     */
+    public static function read(int $id): ?array
+    {
+        global $DB;
+
+        if ($id < 1) {
+            return null;
+        }
+        $row = $DB->request([
+            'SELECT' => ['id', 'type', 'amount', 'date', 'contracts_id', 'tickets_id', 'entities_id', 'itemtype', 'items_id', 'details'],
+            'FROM'   => self::getTable(),
+            'WHERE'  => ['id' => $id],
+            'LIMIT'  => 1,
+        ])->current();
+
+        return $row === null ? null : [
+            'id' => (int) $row['id'], 'type' => (string) $row['type'], 'amount' => Money::parse((string) $row['amount']), 'date' => (string) $row['date'],
+            'contracts_id' => (int) $row['contracts_id'], 'tickets_id' => (int) $row['tickets_id'], 'entities_id' => (int) $row['entities_id'],
+            'itemtype' => (string) ($row['itemtype'] ?? ''), 'items_id' => (int) $row['items_id'],
+            'details' => json_decode((string) ($row['details'] ?? ''), true) ?: [],
+        ];
+    }
+
+    /**
+     * Version de grille d'un débit de tâche (détails `gridversions_id`), 0 si l'opération n'en porte pas. Lecture du journal.
+     */
+    public static function gridVersionOf(int $operationId): int
+    {
+        global $DB;
+
+        $row = $DB->request(['SELECT' => ['details'], 'FROM' => self::getTable(), 'WHERE' => ['id' => $operationId], 'LIMIT' => 1])->current();
+
+        return (int) (json_decode((string) ($row['details'] ?? ''), true)['gridversions_id'] ?? 0);
+    }
+
+    /**
      * Libellé d'un type d'opération.
      */
     public static function typeLabel(string $type): string
@@ -66,6 +107,7 @@ class Operation extends ReadOnlyRecord
             OpType::DEBIT_TASK        => __('Task debit', 'points'),
             OpType::DEBIT_FLATRATE    => __('Flat rate debit', 'points'),
             OpType::EXPIRY            => __('Expiry', 'points'),
+            OpType::EXPIRY_REVERSAL   => __('Expiry reversal', 'points'),
             OpType::CARRYOVER_OUT     => __('Carry-over out', 'points'),
             OpType::CARRYOVER_IN      => __('Carry-over in', 'points'),
             OpType::CORRECTION        => __('Correction', 'points'),

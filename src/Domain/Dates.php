@@ -44,6 +44,15 @@ final class Dates
         return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 
+    /**
+     * Jour d'un instant lu dans le fuseau de référence (AAAA-MM-JJ) : l'instant est converti dans ce fuseau, jamais lu tel quel
+     * (23 h 30 UTC est déjà le lendemain à Paris).
+     */
+    public static function todayIn(\DateTimeImmutable $now, \DateTimeZone $reference): string
+    {
+        return $now->setTimezone($reference)->format('Y-m-d');
+    }
+
     public static function min(string $a, string $b): string
     {
         return $a <= $b ? $a : $b;

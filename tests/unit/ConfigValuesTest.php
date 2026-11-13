@@ -14,13 +14,14 @@ test('ConfigValues : défauts de conception.md', function (): void {
     assertSame(24, $d['retention_months']);
     assertSame(1, $d['flatrate_separation']);
     assertSame(1, $d['compensation_separation']);
-    assertSame(9, count($d), 'neuf clés comme dans conception.md');
+    assertSame('valid_lot', $d['compensation_on_expired']);
+    assertSame(10, count($d), 'dix clés comme dans conception.md');
 });
 
 test('ConfigValues : les clés sont celles du tableau « Paramétrage » de conception.md', function (): void {
     $keys = [];
     foreach (file(__DIR__ . '/../../docs/conception.md', FILE_IGNORE_NEW_LINES) as $line) {
-        if (preg_match('/^\| `(contracttypes|debit_moment|default_alert_threshold|allow_overdraft|calendars_id|default_interventiontypes_id|retention_months|flatrate_separation|compensation_separation)` \|/', $line, $m) === 1) {
+        if (preg_match('/^\| `(contracttypes|debit_moment|default_alert_threshold|allow_overdraft|calendars_id|default_interventiontypes_id|retention_months|flatrate_separation|compensation_separation|compensation_on_expired)` \|/', $line, $m) === 1) {
             $keys[] = $m[1];
         }
     }
