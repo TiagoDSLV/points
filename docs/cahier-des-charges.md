@@ -112,3 +112,6 @@ Chaque question a une valeur par défaut déjà réglable dans le plugin ; rien 
    négatif et le dépassement est signalé — *défaut* ; (b) le débit est bloqué jusqu'à un nouveau crédit.
 8. **Contrôle croisé des forfaits** (question nouvelle) : un Responsable BU qui chiffre lui-même un forfait peut-il le
    valider ? (a) non, un autre Responsable BU doit valider — *défaut* ; (b) oui.
+9. **Groupe de sociétés** (question nouvelle) : quand le contrat à points est porté par la société mère et sert aussi
+   ses filiales, le responsable d'une filiale doit-il voir le solde ? (a) non, seul le responsable de la société mère
+   le voit — *défaut actuel, par prudence* ; (b) oui, en lecture seule.
