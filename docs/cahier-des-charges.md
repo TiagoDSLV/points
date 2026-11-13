@@ -115,3 +115,9 @@ Chaque question a une valeur par défaut déjà réglable dans le plugin ; rien 
 9. **Groupe de sociétés** (question nouvelle) : quand le contrat à points est porté par la société mère et sert aussi
    ses filiales, le responsable d'une filiale doit-il voir le solde ? (a) non, seul le responsable de la société mère
    le voit — *défaut actuel, par prudence* ; (b) oui, en lecture seule.
+10. **Compensation sur une enveloppe expirée** (question nouvelle) : un débit compensé après la fin de son
+    enveloppe doit-il rendre des points utilisables ? (a) oui, les points rendus vont sur l'enveloppe valide du
+    contrat (refusé s'il n'y en a aucune) — *défaut* ; (b) non, ils retournent sur l'enveloppe d'origine et
+    expirent aussitôt.
+11. **Forfait approuvé et ticket rendu non facturable** (question nouvelle) : (a) le forfait approuvé par le client
+    reste dû — *défaut* ; (b) le marquage « non facturable » l'annule.

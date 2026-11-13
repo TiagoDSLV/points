@@ -140,7 +140,9 @@ ni supprimée (pas de `date_mod`).
     daté du jour du débit contrôlé, qui exige un solde réel suffisant et ne dépasse jamais (même si `allow_overdraft` vaut
     1). La décision et l'opération sont écrites dans la même transaction du journal. Droit `plugin_points_review` : READ
     voir, UPDATE décider, plus l'entité de la review.
-11. **Compensation** : motif obligatoire ; montant approuvé ≤ débit visé − compensations déjà approuvées ; crédit lié
+11. **Compensation** (part d'un remboursement qui retomberait sur un lot échu : créditée sur le lot valide le plus
+   récent du contrat, nouveau lot daté du jour ; refus si aucun lot valide — question 10 du cahier des charges,
+   paramètre `compensation_on_expired` = `valid_lot` par défaut, `origin` sinon) : motif obligatoire ; montant approuvé ≤ débit visé − compensations déjà approuvées ; crédit lié
     (`compensation`, réaffecté aux lots du débit d'origine) ; demandeur notifié.
     Précisions (lot e) : on ne compense qu'un débit de tâche ou de forfait ; demander exige le bit CREATE, l'accès à
     l'entité du débit et la lecture du ticket (`Ticket::can`) ; décider exige le bit VALIDATE et l'accès à l'entité (pas
