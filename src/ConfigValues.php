@@ -19,7 +19,7 @@ final class ConfigValues
     /**
      * @return array{contracttypes: list<int>, debit_moment: string, default_alert_threshold: int,
      *               allow_overdraft: int, calendars_id: int, default_interventiontypes_id: int,
-     *               retention_months: int, flatrate_separation: int}
+     *               retention_months: int, flatrate_separation: int, compensation_separation: int}
      */
     public static function defaults(): array
     {
@@ -32,6 +32,7 @@ final class ConfigValues
             'default_interventiontypes_id' => 0, // posé à l'installation sur le type « Assistance »
             'retention_months'             => self::MAX_RETENTION_MONTHS,
             'flatrate_separation'          => 1,
+            'compensation_separation'      => 1,
         ];
     }
 
@@ -70,6 +71,10 @@ final class ConfigValues
         if ($separation !== null) {
             $out['flatrate_separation'] = $separation === 0 ? 0 : 1;
         }
+        $compensationSeparation = self::toInt($raw['compensation_separation'] ?? null);
+        if ($compensationSeparation !== null) {
+            $out['compensation_separation'] = $compensationSeparation === 0 ? 0 : 1;
+        }
         $retention = self::toInt($raw['retention_months'] ?? null);
         if ($retention !== null) {
             $out['retention_months'] = self::clampRetention($retention);
@@ -99,7 +104,7 @@ final class ConfigValues
                 'contracttypes'           => self::isValidIdList($value),
                 'debit_moment'            => in_array($value, [self::DEBIT_CLOSURE, self::DEBIT_TASK], true),
                 'default_alert_threshold' => $int !== null && $int >= 1 && $int <= 100,
-                'allow_overdraft', 'flatrate_separation' => $int === 0 || $int === 1,
+                'allow_overdraft', 'flatrate_separation', 'compensation_separation' => $int === 0 || $int === 1,
                 'calendars_id', 'default_interventiontypes_id' => $int !== null && $int >= 0,
                 'retention_months'        => $int !== null && $int >= 1 && $int <= self::MAX_RETENTION_MONTHS,
                 default                   => false,

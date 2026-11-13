@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GlpiPlugin\Points;
 
 use Entity;
+use Glpi\Exception\Database\StatementException;
 use GlpiPlugin\Points\Domain\Dates;
 use GlpiPlugin\Points\Domain\Money;
 use GlpiPlugin\Points\Domain\OpType;
@@ -404,6 +405,9 @@ final class Billing
      *
      * Appelé hors de toute transaction : Ledger::debit ouvre la sienne et verrouille le contrat.
      *
+     * Un débit hors créneau ou férié (drapeaux saturday, sunday, holiday, off_hours) ouvre sa review dans la même
+     * transaction (règle 10 : Review::openFor).
+     *
      * @param array{tickets_id: int, contracts_id: int, entities_id: int, grids_id: int, interventiontypes_id: int} $ctx
      * @param array<string, mixed> $task champs actiontime, begin, date
      * @return int identifiant de l'opération, 0 si rien n'a été débité
@@ -428,8 +432,10 @@ final class Billing
             $debit = Ledger::debit($ctx['contracts_id'], OpType::DEBIT_TASK, $r['points'], $r['date'], [
             // Unicité revérifiée par Ledger sous le verrou du contrat ; la ligne verrouillée est écrite dans la même transaction
             'unique'     => true,
-            'inside'     => static function (int $operationId) use ($ctx, $taskId): void {
+            // Règle 10 : un débit hors créneau ou férié ouvre sa review dans la même transaction (Review::openFor)
+            'inside'     => static function (int $operationId) use ($ctx, $taskId, $r): void {
                 self::lock($ctx, $taskId, $operationId);
+                Review::openFor($ctx, $operationId, $r['flags']);
             },
             'itemtype'   => \TicketTask::class,
             'items_id'   => $taskId,
@@ -455,6 +461,10 @@ final class Billing
                 throw $e;
             }
             $existing = self::debitedOperation($taskId);
+            if ($existing < 1) {
+                // Perdu sur la ligne d'état sans débit validé : rien n'est verrouillé ni débité, la tâche est à reprendre
+                throw new RuleViolation(RuleViolation::TASK_TO_RESUME, 'The task could not be debited, try again');
+            }
             self::lock($ctx, $taskId, $existing);
 
             return $existing;
@@ -475,7 +485,16 @@ final class Billing
         $now = Session::getCurrentTime() ?? date('Y-m-d H:i:s');
         $row = $DB->request(['SELECT' => ['id'], 'FROM' => self::TASKS, 'WHERE' => ['tickettasks_id' => $taskId], 'LIMIT' => 1])->current();
         if ($row !== null) {
-            $DB->update(self::TASKS, ['operations_id' => $operationId, 'is_locked' => 1, 'date_mod' => $now], ['id' => $row['id']]);
+            try {
+                $DB->update(self::TASKS, ['operations_id' => $operationId, 'is_locked' => 1, 'date_mod' => $now], ['id' => $row['id']]);
+            } catch (StatementException $e) {
+                // Dans la transaction du journal, sous isolation par instantané (MariaDB 11.x) : erreur 1020 « Record has changed since
+                // last read », la ligne a été écrite par un autre débit entre-temps : « déjà débitée », le journal annule tout.
+                if ($e->getCode() === 1020) {
+                    throw new RuleViolation(RuleViolation::ALREADY_DEBITED, 'The task row was changed by another debit');
+                }
+                throw $e;
+            }
 
             return;
         }
@@ -570,12 +589,14 @@ final class Billing
      * Débite toutes les tâches non débitées d'un ticket (clôture). Un échec n'arrête pas les suivantes ; les messages
      * des tâches non débitées sont renvoyés (la clôture est déjà faite : elles seront reprises à la clôture suivante).
      *
-     * @return array{debited: int, errors: list<string>}
+     * `retry` : au moins une tâche est restée à reprendre (débit perdu sur un conflit concurrent) : la clôture est à refuser.
+     *
+     * @return array{debited: int, errors: list<string>, retry?: bool}
      */
     public static function debitTicket(int $ticketsId): array
     {
         $ctx = self::context($ticketsId);
-        $out = ['debited' => 0, 'errors' => []];
+        $out = ['debited' => 0, 'errors' => [], 'retry' => false];
         if ($ctx['flatrate']) {
             // Ticket au forfait : les tâches ne sont pas débitées, le forfait approuvé l'est (si ce n'est pas déjà fait)
             return Flatrate::debitOnClosure($ticketsId);
@@ -588,6 +609,7 @@ final class Billing
                 $out['debited'] += self::debitTask($ctx, $task['id'], $task) > 0 ? 1 : 0;
             } catch (RuleViolation $e) {
                 $out['errors'][] = sprintf(__('Task %1$d: %2$s', 'points'), $task['id'], self::describe($e));
+                $out['retry'] = $out['retry'] || $e->reason === RuleViolation::TASK_TO_RESUME;
             } catch (\InvalidArgumentException) {
                 $out['errors'][] = sprintf(__('Task %1$d: %2$s', 'points'), $task['id'], __('A date is not valid', 'points'));
             }
@@ -603,6 +625,7 @@ final class Billing
     {
         return match ($e->reason) {
             RuleViolation::NO_VALID_LOT    => __('No valid points at the date of the task', 'points'),
+            RuleViolation::TASK_TO_RESUME  => __('The task could not be debited because of a concurrent change: it will be taken again, try closing the ticket again', 'points'),
             RuleViolation::NO_GRID         => __('The contract has no price grid', 'points'),
             RuleViolation::NO_GRID_VERSION => __('No grid version applies at the date of the task', 'points'),
             RuleViolation::NO_COST         => __('The grid has no price for this intervention type and day type', 'points'),

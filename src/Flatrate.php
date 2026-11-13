@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GlpiPlugin\Points;
 
 use CommonDBTM;
+use Glpi\Exception\Database\StatementException;
 use Glpi\Exception\Http\AccessDeniedHttpException;
 use Glpi\Exception\Http\NotFoundHttpException;
 use GlpiPlugin\Points\Domain\Dates;
@@ -689,7 +690,8 @@ class Flatrate extends CommonDBTM
                 'unique'     => true,
                 'inside'     => static function (int $operationId) use ($id): void {
                     if (!self::move($id, [FlatrateRules::APPROVED], FlatrateRules::DEBITED, ['operations_id' => $operationId])) {
-                        throw new \RuntimeException('The flatrate is no longer approved');
+                        // Transition perdue (autre débit, annulation) : le journal annule tout ; traité comme « déjà débité »
+                        throw new RuleViolation(RuleViolation::ALREADY_DEBITED, 'The flatrate is no longer approved');
                     }
                 },
                 'itemtype'   => self::class,
@@ -708,6 +710,10 @@ class Flatrate extends CommonDBTM
                 throw $e;
             }
             $existing = self::debitedOperation($id);
+            if ($existing < 1) {
+                // Transition perdue sans débit validé (le forfait a changé d'état entre-temps) : ne jamais passer à « débité » sans opération
+                throw new RuleViolation(RuleViolation::FLATRATE_STATE, 'The flatrate changed state before it could be debited');
+            }
             self::move($id, [FlatrateRules::APPROVED], FlatrateRules::DEBITED, ['operations_id' => $existing]);
 
             return $existing;
@@ -1026,7 +1032,16 @@ class Flatrate extends CommonDBTM
         global $DB;
 
         $current = self::row($id);
-        $DB->update(self::getTable(), ['status' => $to, 'date_mod' => self::now()] + $set, ['id' => $id, 'status' => $from]);
+        try {
+            $DB->update(self::getTable(), ['status' => $to, 'date_mod' => self::now()] + $set, ['id' => $id, 'status' => $from]);
+        } catch (StatementException $e) {
+            // Dans la transaction du journal, sous isolation par instantané (MariaDB 11.x) : erreur 1020 « Record has changed since
+            // last read » quand une autre décision a validé la ligne entre-temps. Même cas qu'une ligne déjà modifiée : transition perdue.
+            if ($e->getCode() === 1020) {
+                return false;
+            }
+            throw $e;
+        }
         $done = $DB->getAffectedRows() === 1;
         if ($done) {
             self::history($id, (string) ($current['status'] ?? ''), $to);

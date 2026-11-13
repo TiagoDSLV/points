@@ -32,6 +32,9 @@ final class Install
     /** Nom du modèle de notification des forfaits (un seul, pour les deux événements). */
     private const TEMPLATE_NAME = 'Points: flatrate';
 
+    /** Nom du modèle de notification des compensations. */
+    private const COMPENSATION_TEMPLATE_NAME = 'Points: compensation';
+
     /** Motif LIKE des classes du plugin (le séparateur de l'espace de noms est doublé : échappement LIKE). */
     private const LIKE_CLASSES = 'GlpiPlugin\\\\Points\\\\%';
 
@@ -227,6 +230,8 @@ final class Install
             'glpi_plugin_points_reviews' => [
                 'columns' => $head() + [
                     'operations_id'            => $fk,
+                    'tickets_id'               => $fk, // copie du ticket et du contrat du débit : filtres de la recherche native
+                    'contracts_id'             => $fk,
                     'reason'                   => $state(''),
                     'status'                   => $state('to_review'),
                     'users_id'                 => $fk,
@@ -234,7 +239,7 @@ final class Install
                     'operations_id_adjustment' => $fk,
                 ] + $stamps,
                 'keys' => [
-                    $idx('operations_id'), $idx('status'), $idx('users_id'), $idx('operations_id_adjustment'),
+                    $idx('operations_id'), $idx('tickets_id'), $idx('contracts_id'), $idx('status'), $idx('users_id'), $idx('operations_id_adjustment'),
                     $idx('entities_id'), $idx('date_creation'), $idx('date_mod'),
                 ],
             ],
@@ -242,6 +247,7 @@ final class Install
                 'columns' => $head() + [
                     'operations_id'        => $fk,
                     'tickets_id'           => $fk,
+                    'contracts_id'         => $fk, // copie du contrat du débit : filtre de la recherche native
                     'amount'               => $amt, // demandé
                     'comment'              => $txt, // motif obligatoire
                     'status'               => $state('pending'),
@@ -253,7 +259,7 @@ final class Install
                     'operations_id_credit' => $fk,
                 ] + $stamps,
                 'keys' => [
-                    $idx('operations_id'), $idx('tickets_id'), $idx('status'), $idx('users_id'), $idx('users_id_decision'),
+                    $idx('operations_id'), $idx('tickets_id'), $idx('contracts_id'), $idx('status'), $idx('users_id'), $idx('users_id_decision'),
                     $idx('operations_id_credit'), $idx('entities_id'), $idx('date_creation'), $idx('date_mod'),
                 ],
             ],
@@ -328,58 +334,76 @@ final class Install
     }
 
     /**
-     * Notifications natives des forfaits : un modèle (texte et HTML, balises `##lang.*##` traduites dans la langue de chaque
-     * destinataire, d'où des messages en français et en anglais), et une notification par événement avec ses cibles
-     * (Responsables BU pour `flatrate_submitted`, auteur du forfait = technicien pour `flatrate_decided`). Rejouable : ce
-     * qui existe déjà (créé ou modifié par l'administrateur) n'est jamais réécrit.
+     * Notifications natives : modèles (texte et HTML, balises `##lang.*##` traduites dans la langue de chaque destinataire,
+     * d'où des messages en français et en anglais) et une notification par événement avec sa cible. Forfaits : un modèle
+     * et deux événements (Responsables BU pour `flatrate_submitted`, auteur du forfait = technicien pour `flatrate_decided`).
+     * Compensations : un modèle et l'événement `compensation_decided` (auteur de la demande). Rejouable : ce qui existe
+     * déjà (créé ou modifié par l'administrateur) n'est jamais réécrit.
      */
     private static function seedNotifications(): void
+    {
+        self::seedNotificationSet(Flatrate::class, self::TEMPLATE_NAME, '##flatrate.action## - ##lang.flatrate.ticket## ##flatrate.ticket##', [
+            '##flatrate.action##',
+            '##lang.flatrate.ticket## : ##flatrate.ticket## ##flatrate.ticketname##',
+            '##lang.flatrate.entity## : ##flatrate.entity##',
+            '##lang.flatrate.status## : ##flatrate.status##',
+            '##lang.flatrate.amount## : ##flatrate.amount##',
+            '##lang.flatrate.approved## : ##flatrate.approved##',
+            '##lang.flatrate.description## : ##flatrate.description##',
+            '##lang.flatrate.comment## : ##flatrate.comment##',
+            '##lang.flatrate.technician## : ##flatrate.technician##',
+            '##lang.flatrate.url## : ##flatrate.url##',
+        ], [
+            // Événement => [nom, cible]
+            'flatrate_submitted' => ['Points: flatrate submitted to the BU manager', Flatrate::TARGET_BU],
+            'flatrate_decided'   => ['Points: flatrate decision', Notification::AUTHOR],
+        ]);
+        self::seedNotificationSet(Compensation::class, self::COMPENSATION_TEMPLATE_NAME, '##compensation.action## - ##lang.compensation.ticket## ##compensation.ticket##', [
+            '##compensation.action##',
+            '##lang.compensation.ticket## : ##compensation.ticket## ##compensation.ticketname##',
+            '##lang.compensation.entity## : ##compensation.entity##',
+            '##lang.compensation.status## : ##compensation.status##',
+            '##lang.compensation.amount## : ##compensation.amount##',
+            '##lang.compensation.approved## : ##compensation.approved##',
+            '##lang.compensation.reason## : ##compensation.reason##',
+            '##lang.compensation.decision## : ##compensation.decision##',
+            '##lang.compensation.requester## : ##compensation.requester##',
+            '##lang.compensation.decider## : ##compensation.decider##',
+            '##lang.compensation.url## : ##compensation.url##',
+        ], [
+            'compensation_decided' => ['Points: compensation decision', Notification::AUTHOR],
+        ]);
+    }
+
+    /**
+     * Un modèle (traduction par défaut : première ligne en titre, les autres en lignes) et ses notifications.
+     *
+     * @param class-string $itemtype
+     * @param list<string> $lines lignes du message, balises comprises
+     * @param array<string, array{0: string, 1: int}> $events événement => [nom de la notification, cible]
+     */
+    private static function seedNotificationSet(string $itemtype, string $templateName, string $subject, array $lines, array $events): void
     {
         global $DB;
 
         $now        = Session::getCurrentTime() ?? date('Y-m-d H:i:s');
-        $itemtype   = Flatrate::class;
         $templateId = 0;
-        $found      = $DB->request(['SELECT' => ['id'], 'FROM' => NotificationTemplate::getTable(), 'WHERE' => ['itemtype' => $itemtype, 'name' => self::TEMPLATE_NAME], 'LIMIT' => 1])->current();
+        $found      = $DB->request(['SELECT' => ['id'], 'FROM' => NotificationTemplate::getTable(), 'WHERE' => ['itemtype' => $itemtype, 'name' => $templateName], 'LIMIT' => 1])->current();
         if ($found !== null) {
             $templateId = (int) $found['id'];
         } else {
-            $DB->insert(NotificationTemplate::getTable(), ['name' => self::TEMPLATE_NAME, 'itemtype' => $itemtype, 'date_mod' => $now, 'date_creation' => $now]);
+            $DB->insert(NotificationTemplate::getTable(), ['name' => $templateName, 'itemtype' => $itemtype, 'date_mod' => $now, 'date_creation' => $now]);
             $templateId = (int) $DB->insertId();
             $DB->insert('glpi_notificationtemplatetranslations', [
                 'notificationtemplates_id' => $templateId,
                 'language'                 => '',
-                'subject'                  => '##flatrate.action## - ##lang.flatrate.ticket## ##flatrate.ticket##',
-                'content_text'             => implode("\n", [
-                    '##flatrate.action##',
-                    '##lang.flatrate.ticket## : ##flatrate.ticket## ##flatrate.ticketname##',
-                    '##lang.flatrate.entity## : ##flatrate.entity##',
-                    '##lang.flatrate.status## : ##flatrate.status##',
-                    '##lang.flatrate.amount## : ##flatrate.amount##',
-                    '##lang.flatrate.approved## : ##flatrate.approved##',
-                    '##lang.flatrate.description## : ##flatrate.description##',
-                    '##lang.flatrate.comment## : ##flatrate.comment##',
-                    '##lang.flatrate.technician## : ##flatrate.technician##',
-                    '##lang.flatrate.url## : ##flatrate.url##',
-                ]),
-                'content_html'             => '<p><strong>##flatrate.action##</strong></p>'
-                    . '<p>##lang.flatrate.ticket## : ##flatrate.ticket## ##flatrate.ticketname##<br />'
-                    . '##lang.flatrate.entity## : ##flatrate.entity##<br />'
-                    . '##lang.flatrate.status## : ##flatrate.status##<br />'
-                    . '##lang.flatrate.amount## : ##flatrate.amount##<br />'
-                    . '##lang.flatrate.approved## : ##flatrate.approved##<br />'
-                    . '##lang.flatrate.description## : ##flatrate.description##<br />'
-                    . '##lang.flatrate.comment## : ##flatrate.comment##<br />'
-                    . '##lang.flatrate.technician## : ##flatrate.technician##<br />'
-                    . '##lang.flatrate.url## : ##flatrate.url##</p>',
+                'subject'                  => $subject,
+                'content_text'             => implode("\n", $lines),
+                'content_html'             => '<p><strong>' . $lines[0] . '</strong></p><p>' . implode('<br />', array_slice($lines, 1)) . '</p>',
             ]);
         }
 
-        // Événement => [nom, cible]
-        foreach ([
-            'flatrate_submitted' => ['Points: flatrate submitted to the BU manager', Flatrate::TARGET_BU],
-            'flatrate_decided'   => ['Points: flatrate decision', Notification::AUTHOR],
-        ] as $event => [$name, $target]) {
+        foreach ($events as $event => [$name, $target]) {
             if (count($DB->request(['SELECT' => ['id'], 'FROM' => Notification::getTable(), 'WHERE' => ['itemtype' => $itemtype, 'event' => $event], 'LIMIT' => 1])) > 0) {
                 continue;
             }
@@ -512,7 +536,7 @@ final class Install
 
     /**
      * Notifications, modèles, alertes, préférences d'affichage, recherches enregistrées et historiques dont l'itemtype est une classe du plugin.
-     * Les notifications des forfaits sont créées par seedNotifications ; les alertes arrivent avec un lot suivant.
+     * Les notifications des forfaits et des compensations sont créées par seedNotifications ; les alertes arrivent avec un lot suivant.
      */
     public static function removeNotificationsAndAlerts(): void
     {

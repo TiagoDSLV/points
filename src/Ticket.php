@@ -353,6 +353,8 @@ class Ticket extends CommonDBTM
             'default_type'   => Config::interventionTypes()[(int) Config::value('default_interventiontypes_id')] ?? '',
             'types'          => Config::interventionTypes(),
             'flatrate'       => Flatrate::viewData($ticket),
+            'reviews'        => Review::viewData($ticket),
+            'compensations'  => Compensation::viewData($ticket),
             'tasks'          => $rows,
             'total'          => Money::format($total),
             'debit_moment'   => Config::value('debit_moment') === ConfigValues::DEBIT_TASK ? __('When the task is added', 'points') : __('When the ticket is closed', 'points'),

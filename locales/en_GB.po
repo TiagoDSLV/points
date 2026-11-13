@@ -742,3 +742,141 @@ msgstr "Refused (separation of duties)"
 
 msgid "Allowed"
 msgstr "Allowed"
+
+msgid "Compensation decision"
+msgstr "Compensation decision"
+
+msgid "User who requested the compensation"
+msgstr "User who requested the compensation"
+
+msgid "Requested amount (points)"
+msgstr "Requested amount (points)"
+
+msgid "Reason of the request"
+msgstr "Reason of the request"
+
+msgid "Decision comment"
+msgstr "Decision comment"
+
+msgid "Requested by"
+msgstr "Requested by"
+
+msgid "Decided by"
+msgstr "Decided by"
+
+msgid "Reviews to check"
+msgstr "Reviews to check"
+
+msgid "Pending compensations"
+msgstr "Pending compensations"
+
+msgid "Compensations"
+msgstr "Compensations"
+
+msgid "Pending"
+msgstr "Pending"
+
+msgid "Approved"
+msgstr "Approved"
+
+msgid "Rejected"
+msgstr "Rejected"
+
+msgid "This compensation request has already been decided"
+msgstr "This compensation request has already been decided"
+
+msgid "You made this request yourself: another user must decide it"
+msgstr "You made this request yourself: another user must decide it"
+
+msgid "The amount exceeds what the debit leaves to compensate, or what was requested"
+msgstr "The amount exceeds what the debit leaves to compensate, or what was requested"
+
+msgid "A compensation can only target a task or flatrate debit"
+msgstr "A compensation can only target a task or flatrate debit"
+
+msgid "Debit operation"
+msgstr "Debit operation"
+
+msgid "Review"
+msgstr "Review"
+
+msgid "To review"
+msgstr "To review"
+
+msgid "Confirmed"
+msgstr "Confirmed"
+
+msgid "Adjusted"
+msgstr "Adjusted"
+
+msgid "This review has already been decided"
+msgstr "This review has already been decided"
+
+msgid "Reviewed by"
+msgstr "Reviewed by"
+
+msgid "Compensation requested"
+msgstr "Compensation requested"
+
+msgid "Compensation approved"
+msgstr "Compensation approved"
+
+msgid "Compensation rejected"
+msgstr "Compensation rejected"
+
+msgid "Review confirmed"
+msgstr "Review confirmed"
+
+msgid "Review adjusted"
+msgstr "Review adjusted"
+
+msgid "Tasks to check"
+msgstr "Tasks to check"
+
+msgid "Some debits of this ticket are to be reviewed (weekend, holiday or outside working hours)"
+msgstr "Some debits of this ticket are to be reviewed (weekend, holiday or outside working hours)"
+
+msgid "Adjustment operation"
+msgstr "Adjustment operation"
+
+msgid "Adjustment (+ refund, - extra debit)"
+msgstr "Adjustment (+ refund, - extra debit)"
+
+msgid "Comment (required to adjust)"
+msgstr "Comment (required to adjust)"
+
+msgid "Confirm"
+msgstr "Confirm"
+
+msgid "Adjust"
+msgstr "Adjust"
+
+msgid "Debit to compensate"
+msgstr "Debit to compensate"
+
+msgid "compensable"
+msgstr "compensable"
+
+msgid "Request a compensation"
+msgstr "Request a compensation"
+
+msgid "Approved amount (empty: requested)"
+msgstr "Approved amount (empty: requested)"
+
+msgid "Decision comment (required to reject)"
+msgstr "Decision comment (required to reject)"
+
+msgid "Approve"
+msgstr "Approve"
+
+msgid "Reject"
+msgstr "Reject"
+
+msgid "A user may decide a compensation they requested"
+msgstr "A user may decide a compensation they requested"
+
+msgid "The task could not be debited because of a concurrent change: it will be taken again, try closing the ticket again"
+msgstr "The task could not be debited because of a concurrent change: it will be taken again, try closing the ticket again"
+
+msgid "The ticket was not closed: a task could not be debited, try again"
+msgstr "The ticket was not closed: a task could not be debited, try again"

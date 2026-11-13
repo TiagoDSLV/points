@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Glpi\Plugin\Hooks;
 use GlpiPlugin\Points\Config;
+use GlpiPlugin\Points\Controls;
 use GlpiPlugin\Points\ItilHooks;
 use GlpiPlugin\Points\Profile;
 use GlpiPlugin\Points\Rights;
@@ -29,6 +30,8 @@ function plugin_init_points(): void
 
     // Notifications natives des forfaits (NotificationTargetFlatrate) : la classe du forfait est déclarée au cœur
     Plugin::registerClass(\GlpiPlugin\Points\Flatrate::class, ['notificationtemplates_types' => true]);
+    // Notification de la décision d'une compensation (NotificationTargetCompensation)
+    Plugin::registerClass(\GlpiPlugin\Points\Compensation::class, ['notificationtemplates_types' => true]);
 
     // Onglet « Points » sur la fiche Ticket (réglage du ticket et tâches décomptées)
     Plugin::registerClass(\GlpiPlugin\Points\Ticket::class, ['addtabon' => \Ticket::class]);
@@ -61,9 +64,13 @@ function plugin_init_points(): void
     // Lien de configuration dans la liste des plugins
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['points'] = 'front/config.form.php';
 
-    // Configuration > Points, avec le droit de lecture du paramétrage ou des grilles (chaque page contrôle son droit)
+    // Configuration > Points, avec le droit de lecture du paramétrage ou des grilles ; Outils > Points (reviews à
+    // contrôler, compensations en attente), avec l'un des deux droits de lecture. Chaque page contrôle son droit.
     if (Session::haveRight(Rights::CONFIG, READ) || Session::haveRight(Rights::GRID, READ)) {
-        $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points'] = ['config' => Config::class];
+        $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points']['config'] = Config::class;
+    }
+    if (Session::haveRight(Rights::REVIEW, READ) || Session::haveRight(Rights::COMPENSATION, READ)) {
+        $PLUGIN_HOOKS[Hooks::MENU_TOADD]['points']['tools'] = Controls::class;
     }
 }
 

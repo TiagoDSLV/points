@@ -51,8 +51,8 @@ Toutes les tables portent `entities_id` (copie de l'entité du contrat, `is_recu
 | `glpi_plugin_points_tickets` | réglage Points d'un ticket | `tickets_id` unique, `contracts_id` (contrat Points retenu), `plugin_points_interventiontypes_id`, `is_billable` |
 | `glpi_plugin_points_tasks` | état de décompte d'une tâche | `tickettasks_id` unique, `tickets_id`, `operations_id` (débit, 0 tant que non débitée), `is_locked` |
 | `glpi_plugin_points_flatrates` | forfait | `tickets_id`, `contracts_id`, `amount` (chiffré), `description`, `status`, `users_id` (technicien), `users_id_bu`, `date_bu`, `bu_comment`, `users_id_validate` (validateur client), `ticketvalidations_id`, `approved_amount` (figé), `operations_id` |
-| `glpi_plugin_points_reviews` | contrôle d'un débit hors créneau ou férié | `operations_id` (débit), `reason` (samedi, dimanche, férié, hors créneau), `status` (à contrôler, confirmé, ajusté), `users_id`, `date_mod`, `comment`, `operations_id_adjustment` |
-| `glpi_plugin_points_compensations` | demande de compensation | `operations_id` (débit visé), `tickets_id`, `amount` (demandé), `comment` (motif obligatoire), `status` (en attente, approuvée, rejetée), `users_id` (demandeur), `users_id_decision`, `date_decision`, `decision_comment`, `approved_amount`, `operations_id_credit` |
+| `glpi_plugin_points_reviews` | contrôle d'un débit hors créneau ou férié | `operations_id` (débit), `tickets_id` et `contracts_id` (copies du débit, pour les filtres de la recherche), `reason` (samedi, dimanche, férié, hors créneau), `status` (à contrôler, confirmé, ajusté), `users_id`, `date_mod`, `comment`, `operations_id_adjustment` |
+| `glpi_plugin_points_compensations` | demande de compensation | `operations_id` (débit visé), `tickets_id`, `contracts_id` (copie du débit), `amount` (demandé), `comment` (motif obligatoire), `status` (en attente, approuvée, rejetée), `users_id` (demandeur), `users_id_decision`, `date_decision`, `decision_comment`, `approved_amount`, `operations_id_credit` |
 
 Types d'opération : `credit`, `import`, `debit_task`, `debit_flatrate`, `expiry`, `expiry_reversal`,
 `carryover_out`, `carryover_in`, `correction`, `review_adjustment`, `compensation`. Une correction positive, un
@@ -120,8 +120,24 @@ ni supprimée (pas de `date_mod`).
    forfaits du ticket source ne suivent pas (à traiter, plan).
 10. **Review** : créée pour tout débit de tâche hors créneau (calendrier) ou de type de jour 2 ou 3 ; confirmée, ou
     ajustée par une opération `review_adjustment` liée.
+    Précisions (lot e) : la review naît dans la même transaction que le débit de la tâche (option `inside` de
+    `Ledger::debit`), une seule par débit, et porte l'entité du contrat (celle de l'opération), pas celle du ticket ; la confirmation n'écrit rien au journal ; un ajustement exige un motif et se
+    décide une seule fois (transition atomique) : + rembourse aux lots du débit dans l'ordre inverse, au plus ce que le
+    débit a pris (`Ledger::refund`, qui compte aussi les corrections et compensations déjà rendues) ; − est un débit en plus,
+    daté du jour du débit contrôlé, qui exige un solde réel suffisant et ne dépasse jamais (même si `allow_overdraft` vaut
+    1). La décision et l'opération sont écrites dans la même transaction du journal. Droit `plugin_points_review` : READ
+    voir, UPDATE décider, plus l'entité de la review.
 11. **Compensation** : motif obligatoire ; montant approuvé ≤ débit visé − compensations déjà approuvées ; crédit lié
     (`compensation`, réaffecté aux lots du débit d'origine) ; demandeur notifié.
+    Précisions (lot e) : on ne compense qu'un débit de tâche ou de forfait ; demander exige le bit CREATE, l'accès à
+    l'entité du débit et la lecture du ticket (`Ticket::can`) ; décider exige le bit VALIDATE et l'accès à l'entité (pas
+    la lecture du ticket : la décision est financière) ; la demande est positive et au plus égale à ce que le débit peut encore rendre
+    (`Ledger::refundable` : ce qu'il a pris moins toutes les affectations positives liées, corrections +, compensations
+    approuvées, ajustements + de review) ; le montant approuvé vaut par défaut le montant demandé, jamais plus ; un rejet exige un motif de
+    décision ; une seule décision par demande (transition atomique, le crédit et le passage à « approuvée » sont écrits
+    dans la même transaction) ; le décideur ne décide pas sa propre demande tant que `compensation_separation` vaut 1 ;
+    le plafond est revérifié sous le verrou du contrat par `Ledger::refund`. Notification native `compensation_decided`
+    (modèle FR/EN semé, cible : auteur de la demande), déclenchée à l'approbation comme au rejet.
 12. **Alerte** (action automatique `pointsalert`) : consommé / crédité des lots valides ≥ seuil du contrat →
     notification `threshold`, une fois par passage du seuil (alerte native `glpi_alerts`, remise à zéro par un crédit).
 
@@ -169,6 +185,7 @@ les comptes de service : 0 partout.
 | `default_interventiontypes_id` | Assistance | type d'intervention d'un nouveau ticket |
 | `retention_months` | 24 | durée maximale de vie d'un point ; ne peut pas dépasser 24 |
 | `flatrate_separation` | 1 | 1 : le Responsable BU ne valide pas un forfait qu'il a chiffré (question 8) ; 0 : permis |
+| `compensation_separation` | 1 | 1 : celui qui a demandé une compensation ne la décide pas lui-même ; 0 : permis (règle 11, lot e) |
 
 ## Import des soldes du BPM Kiwi (format proposé)
 

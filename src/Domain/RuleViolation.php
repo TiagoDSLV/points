@@ -32,6 +32,7 @@ final class RuleViolation extends \DomainException
     public const NO_COST             = 'no_cost';
     public const INVALID_TASK        = 'invalid_task';
     public const ALREADY_DEBITED     = 'already_debited';
+    public const TASK_TO_RESUME      = 'task_to_resume';
     // Forfaits (lot d)
     public const FLATRATE_STATE      = 'flatrate_state';
     public const FLATRATE_OPEN       = 'flatrate_open';
@@ -42,6 +43,13 @@ final class RuleViolation extends \DomainException
     public const FLATRATE_VALIDATOR  = 'flatrate_validator';
     public const FLATRATE_TICKET_CLOSED = 'flatrate_ticket_closed';
     public const FLATRATE_REASON     = 'flatrate_reason';
+    // Reviews et compensations (lot e)
+    public const REVIEW_STATE        = 'review_state';
+    public const REVIEW_REASON       = 'review_reason';
+    public const COMPENSATION_STATE  = 'compensation_state';
+    public const COMPENSATION_SELF   = 'compensation_self';
+    public const COMPENSATION_AMOUNT = 'compensation_amount';
+    public const COMPENSATION_TARGET = 'compensation_target';
 
     public function __construct(public readonly string $reason, string $message = '')
     {

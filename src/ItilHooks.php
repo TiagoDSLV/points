@@ -208,6 +208,13 @@ final class ItilHooks
         foreach ($result['errors'] as $error) {
             Session::addMessageAfterRedirect(htmlescape($error), false, ERROR);
         }
+        if (!empty($result['retry'])) {
+            // Clôture impossible (règle 6) : une tâche n'a pas pu être débitée (conflit concurrent), le ticket revient à son statut
+            // d'avant (Résolu, en général) au lieu de rester Clos avec une tâche non débitée
+            $back = (int) ($ticket->oldvalues['status'] ?? \CommonITILObject::SOLVED);
+            (new \Ticket())->update(['id' => (int) $ticket->getID(), 'status' => $back === \CommonITILObject::CLOSED ? \CommonITILObject::SOLVED : $back]);
+            Session::addMessageAfterRedirect(htmlescape(__('The ticket was not closed: a task could not be debited, try again', 'points')), false, ERROR);
+        }
     }
 
     /**

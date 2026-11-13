@@ -236,8 +236,11 @@ final class Ledger
     }
 
     /**
-     * Remboursement lié à un débit d'origine, aux lots de ce débit dans l'ordre inverse (utilisé par les compensations).
-     * Type `compensation` ou `correction` ; le motif est obligatoire.
+     * Remboursement lié à un débit d'origine, aux lots de ce débit dans l'ordre inverse (utilisé par les compensations
+     * et par les ajustements positifs de review). Type `compensation`, `correction` ou `review_adjustment` ; le motif est
+     * obligatoire. Options : `itemtype`, `items_id`, `tickets_id`, `details`, `inside` (callable(int $operationsId)
+     * exécuté dans la même transaction, après l'écriture : l'état annexe est écrit atomiquement avec l'opération ; une
+     * exception de ce rappel annule tout).
      *
      * @param int $cents positif
      * @return array{operations_id: int, allocations: list<array{lot: int, amount: int}>}
@@ -245,8 +248,8 @@ final class Ledger
      */
     public static function refund(int $contractsId, int $originOperationId, int $cents, string $type, string $date, string $reason, array $opts = []): array
     {
-        if (!in_array($type, [OpType::COMPENSATION, OpType::CORRECTION], true)) {
-            throw new RuleViolation(RuleViolation::BAD_TYPE, 'A refund has type compensation or correction');
+        if (!in_array($type, [OpType::COMPENSATION, OpType::CORRECTION, OpType::REVIEW_ADJUSTMENT], true)) {
+            throw new RuleViolation(RuleViolation::BAD_TYPE, 'A refund has type compensation, correction or review_adjustment');
         }
         if (trim($reason) === '') {
             throw new RuleViolation(RuleViolation::REASON_REQUIRED, 'A reason is required for a refund');
@@ -269,6 +272,9 @@ final class Ledger
             ]);
             foreach ($allocations as $allocation) {
                 self::addAllocation($contract, $operationId, $allocation['lot'], $allocation['amount']);
+            }
+            if (isset($opts['inside']) && is_callable($opts['inside'])) {
+                $opts['inside']($operationId);
             }
 
             return ['operations_id' => $operationId, 'allocations' => $allocations];
@@ -406,6 +412,29 @@ final class Ledger
         }
 
         return $out;
+    }
+
+    /**
+     * Ce qu'un débit peut encore rendre, en centièmes : ce qu'il a pris sur chaque lot moins TOUT ce qui lui a déjà été rendu
+     * (corrections +, compensations, ajustements + de review). Même calcul que le plafond de `refund()` (LotRules::refund) ;
+     * lecture seule, sans verrou : sert à la demande, à la pré-vérification et à l'affichage, le plafond réel reste celui de
+     * `refund()` sous le verrou du contrat.
+     */
+    public static function refundable(int $originOperationId): int
+    {
+        $taken = [];
+        foreach (self::allocationsOf($originOperationId) as $allocation) {
+            if ($allocation['amount'] < 0) {
+                $taken[$allocation['lot']] = ($taken[$allocation['lot']] ?? 0) - $allocation['amount'];
+            }
+        }
+        $refunded = self::refundedByLot($originOperationId);
+        $total    = 0;
+        foreach ($taken as $lotId => $cents) {
+            $total += max(0, $cents - ($refunded[$lotId] ?? 0));
+        }
+
+        return $total;
     }
 
     /**
@@ -885,7 +914,7 @@ final class Ledger
         global $DB;
 
         $ids = [];
-        foreach ($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['operations_id_origin' => $originOperationId, 'type' => [OpType::CORRECTION, OpType::COMPENSATION]]]) as $row) {
+        foreach ($DB->request(['SELECT' => ['id'], 'FROM' => self::OPERATIONS, 'WHERE' => ['operations_id_origin' => $originOperationId, 'type' => [OpType::CORRECTION, OpType::COMPENSATION, OpType::REVIEW_ADJUSTMENT]]]) as $row) {
             $ids[] = (int) $row['id'];
         }
         $out = [];
