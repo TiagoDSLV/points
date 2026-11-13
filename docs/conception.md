@@ -168,6 +168,7 @@ les comptes de service : 0 partout.
 | `calendars_id` | 0 | calendrier des types de jour ; 0 = celui de l'entité |
 | `default_interventiontypes_id` | Assistance | type d'intervention d'un nouveau ticket |
 | `retention_months` | 24 | durée maximale de vie d'un point ; ne peut pas dépasser 24 |
+| `flatrate_separation` | 1 | 1 : le Responsable BU ne valide pas un forfait qu'il a chiffré (question 8) ; 0 : permis |
 
 ## Import des soldes du BPM Kiwi (format proposé)
 

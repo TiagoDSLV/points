@@ -25,10 +25,14 @@ final class Billing
     private const OPERATIONS = 'glpi_plugin_points_operations';
     private const TASKS      = 'glpi_plugin_points_tasks';
 
-    /** Un ticket au forfait ne décompte pas ses tâches (lot d : forfaits). Emplacement réservé : toujours faux pour l'instant. */
+    /**
+     * Un ticket au forfait ne décompte pas ses tâches (règle 9) : vrai dès qu'un forfait non refusé ni annulé existe
+     * (brouillon, soumis, proposé, approuvé ou débité). Seules les règles du forfait comptent alors : pas d'exigence de
+     * point valide à la date d'une tâche. Un forfait refusé (BU ou client) ou annulé rend le ticket au décompte des tâches.
+     */
     public static function isFlatrateTicket(int $ticketsId): bool
     {
-        return false;
+        return Flatrate::countsForTicket($ticketsId);
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -524,6 +528,9 @@ final class Billing
     public static function closureProblem(int $ticketsId): ?string
     {
         $ctx = self::context($ticketsId);
+        if ($ctx['flatrate']) {
+            return Flatrate::closureProblem($ticketsId);
+        }
         if (!self::counts($ctx)) {
             return null;
         }
@@ -569,6 +576,10 @@ final class Billing
     {
         $ctx = self::context($ticketsId);
         $out = ['debited' => 0, 'errors' => []];
+        if ($ctx['flatrate']) {
+            // Ticket au forfait : les tâches ne sont pas débitées, le forfait approuvé l'est (si ce n'est pas déjà fait)
+            return Flatrate::debitOnClosure($ticketsId);
+        }
         if (!self::counts($ctx) || $ctx['ambiguous']) {
             return $out;
         }

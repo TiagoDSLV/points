@@ -29,6 +29,9 @@
             {{ fields.dropdownArrayField('allow_overdraft', config.allow_overdraft, overdraft_choices, __('Overdraft', 'points'), {
                 disabled: not can_edit
             }) }}
+            {{ fields.dropdownArrayField('flatrate_separation', config.flatrate_separation, separation_choices, __('A BU manager may validate a flatrate they priced', 'points'), {
+                disabled: not can_edit
+            }) }}
             {{ fields.dropdownField('Calendar', 'calendars_id', config.calendars_id, __('Calendar for day types (empty: entity calendar)', 'points'), {
                 disabled: not can_edit
             }) }}

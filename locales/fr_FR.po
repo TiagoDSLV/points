@@ -535,3 +535,210 @@ msgstr "Aucun point valide à la date de la tâche"
 
 msgid "Debited on the merged ticket (locked)"
 msgstr "Débitée sur le ticket fusionné (verrouillée)"
+
+msgid "This approval belongs to a flatrate: it cannot be deleted"
+msgstr "Cette validation appartient à un forfait : elle ne peut pas être supprimée"
+
+msgid "Flatrates"
+msgstr "Forfaits"
+
+msgid "Flatrate"
+msgstr "Forfait"
+
+msgid "Draft"
+msgstr "Brouillon"
+
+msgid "Submitted to the BU manager"
+msgstr "Soumis au Responsable BU"
+
+msgid "Refused by the BU manager"
+msgstr "Refusé par le Responsable BU"
+
+msgid "Proposed to the customer"
+msgstr "Proposé au client"
+
+msgid "Approved by the customer"
+msgstr "Approuvé par le client"
+
+msgid "Refused by the customer"
+msgstr "Refusé par le client"
+
+msgid "Debited"
+msgstr "Débité"
+
+msgid "Cancelled"
+msgstr "Annulé"
+
+msgid "The flatrate amount must be a positive number"
+msgstr "Le montant du forfait doit être un nombre positif"
+
+msgid "This action is not possible in the current state of the flatrate"
+msgstr "Cette action n'est pas possible dans l'état actuel du forfait"
+
+msgid "This ticket already has a flatrate in progress or debited"
+msgstr "Ce ticket a déjà un forfait en cours ou débité"
+
+msgid "The BU manager who priced a flatrate cannot validate it"
+msgstr "Le Responsable BU qui a chiffré un forfait ne peut pas le valider"
+
+msgid "A flatrate can only be modified while it is a draft, and its state and approved amount never change by hand"
+msgstr "Un forfait ne se modifie qu'en brouillon ; son état et son montant approuvé ne se changent jamais à la main"
+
+msgid "The ticket needs one billable Points contract before a flatrate can be priced"
+msgstr "Le ticket doit avoir un seul contrat Points facturable avant de chiffrer un forfait"
+
+msgid "Tasks of this ticket are already debited: no flatrate is possible"
+msgstr "Des tâches de ce ticket sont déjà débitées : aucun forfait n'est possible"
+
+msgid "The customer approver must be a user of the ticket or of its entity"
+msgstr "L'approbateur client doit être un utilisateur du ticket ou de son entité"
+
+msgid "A comment is required to refuse a flatrate"
+msgstr "Un commentaire est obligatoire pour refuser un forfait"
+
+msgid "Flatrate proposal: %1$s points. %2$s"
+msgstr "Proposition de forfait : %1$s points. %2$s"
+
+msgid "The approval request could not be created"
+msgstr "La demande de validation n'a pas pu être créée"
+
+msgid "This approval belongs to a flatrate that is no longer waiting for the customer answer"
+msgstr "Cette validation appartient à un forfait qui n'attend plus la réponse du client"
+
+msgid "The flatrate cannot be debited: %s"
+msgstr "Le forfait ne peut pas être débité : %s"
+
+msgid "Flatrate %1$d: %2$s"
+msgstr "Forfait %1$d : %2$s"
+
+msgid "The flatrate of this ticket is not approved by the customer yet: the ticket cannot be closed"
+msgstr "Le forfait de ce ticket n'est pas encore approuvé par le client : le ticket ne peut pas être clos"
+
+msgid "When the customer approves"
+msgstr "À l'approbation du client"
+
+msgid "Amount"
+msgstr "Montant"
+
+msgid "Approved amount"
+msgstr "Montant approuvé"
+
+msgid "Flatrate submitted to the BU manager"
+msgstr "Forfait soumis au Responsable BU"
+
+msgid "Flatrate decision"
+msgstr "Décision sur le forfait"
+
+msgid "Technician who priced the flatrate"
+msgstr "Technicien qui a chiffré le forfait"
+
+msgid "BU managers of the entity"
+msgstr "Responsables BU de l'entité"
+
+msgid "Event"
+msgstr "Événement"
+
+msgid "Ticket title"
+msgstr "Titre du ticket"
+
+msgid "Amount (points)"
+msgstr "Montant (points)"
+
+msgid "Approved amount (points)"
+msgstr "Montant approuvé (points)"
+
+msgid "BU manager comment"
+msgstr "Commentaire du Responsable BU"
+
+msgid "Technician"
+msgstr "Technicien"
+
+msgid "Flatrate saved as a draft"
+msgstr "Forfait enregistré en brouillon"
+
+msgid "Flatrate saved"
+msgstr "Forfait enregistré"
+
+msgid "Flatrate reopened as a draft"
+msgstr "Forfait rouvert en brouillon"
+
+msgid "Flatrate validated and proposed to the customer"
+msgstr "Forfait validé et proposé au client"
+
+msgid "Flatrate refused"
+msgstr "Forfait refusé"
+
+msgid "Flatrate cancelled"
+msgstr "Forfait annulé"
+
+msgid "Estimate: %1$s hours = %2$s points (work order price of the grid, today)"
+msgstr "Estimation : %1$s heures = %2$s points (prix « Ordre de travail » de la grille, aujourd'hui)"
+
+msgid "No flatrate on this ticket: the tasks are counted one by one"
+msgstr "Aucun forfait sur ce ticket : les tâches sont décomptées une à une"
+
+msgid "BU manager"
+msgstr "Responsable BU"
+
+msgid "Customer approver"
+msgstr "Approbateur client"
+
+msgid "Approval"
+msgstr "Validation"
+
+msgid "Journal operation"
+msgstr "Opération du journal"
+
+msgid "This ticket is under a flatrate: its tasks are not counted"
+msgstr "Ce ticket est au forfait : ses tâches ne sont pas décomptées"
+
+msgid "Submit to the BU manager"
+msgstr "Soumettre au Responsable BU"
+
+msgid "Price a flatrate"
+msgstr "Chiffrer un forfait"
+
+msgid "Estimated hours (help)"
+msgstr "Heures estimées (aide)"
+
+msgid "Estimate with the work order price"
+msgstr "Estimer avec le prix « Ordre de travail »"
+
+msgid "Reopen as a draft to correct it"
+msgstr "Rouvrir en brouillon pour corriger"
+
+msgid "You priced this flatrate yourself: another BU manager must validate it"
+msgstr "Vous avez chiffré ce forfait vous-même : un autre Responsable BU doit le valider"
+
+msgid "Validate and propose to the customer"
+msgstr "Valider et proposer au client"
+
+msgid "Refuse (comment required)"
+msgstr "Refuser (commentaire obligatoire)"
+
+msgid "Cancel the flatrate"
+msgstr "Annuler le forfait"
+
+msgid "From"
+msgstr "De"
+
+msgid "To"
+msgstr "Vers"
+
+msgid "A solved or closed ticket cannot receive a flatrate"
+msgstr "Un ticket résolu ou clos ne peut plus recevoir de forfait"
+
+msgid "The request of an approval that belongs to a flatrate cannot be changed"
+msgstr "La demande d'une validation qui appartient à un forfait ne peut pas être modifiée"
+
+msgid "A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently"
+msgstr "Un forfait de ce ticket est proposé, approuvé ou débité : le ticket ne peut pas être supprimé définitivement"
+
+msgid "A BU manager may validate a flatrate they priced"
+msgstr "Un Responsable BU peut valider un forfait qu'il a chiffré"
+
+msgid "Refused (separation of duties)"
+msgstr "Refusé (séparation des tâches)"
+
+msgid "Allowed"
+msgstr "Permis"

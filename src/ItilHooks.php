@@ -215,6 +215,11 @@ final class ItilHooks
      */
     public static function ticketPrePurge(\Ticket $ticket): void
     {
+        if (Flatrate::blocksTicketPurge((int) $ticket->getID())) {
+            self::refuse($ticket, __('A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently', 'points'));
+
+            return;
+        }
         if (Billing::ticketHasDebit((int) $ticket->getID())) {
             self::refuse($ticket, __('A task of this ticket has been debited: the ticket cannot be deleted permanently', 'points'));
         }
@@ -226,6 +231,48 @@ final class ItilHooks
     public static function ticketItemPurge(\Ticket $ticket): void
     {
         Billing::cleanTicket((int) $ticket->getID());
+        Flatrate::cleanTicket((int) $ticket->getID());
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // TicketValidation : validation native d'un forfait (lot d)
+    // ---------------------------------------------------------------------------------------------------------
+
+    /**
+     * Réponse du client sur la validation d'un forfait : refusée si le forfait n'attend plus sa réponse ou si le débit
+     * serait impossible (POST_PREPAREUPDATE : l'entrée est celle que GLPI va enregistrer).
+     */
+    public static function validationPostPrepareUpdate(\TicketValidation $validation): void
+    {
+        $input = $validation->input;
+        if (!is_array($input)) {
+            return;
+        }
+        $problem = Flatrate::answerProblem($validation->fields, $input);
+        if ($problem !== null) {
+            self::refuse($validation, $problem);
+        }
+    }
+
+    /**
+     * Réponse enregistrée : acceptée → forfait approuvé (montant figé, débit tout de suite au moment « à la tâche »),
+     * refusée → forfait refusé par le client.
+     */
+    public static function validationItemUpdate(\TicketValidation $validation): void
+    {
+        if (in_array('status', $validation->updates ?? [], true)) {
+            Flatrate::onAnswer($validation->fields);
+        }
+    }
+
+    /**
+     * Une validation liée à un forfait proposé, approuvé ou débité ne se supprime pas.
+     */
+    public static function validationPrePurge(\TicketValidation $validation): void
+    {
+        if (Flatrate::keepsValidation((int) $validation->getID())) {
+            self::refuse($validation, __('This approval belongs to a flatrate: it cannot be deleted', 'points'));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------------

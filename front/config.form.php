@@ -43,6 +43,10 @@ TemplateRenderer::getInstance()->display('@points/config.html.twig', [
         1 => __('Allowed and reported', 'points'),
         0 => __('Refused', 'points'),
     ],
+    'separation_choices' => [
+        1 => __('Refused (separation of duties)', 'points'),
+        0 => __('Allowed', 'points'),
+    ],
     'intervention_types' => Config::interventionTypes(),
     'max_retention'      => ConfigValues::MAX_RETENTION_MONTHS,
     'grids_url'          => Session::haveRight(Rights::GRID, READ) ? $CFG_GLPI['root_doc'] . '/plugins/points/front/grid.php' : '',

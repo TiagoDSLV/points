@@ -1,0 +1,172 @@
+{# Section « Forfait » de l'onglet Points du ticket. GLPI 12 : pas de jeton CSRF. Tout est échappé par Twig (aucun |raw). #}
+{% if flatrate.visible %}
+<div class="card mb-3" id="points-flatrate">
+    <div class="card-header">
+        <h3 class="card-title">{{ __('Flatrate', 'points') }}</h3>
+    </div>
+    <div class="card-body">
+        {% if flatrate.current is null %}
+            <p class="text-muted" id="points-flatrate-none">{{ __('No flatrate on this ticket: the tasks are counted one by one', 'points') }}</p>
+        {% else %}
+            {% set f = flatrate.current %}
+            <div class="row mb-2">
+                <div class="col-md-3"><strong>{{ __('Status') }}</strong> : <span id="points-flatrate-status" data-status="{{ f.status }}">{{ f.status_label }}</span></div>
+                <div class="col-md-3"><strong>{{ __('Amount (points)', 'points') }}</strong> : <span id="points-flatrate-amount">{{ f.amount }}</span></div>
+                <div class="col-md-3"><strong>{{ __('Approved amount (points)', 'points') }}</strong> : <span id="points-flatrate-approved">{{ f.approved }}</span></div>
+                <div class="col-md-3"><strong>{{ __('Technician', 'points') }}</strong> : {{ f.technician }}</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-12"><strong>{{ __('Description') }}</strong> : <span id="points-flatrate-description">{{ f.description }}</span></div>
+            </div>
+            {% if f.bu != '' %}
+                <div class="row mb-2">
+                    <div class="col-md-4"><strong>{{ __('BU manager', 'points') }}</strong> : {{ f.bu }}</div>
+                    <div class="col-md-8"><strong>{{ __('BU manager comment', 'points') }}</strong> : <span id="points-flatrate-bucomment">{{ f.bu_comment }}</span></div>
+                </div>
+            {% endif %}
+            {% if f.validator != '' %}
+                <div class="row mb-2">
+                    <div class="col-md-4"><strong>{{ __('Customer approver', 'points') }}</strong> : {{ f.validator }}</div>
+                    <div class="col-md-4"><strong>{{ __('Approval', 'points') }}</strong> : {{ f.validation }}</div>
+                </div>
+            {% endif %}
+            <div class="row mb-2">
+                <div class="col-md-6"><strong>{{ __('Debit moment', 'points') }}</strong> : {{ f.moment }}</div>
+                {% if f.operation > 0 %}
+                    <div class="col-md-6"><strong>{{ __('Journal operation', 'points') }}</strong> : {{ f.operation }}</div>
+                {% endif %}
+            </div>
+            {% if f.status in ['draft', 'submitted', 'proposed', 'approved', 'debited'] %}
+                <div class="alert alert-info" id="points-flatrate-notice">{{ __('This ticket is under a flatrate: its tasks are not counted', 'points') }}</div>
+            {% endif %}
+        {% endif %}
+
+        {% if flatrate.current is not null and flatrate.can_edit %}
+            <form method="post" action="{{ flatrate.form_url }}" class="mb-3" id="points-flatrate-edit">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <input type="hidden" name="id" value="{{ flatrate.current.id }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label" for="points-flatrate-edit-amount">{{ __('Amount (points)', 'points') }}</label>
+                        <input type="text" class="form-control" id="points-flatrate-edit-amount" name="amount" value="{{ flatrate.current.amount }}">
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label" for="points-flatrate-edit-description">{{ __('Description') }}</label>
+                        <textarea class="form-control" id="points-flatrate-edit-description" name="description" rows="2">{{ flatrate.current.description }}</textarea>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button type="submit" name="action" value="update" class="btn btn-primary">{{ _x('button', 'Save') }}</button>
+                    <button type="submit" name="action" value="submit" class="btn btn-success">{{ __('Submit to the BU manager', 'points') }}</button>
+                </div>
+            </form>
+        {% endif %}
+
+        {% if flatrate.can_create %}
+            <form method="post" action="{{ flatrate.form_url }}" class="mb-3" id="points-flatrate-create">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label" for="points-flatrate-create-amount">{{ __('Amount (points)', 'points') }}</label>
+                        <input type="text" class="form-control" id="points-flatrate-create-amount" name="amount" value="">
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label" for="points-flatrate-create-description">{{ __('Description') }}</label>
+                        <textarea class="form-control" id="points-flatrate-create-description" name="description" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button type="submit" name="action" value="create" class="btn btn-primary">{{ __('Price a flatrate', 'points') }}</button>
+                </div>
+            </form>
+        {% endif %}
+
+        {% if flatrate.estimate %}
+            <form method="post" action="{{ flatrate.form_url }}" class="mb-3" id="points-flatrate-estimate">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label" for="points-flatrate-hours">{{ __('Estimated hours (help)', 'points') }}</label>
+                        <input type="text" class="form-control" id="points-flatrate-hours" name="hours" value="">
+                    </div>
+                    <div class="col-md-9">
+                        <button type="submit" name="action" value="estimate" class="btn btn-outline-secondary">{{ __('Estimate with the work order price', 'points') }}</button>
+                    </div>
+                </div>
+            </form>
+        {% endif %}
+
+        {% if flatrate.current is not null and flatrate.can_reopen %}
+            <form method="post" action="{{ flatrate.form_url }}" class="d-inline" id="points-flatrate-reopen">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <input type="hidden" name="id" value="{{ flatrate.current.id }}">
+                <button type="submit" name="action" value="reopen" class="btn btn-warning">{{ __('Reopen as a draft to correct it', 'points') }}</button>
+            </form>
+        {% endif %}
+
+        {% if flatrate.current is not null and flatrate.self_blocked %}
+            <div class="alert alert-warning" id="points-flatrate-self">{{ __('You priced this flatrate yourself: another BU manager must validate it', 'points') }}</div>
+        {% endif %}
+
+        {% if flatrate.current is not null and flatrate.can_decide %}
+            <form method="post" action="{{ flatrate.form_url }}" class="mb-3" id="points-flatrate-decide">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <input type="hidden" name="id" value="{{ flatrate.current.id }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label" for="points-flatrate-validator">{{ __('Customer approver', 'points') }}</label>
+                        <select class="form-select" id="points-flatrate-validator" name="validator">
+                            {% for uid, uname in flatrate.validators %}
+                                <option value="{{ uid }}" {{ uid == flatrate.default_validator ? 'selected' : '' }}>{{ uname }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="points-flatrate-comment">{{ __('Comment') }}</label>
+                        <textarea class="form-control" id="points-flatrate-comment" name="comment" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button type="submit" name="action" value="accept" class="btn btn-success">{{ __('Validate and propose to the customer', 'points') }}</button>
+                    <button type="submit" name="action" value="refuse" class="btn btn-danger">{{ __('Refuse (comment required)', 'points') }}</button>
+                </div>
+            </form>
+        {% endif %}
+
+        {% if flatrate.current is not null and flatrate.can_cancel %}
+            <form method="post" action="{{ flatrate.form_url }}" class="d-inline" id="points-flatrate-cancel">
+                <input type="hidden" name="tickets_id" value="{{ flatrate.tickets_id }}">
+                <input type="hidden" name="id" value="{{ flatrate.current.id }}">
+                <button type="submit" name="action" value="cancel" class="btn btn-outline-danger">{{ __('Cancel the flatrate', 'points') }}</button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if flatrate.history is not empty %}
+        <div class="table-responsive">
+            <table class="table table-sm card-table" id="points-flatrate-history">
+                <thead>
+                    <tr>
+                        <th>{{ __('Date') }}</th>
+                        <th>{{ __('User') }}</th>
+                        <th>{{ __('From', 'points') }}</th>
+                        <th>{{ __('To', 'points') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in flatrate.history %}
+                        <tr><td>{{ h.date }}</td><td>{{ h.user }}</td><td>{{ h.from }}</td><td>{{ h.to }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+    {% if flatrate.others is not empty %}
+        <div class="card-footer text-muted" id="points-flatrate-others">
+            {% for o in flatrate.others %}
+                #{{ o.id }} : {{ o.status }} ({{ o.amount }}){{ loop.last ? '' : ' ; ' }}
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endif %}

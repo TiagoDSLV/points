@@ -535,3 +535,210 @@ msgstr "No valid points at the date of the task"
 
 msgid "Debited on the merged ticket (locked)"
 msgstr "Debited on the merged ticket (locked)"
+
+msgid "This approval belongs to a flatrate: it cannot be deleted"
+msgstr "This approval belongs to a flatrate: it cannot be deleted"
+
+msgid "Flatrates"
+msgstr "Flatrates"
+
+msgid "Flatrate"
+msgstr "Flatrate"
+
+msgid "Draft"
+msgstr "Draft"
+
+msgid "Submitted to the BU manager"
+msgstr "Submitted to the BU manager"
+
+msgid "Refused by the BU manager"
+msgstr "Refused by the BU manager"
+
+msgid "Proposed to the customer"
+msgstr "Proposed to the customer"
+
+msgid "Approved by the customer"
+msgstr "Approved by the customer"
+
+msgid "Refused by the customer"
+msgstr "Refused by the customer"
+
+msgid "Debited"
+msgstr "Debited"
+
+msgid "Cancelled"
+msgstr "Cancelled"
+
+msgid "The flatrate amount must be a positive number"
+msgstr "The flatrate amount must be a positive number"
+
+msgid "This action is not possible in the current state of the flatrate"
+msgstr "This action is not possible in the current state of the flatrate"
+
+msgid "This ticket already has a flatrate in progress or debited"
+msgstr "This ticket already has a flatrate in progress or debited"
+
+msgid "The BU manager who priced a flatrate cannot validate it"
+msgstr "The BU manager who priced a flatrate cannot validate it"
+
+msgid "A flatrate can only be modified while it is a draft, and its state and approved amount never change by hand"
+msgstr "A flatrate can only be modified while it is a draft, and its state and approved amount never change by hand"
+
+msgid "The ticket needs one billable Points contract before a flatrate can be priced"
+msgstr "The ticket needs one billable Points contract before a flatrate can be priced"
+
+msgid "Tasks of this ticket are already debited: no flatrate is possible"
+msgstr "Tasks of this ticket are already debited: no flatrate is possible"
+
+msgid "The customer approver must be a user of the ticket or of its entity"
+msgstr "The customer approver must be a user of the ticket or of its entity"
+
+msgid "A comment is required to refuse a flatrate"
+msgstr "A comment is required to refuse a flatrate"
+
+msgid "Flatrate proposal: %1$s points. %2$s"
+msgstr "Flatrate proposal: %1$s points. %2$s"
+
+msgid "The approval request could not be created"
+msgstr "The approval request could not be created"
+
+msgid "This approval belongs to a flatrate that is no longer waiting for the customer answer"
+msgstr "This approval belongs to a flatrate that is no longer waiting for the customer answer"
+
+msgid "The flatrate cannot be debited: %s"
+msgstr "The flatrate cannot be debited: %s"
+
+msgid "Flatrate %1$d: %2$s"
+msgstr "Flatrate %1$d: %2$s"
+
+msgid "The flatrate of this ticket is not approved by the customer yet: the ticket cannot be closed"
+msgstr "The flatrate of this ticket is not approved by the customer yet: the ticket cannot be closed"
+
+msgid "When the customer approves"
+msgstr "When the customer approves"
+
+msgid "Amount"
+msgstr "Amount"
+
+msgid "Approved amount"
+msgstr "Approved amount"
+
+msgid "Flatrate submitted to the BU manager"
+msgstr "Flatrate submitted to the BU manager"
+
+msgid "Flatrate decision"
+msgstr "Flatrate decision"
+
+msgid "Technician who priced the flatrate"
+msgstr "Technician who priced the flatrate"
+
+msgid "BU managers of the entity"
+msgstr "BU managers of the entity"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Ticket title"
+msgstr "Ticket title"
+
+msgid "Amount (points)"
+msgstr "Amount (points)"
+
+msgid "Approved amount (points)"
+msgstr "Approved amount (points)"
+
+msgid "BU manager comment"
+msgstr "BU manager comment"
+
+msgid "Technician"
+msgstr "Technician"
+
+msgid "Flatrate saved as a draft"
+msgstr "Flatrate saved as a draft"
+
+msgid "Flatrate saved"
+msgstr "Flatrate saved"
+
+msgid "Flatrate reopened as a draft"
+msgstr "Flatrate reopened as a draft"
+
+msgid "Flatrate validated and proposed to the customer"
+msgstr "Flatrate validated and proposed to the customer"
+
+msgid "Flatrate refused"
+msgstr "Flatrate refused"
+
+msgid "Flatrate cancelled"
+msgstr "Flatrate cancelled"
+
+msgid "Estimate: %1$s hours = %2$s points (work order price of the grid, today)"
+msgstr "Estimate: %1$s hours = %2$s points (work order price of the grid, today)"
+
+msgid "No flatrate on this ticket: the tasks are counted one by one"
+msgstr "No flatrate on this ticket: the tasks are counted one by one"
+
+msgid "BU manager"
+msgstr "BU manager"
+
+msgid "Customer approver"
+msgstr "Customer approver"
+
+msgid "Approval"
+msgstr "Approval"
+
+msgid "Journal operation"
+msgstr "Journal operation"
+
+msgid "This ticket is under a flatrate: its tasks are not counted"
+msgstr "This ticket is under a flatrate: its tasks are not counted"
+
+msgid "Submit to the BU manager"
+msgstr "Submit to the BU manager"
+
+msgid "Price a flatrate"
+msgstr "Price a flatrate"
+
+msgid "Estimated hours (help)"
+msgstr "Estimated hours (help)"
+
+msgid "Estimate with the work order price"
+msgstr "Estimate with the work order price"
+
+msgid "Reopen as a draft to correct it"
+msgstr "Reopen as a draft to correct it"
+
+msgid "You priced this flatrate yourself: another BU manager must validate it"
+msgstr "You priced this flatrate yourself: another BU manager must validate it"
+
+msgid "Validate and propose to the customer"
+msgstr "Validate and propose to the customer"
+
+msgid "Refuse (comment required)"
+msgstr "Refuse (comment required)"
+
+msgid "Cancel the flatrate"
+msgstr "Cancel the flatrate"
+
+msgid "From"
+msgstr "From"
+
+msgid "To"
+msgstr "To"
+
+msgid "A solved or closed ticket cannot receive a flatrate"
+msgstr "A solved or closed ticket cannot receive a flatrate"
+
+msgid "The request of an approval that belongs to a flatrate cannot be changed"
+msgstr "The request of an approval that belongs to a flatrate cannot be changed"
+
+msgid "A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently"
+msgstr "A flatrate of this ticket is proposed, approved or debited: the ticket cannot be deleted permanently"
+
+msgid "A BU manager may validate a flatrate they priced"
+msgstr "A BU manager may validate a flatrate they priced"
+
+msgid "Refused (separation of duties)"
+msgstr "Refused (separation of duties)"
+
+msgid "Allowed"
+msgstr "Allowed"

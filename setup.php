@@ -27,6 +27,9 @@ function plugin_init_points(): void
     // Onglet « Points » sur la fiche Contract (le contrat du cœur est \Contract ; celui du plugin porte le même nom court)
     Plugin::registerClass(\GlpiPlugin\Points\Contract::class, ['addtabon' => \Contract::class]);
 
+    // Notifications natives des forfaits (NotificationTargetFlatrate) : la classe du forfait est déclarée au cœur
+    Plugin::registerClass(\GlpiPlugin\Points\Flatrate::class, ['notificationtemplates_types' => true]);
+
     // Onglet « Points » sur la fiche Ticket (réglage du ticket et tâches décomptées)
     Plugin::registerClass(\GlpiPlugin\Points\Ticket::class, ['addtabon' => \Ticket::class]);
 
@@ -38,15 +41,20 @@ function plugin_init_points(): void
     // Un seul rappel par itemtype et par crochet (src/Plugin.php:1802 en 12.0.1 : $tab[$itemtype]).
     $PLUGIN_HOOKS[Hooks::POST_PREPAREADD]['points']    = ['TicketTask' => [ItilHooks::class, 'taskPostPrepareAdd']];
     $PLUGIN_HOOKS[Hooks::ITEM_ADD]['points']           = ['TicketTask' => [ItilHooks::class, 'taskItemAdd']];
-    $PLUGIN_HOOKS[Hooks::POST_PREPAREUPDATE]['points'] = ['TicketTask' => [ItilHooks::class, 'taskPostPrepareUpdate']];
+    $PLUGIN_HOOKS[Hooks::POST_PREPAREUPDATE]['points'] = [
+        'TicketTask'       => [ItilHooks::class, 'taskPostPrepareUpdate'],
+        'TicketValidation' => [ItilHooks::class, 'validationPostPrepareUpdate'],
+    ];
     $PLUGIN_HOOKS[Hooks::PRE_ITEM_UPDATE]['points']    = ['Ticket' => [ItilHooks::class, 'ticketPreUpdate']];
     $PLUGIN_HOOKS[Hooks::ITEM_UPDATE]['points']        = [
         'TicketTask' => [ItilHooks::class, 'taskItemUpdate'],
         'Ticket'     => [ItilHooks::class, 'ticketItemUpdate'],
+        'TicketValidation' => [ItilHooks::class, 'validationItemUpdate'],
     ];
     $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['points']     = [
         'TicketTask' => [ItilHooks::class, 'taskPrePurge'],
         'Ticket'     => [ItilHooks::class, 'ticketPrePurge'],
+        'TicketValidation' => [ItilHooks::class, 'validationPrePurge'],
     ];
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['points']         = ['Ticket' => [ItilHooks::class, 'ticketItemPurge']];
 

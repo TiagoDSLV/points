@@ -23,7 +23,7 @@ Plan validé par le prompt du responsable du 2026-11-12, tant qu'il reste dans c
 | a | Socle : setup, install / uninstall rejouables, droits, config, banc GLPI 12 | fait (relu, banc vert) |
 | b | Enveloppes, journal, expiration (tâche auto), report, limite 2 ans | fait (relu, banc vert) |
 | c | Décompte des tâches : quart d'heure, grilles versionnées, types de jour (calendrier natif), moment du débit | fait (relu, banc vert) |
-| d | Forfaits : chiffrage, validation Responsable BU, validation native du client, montant figé | à faire |
+| d | Forfaits : chiffrage, validation Responsable BU, validation native du client, montant figé | fait (relu, banc vert) |
 | e | Reviews (hors créneau, férié) et compensations | à faire |
 | f | Cloisonnement et droits par profil (deux clients au banc) | à faire |
 | g | Alerte de seuil (notification native) et reporting par la recherche native | à faire |

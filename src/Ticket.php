@@ -259,7 +259,8 @@ class Ticket extends CommonDBTM
         }
 
         return count($DB->request(['SELECT' => ['id'], 'FROM' => self::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0
-            || count($DB->request(['SELECT' => ['id'], 'FROM' => Task::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0;
+            || count($DB->request(['SELECT' => ['id'], 'FROM' => Task::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0
+            || count($DB->request(['SELECT' => ['id'], 'FROM' => Flatrate::getTable(), 'WHERE' => ['tickets_id' => $ticket->getID()], 'LIMIT' => 1])) > 0;
     }
 
     private static function showForTicket(\Ticket $ticket): void
@@ -351,6 +352,7 @@ class Ticket extends CommonDBTM
             'type'           => (int) ($setting['plugin_points_interventiontypes_id'] ?? 0),
             'default_type'   => Config::interventionTypes()[(int) Config::value('default_interventiontypes_id')] ?? '',
             'types'          => Config::interventionTypes(),
+            'flatrate'       => Flatrate::viewData($ticket),
             'tasks'          => $rows,
             'total'          => Money::format($total),
             'debit_moment'   => Config::value('debit_moment') === ConfigValues::DEBIT_TASK ? __('When the task is added', 'points') : __('When the ticket is closed', 'points'),

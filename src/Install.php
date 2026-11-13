@@ -29,6 +29,9 @@ final class Install
     /** Types d'intervention créés à l'installation (vocabulaire métier : stockés tels quels, pas traduits). */
     public const INTERVENTION_TYPES = ['Assistance', 'Ordre de travail', 'Intervention urgente'];
 
+    /** Nom du modèle de notification des forfaits (un seul, pour les deux événements). */
+    private const TEMPLATE_NAME = 'Points: flatrate';
+
     /** Motif LIKE des classes du plugin (le séparateur de l'espace de noms est doublé : échappement LIKE). */
     private const LIKE_CLASSES = 'GlpiPlugin\\\\Points\\\\%';
 
@@ -319,8 +322,75 @@ final class Install
         self::seedConfig($assistance);
         self::seedRights();
         self::registerCronTasks();
+        self::seedNotifications();
 
         return true;
+    }
+
+    /**
+     * Notifications natives des forfaits : un modèle (texte et HTML, balises `##lang.*##` traduites dans la langue de chaque
+     * destinataire, d'où des messages en français et en anglais), et une notification par événement avec ses cibles
+     * (Responsables BU pour `flatrate_submitted`, auteur du forfait = technicien pour `flatrate_decided`). Rejouable : ce
+     * qui existe déjà (créé ou modifié par l'administrateur) n'est jamais réécrit.
+     */
+    private static function seedNotifications(): void
+    {
+        global $DB;
+
+        $now        = Session::getCurrentTime() ?? date('Y-m-d H:i:s');
+        $itemtype   = Flatrate::class;
+        $templateId = 0;
+        $found      = $DB->request(['SELECT' => ['id'], 'FROM' => NotificationTemplate::getTable(), 'WHERE' => ['itemtype' => $itemtype, 'name' => self::TEMPLATE_NAME], 'LIMIT' => 1])->current();
+        if ($found !== null) {
+            $templateId = (int) $found['id'];
+        } else {
+            $DB->insert(NotificationTemplate::getTable(), ['name' => self::TEMPLATE_NAME, 'itemtype' => $itemtype, 'date_mod' => $now, 'date_creation' => $now]);
+            $templateId = (int) $DB->insertId();
+            $DB->insert('glpi_notificationtemplatetranslations', [
+                'notificationtemplates_id' => $templateId,
+                'language'                 => '',
+                'subject'                  => '##flatrate.action## - ##lang.flatrate.ticket## ##flatrate.ticket##',
+                'content_text'             => implode("\n", [
+                    '##flatrate.action##',
+                    '##lang.flatrate.ticket## : ##flatrate.ticket## ##flatrate.ticketname##',
+                    '##lang.flatrate.entity## : ##flatrate.entity##',
+                    '##lang.flatrate.status## : ##flatrate.status##',
+                    '##lang.flatrate.amount## : ##flatrate.amount##',
+                    '##lang.flatrate.approved## : ##flatrate.approved##',
+                    '##lang.flatrate.description## : ##flatrate.description##',
+                    '##lang.flatrate.comment## : ##flatrate.comment##',
+                    '##lang.flatrate.technician## : ##flatrate.technician##',
+                    '##lang.flatrate.url## : ##flatrate.url##',
+                ]),
+                'content_html'             => '<p><strong>##flatrate.action##</strong></p>'
+                    . '<p>##lang.flatrate.ticket## : ##flatrate.ticket## ##flatrate.ticketname##<br />'
+                    . '##lang.flatrate.entity## : ##flatrate.entity##<br />'
+                    . '##lang.flatrate.status## : ##flatrate.status##<br />'
+                    . '##lang.flatrate.amount## : ##flatrate.amount##<br />'
+                    . '##lang.flatrate.approved## : ##flatrate.approved##<br />'
+                    . '##lang.flatrate.description## : ##flatrate.description##<br />'
+                    . '##lang.flatrate.comment## : ##flatrate.comment##<br />'
+                    . '##lang.flatrate.technician## : ##flatrate.technician##<br />'
+                    . '##lang.flatrate.url## : ##flatrate.url##</p>',
+            ]);
+        }
+
+        // Événement => [nom, cible]
+        foreach ([
+            'flatrate_submitted' => ['Points: flatrate submitted to the BU manager', Flatrate::TARGET_BU],
+            'flatrate_decided'   => ['Points: flatrate decision', Notification::AUTHOR],
+        ] as $event => [$name, $target]) {
+            if (count($DB->request(['SELECT' => ['id'], 'FROM' => Notification::getTable(), 'WHERE' => ['itemtype' => $itemtype, 'event' => $event], 'LIMIT' => 1])) > 0) {
+                continue;
+            }
+            $DB->insert(Notification::getTable(), [
+                'name' => $name, 'entities_id' => 0, 'itemtype' => $itemtype, 'event' => $event, 'is_recursive' => 1, 'is_active' => 1,
+                'allow_response' => 0, 'date_mod' => $now, 'date_creation' => $now,
+            ]);
+            $notificationId = (int) $DB->insertId();
+            $DB->insert('glpi_notifications_notificationtemplates', ['notifications_id' => $notificationId, 'mode' => 'mailing', 'notificationtemplates_id' => $templateId]);
+            $DB->insert('glpi_notificationtargets', ['notifications_id' => $notificationId, 'type' => Notification::USER_TYPE, 'items_id' => $target]);
+        }
     }
 
     /**
@@ -442,7 +512,7 @@ final class Install
 
     /**
      * Notifications, modèles, alertes, préférences d'affichage, recherches enregistrées et historiques dont l'itemtype est une classe du plugin.
-     * Les alertes et notifications arrivent avec les lots suivants : vide tant qu'il n'y en a pas.
+     * Les notifications des forfaits sont créées par seedNotifications ; les alertes arrivent avec un lot suivant.
      */
     public static function removeNotificationsAndAlerts(): void
     {
