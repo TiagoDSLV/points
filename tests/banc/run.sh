@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Banc jetable : GLPI 12.0.1 et MariaDB aux images figées par digest, le plugin monté en lecture seule ; scénarios
+# Banc jetable : GLPI 12.0.2 et MariaDB aux images figées par digest, le plugin monté en lecture seule ; scénarios
 # tests/banc/scenario_*.py ; tout est supprimé à la fin (BANC_GARDER=1 : banc gardé pour enquête).
 # Section `--banc` de scripts/check.sh.
 #
@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 PLUGIN_DIR=$(cd ../.. && pwd)
-IMG_GLPI=glpi/glpi:12.0.1@sha256:02b4e8146b9b71d833443718d093352609dafec1b32a1d218b5961d6492e7b06
+IMG_GLPI=glpi/glpi:12.0.2@sha256:e6a98ec8c190eb199afaf9ba97291c5bd9f4bb75a5ac2843180d633387d83910
 IMG_DB=mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c
 export BANC_URL=http://127.0.0.1:${BANC_PORT:-8097}
 scenarios=("$@")
