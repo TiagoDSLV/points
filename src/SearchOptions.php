@@ -40,30 +40,48 @@ final class SearchOptions
     }
 
     /**
-     * Une recherche enregistrée (champ `query`, chaîne d'URL) utilise-t-elle l'une de ces options : critère, méta-critère ou tri ?
-     * Fonction pure.
+     * Une recherche enregistrée (champ `query`, chaîne d'URL ; `$itemtype` = son type) utilise-t-elle une option du plugin : critère, tri, ou
+     * méta-critère sur un type lié (format GLPI 12 : `criteria[n][meta]=1`, `[itemtype]`, `[field]`, groupes `criteria[n][criteria]` compris,
+     * lus par src/Glpi/Search/Provider/SQLProvider.php:4765-4777 en 12.0.1 ; ancien format `metacriteria[n][itemtype]`) ? Un numéro ne compte
+     * que pour le type qu'il désigne : 9703 d'un ticket n'est pas l'option du contrat. Fonction pure.
      *
-     * @param list<int> $numbers
+     * @param array<string, list<int>> $numbers numéros du plugin par itemtype (numbers())
      */
-    public static function queryUses(string $query, array $numbers): bool
+    public static function queryUses(string $query, string $itemtype, array $numbers): bool
     {
         parse_str($query, $params);
-        $found = [];
-        $walk  = static function (mixed $node, bool $inField = false) use (&$walk, &$found): void {
-            if (is_array($node)) {
-                foreach ($node as $key => $child) {
-                    $walk($child, $inField || $key === 'field' || $key === 'sort');
+        $isOurs = static fn (string $type, mixed $field): bool => is_scalar($field) && preg_match('/^\d+$/', (string) $field) === 1
+            && in_array((int) $field, $numbers[$type] ?? [], true);
+        $criteria = static function (mixed $list) use (&$criteria, $itemtype, $isOurs): bool {
+            if (!is_array($list)) {
+                return false;
+            }
+            foreach ($list as $criterion) {
+                if (!is_array($criterion)) {
+                    continue;
                 }
+                if (isset($criterion['criteria']) && $criteria($criterion['criteria'])) {
+                    return true;
+                }
+                // Méta-critère : son propre type ; critère simple : celui de la recherche
+                $type = isset($criterion['itemtype']) && is_string($criterion['itemtype']) && $criterion['itemtype'] !== '' ? $criterion['itemtype'] : $itemtype;
+                if ($isOurs($type, $criterion['field'] ?? null)) {
+                    return true;
+                }
+            }
 
-                return;
-            }
-            if ($inField && is_scalar($node) && preg_match('/^\d+$/', (string) $node) === 1) {
-                $found[] = (int) $node;
-            }
+            return false;
         };
-        $walk($params);
+        if ($criteria($params['criteria'] ?? null) || $criteria($params['metacriteria'] ?? null)) {
+            return true;
+        }
+        foreach ((array) ($params['sort'] ?? []) as $sort) {
+            if ($isOurs($itemtype, $sort)) {
+                return true;
+            }
+        }
 
-        return array_intersect($found, $numbers) !== [];
+        return false;
     }
 
     /**

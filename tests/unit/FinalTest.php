@@ -119,17 +119,27 @@ test('ConfigValues : compensation_on_expired vaut valid_lot ou origin, valid_lot
     assertSame('origin', ConfigValues::toStorage(['compensation_on_expired' => 'origin'])['compensation_on_expired']);
 });
 
-test('SearchOptions : une recherche enregistrée qui utilise une option du plugin est reconnue', function (): void {
+test('SearchOptions : une recherche enregistrée qui utilise une option du plugin est reconnue, méta-critère d\'un autre type compris', function (): void {
     $numbers = SearchOptions::numbers();
     assertSame([9701, 9702, 9703, 9704, 9705, 9706, 9707], $numbers['Contract']);
     assertSame([9721, 9722, 9723, 9724, 9725], $numbers['Entity']);
-    $contract = $numbers['Contract'];
-    assertTrue(SearchOptions::queryUses('criteria%5B0%5D%5Bfield%5D=9703&criteria%5B0%5D%5Bsearchtype%5D=contains&criteria%5B0%5D%5Bvalue%5D=5', $contract), 'critère');
-    assertTrue(SearchOptions::queryUses('sort%5B0%5D=9701&order%5B0%5D=DESC', $contract), 'tri');
-    assertTrue(SearchOptions::queryUses('metacriteria[0][field]=9707&metacriteria[0][value]=1', $contract), 'méta-critère');
-    assertSame(false, SearchOptions::queryUses('criteria[0][field]=1&criteria[0][value]=9703&sort=2', $contract), 'témoin : 9703 comme VALEUR, pas comme champ');
-    assertSame(false, SearchOptions::queryUses('criteria[0][field]=9721', $contract), 'une option de l\'entité n\'est pas une option du contrat');
-    assertSame(false, SearchOptions::queryUses('', $contract));
+    $uses = static fn (string $query, string $itemtype): bool => SearchOptions::queryUses($query, $itemtype, $numbers);
+    assertTrue($uses('criteria%5B0%5D%5Bfield%5D=9703&criteria%5B0%5D%5Bsearchtype%5D=contains&criteria%5B0%5D%5Bvalue%5D=5', 'Contract'), 'critère');
+    assertTrue($uses('sort%5B0%5D=9701&order%5B0%5D=DESC', 'Contract'), 'tri');
+    assertTrue($uses('sort=9701&order=DESC', 'Contract'), 'tri (forme simple)');
+    assertTrue($uses('metacriteria[0][field]=9707&metacriteria[0][value]=1', 'Contract'), 'méta-critère ancien format, sans type : celui de la recherche');
+    assertSame(false, $uses('criteria[0][field]=1&criteria[0][value]=9703&sort=2', 'Contract'), 'témoin : 9703 comme VALEUR, pas comme champ');
+    assertSame(false, $uses('criteria[0][field]=9721', 'Contract'), 'une option de l\'entité n\'est pas une option du contrat');
+    assertSame(false, $uses('', 'Contract'));
+    // Recherche d'un autre type (ticket) dont un méta-critère porte sur le contrat ou l'entité (format GLPI 12 : meta, itemtype, field)
+    assertTrue($uses('criteria[0][link]=AND&criteria[0][itemtype]=Contract&criteria[0][meta]=1&criteria[0][field]=9703&criteria[0][searchtype]=morethan&criteria[0][value]=0', 'Ticket'), 'méta-critère sur une option du contrat');
+    assertTrue($uses('criteria[0][field]=12&criteria[0][value]=1&criteria[1][itemtype]=Entity&criteria[1][meta]=1&criteria[1][field]=9722', 'Ticket'), 'méta-critère sur une option de l\'entité');
+    assertTrue($uses('criteria[0][link]=AND&criteria[0][criteria][0][itemtype]=Contract&criteria[0][criteria][0][meta]=1&criteria[0][criteria][0][field]=9701', 'Ticket'), 'méta-critère dans un groupe');
+    assertTrue($uses('metacriteria[0][itemtype]=Contract&metacriteria[0][field]=9707', 'Ticket'), 'méta-critère ancien format sur le contrat');
+    assertSame(false, $uses('criteria[0][field]=9703&criteria[0][value]=0', 'Ticket'), 'témoin : 9703 d\'un ticket n\'est pas une option du plugin');
+    assertSame(false, $uses('criteria[0][itemtype]=Contract&criteria[0][meta]=1&criteria[0][field]=1', 'Ticket'), 'témoin : méta-critère sur une option du cœur');
+    assertSame(false, $uses('criteria[0][itemtype]=Entity&criteria[0][meta]=1&criteria[0][field]=9703', 'Ticket'), 'témoin : 9703 sur l\'entité n\'est pas une option du plugin');
+    assertSame(false, $uses('sort=9701', 'Ticket'), 'témoin : le tri porte sur le type de la recherche');
 });
 
 test('Contrat : purge refusée par le crochet, type vérifié par requireContract', function () use ($finalSrc): void {
@@ -249,12 +259,13 @@ test('AlertRules : un lot créé par un remboursement redirigé n\'est pas un ac
     assertSame(['credited' => 11000, 'consumed' => 7000], \GlpiPlugin\Points\Domain\AlertRules::validTotals($lots, '2026-11-13'), 'témoin : un vrai crédit compte');
 });
 
-test('Structure : ligne Points du ticket (entité suivie, lecture du ticket), fusion par lien natif, figeage en écriture, reprise à chaque installation', function () use ($finalSrc): void {
+test('Structure : ligne Points du ticket (entité suivie, lecture du ticket), fusion par suivi natif, figeage en écriture, reprise à chaque installation', function () use ($finalSrc): void {
     $ticket = $finalSrc('src/Ticket.php');
     assertTrue(preg_match('/function canViewItem\(\).*?self::canReadTicket\(/s', $ticket) === 1, 'canViewItem exige la lecture du ticket');
     assertTrue(str_contains($ticket, 'function followTicketEntity(') && str_contains($finalSrc('src/ItilHooks.php'), 'Ticket::followTicketEntity('), 'entité suivie');
     $billing = $finalSrc('src/Billing.php');
-    assertTrue(preg_match('/function mergedElsewhere\(.*?tickets_id_1.*?SON_OF.*?\n    \}\n/s', $billing) === 1, 'copie liée par le lien de fusion natif');
+    assertTrue(preg_match('/function mergeTargets\(.*?ITILFollowup::getTable\(\).*?sourceitems_id.*?\n    \}\n/s', $billing) === 1, 'principal reconnu par le suivi de fusion natif');
+    assertTrue(preg_match('/function mergedElsewhere\(.*?self::mergeTargets\(.*?\n    \}\n/s', $billing) === 1, 'copie exclue seulement sur un principal de fusion');
     preg_match('/public static function evaluate\(.*?\n    \}\n/s', $billing, $m);
     assertSame(0, preg_match('/freezeType/', $m[0] ?? ''), 'evaluate reste en lecture seule');
     assertTrue(substr_count($billing, 'self::freezeType($ctx);') === 2, 'figeage dans assertTaskAccepted et debitTask');

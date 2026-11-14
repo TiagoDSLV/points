@@ -590,8 +590,8 @@ msgstr "The ticket needs one billable Points contract before a flatrate can be p
 msgid "Tasks of this ticket are already debited: no flatrate is possible"
 msgstr "Tasks of this ticket are already debited: no flatrate is possible"
 
-msgid "The customer approver must be a user of the ticket or of its entity"
-msgstr "The customer approver must be a user of the ticket or of its entity"
+msgid "The customer approver must be a user of the ticket or of its entity who is allowed to answer approvals"
+msgstr "The customer approver must be a user of the ticket or of its entity who is allowed to answer approvals"
 
 msgid "A comment is required to refuse a flatrate"
 msgstr "A comment is required to refuse a flatrate"
@@ -961,3 +961,9 @@ msgstr "The original envelope has ended and no envelope is valid today to receiv
 
 msgid "Debited on the main ticket"
 msgstr "Debited on the main ticket"
+
+msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
+msgstr "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
+
+msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
+msgstr "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"

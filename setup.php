@@ -64,6 +64,8 @@ function plugin_init_points(): void
         'Ticket'     => [ItilHooks::class, 'ticketItemUpdate'],
         'TicketValidation' => [ItilHooks::class, 'validationItemUpdate'],
     ];
+    // Fusion de tickets : le ticket source va à la corbeille en dernier (src/Ticket.php:6020) ; un refus annule toute la fusion
+    $PLUGIN_HOOKS[Hooks::PRE_ITEM_DELETE]['points']    = ['Ticket' => [ItilHooks::class, 'ticketPreDelete']];
     $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['points']     = [
         'TicketTask' => [ItilHooks::class, 'taskPrePurge'],
         'Ticket'     => [ItilHooks::class, 'ticketPrePurge'],

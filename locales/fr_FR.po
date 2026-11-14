@@ -590,8 +590,8 @@ msgstr "Le ticket doit avoir un seul contrat Points facturable avant de chiffrer
 msgid "Tasks of this ticket are already debited: no flatrate is possible"
 msgstr "Des tâches de ce ticket sont déjà débitées : aucun forfait n'est possible"
 
-msgid "The customer approver must be a user of the ticket or of its entity"
-msgstr "L'approbateur client doit être un utilisateur du ticket ou de son entité"
+msgid "The customer approver must be a user of the ticket or of its entity who is allowed to answer approvals"
+msgstr "L'approbateur client doit être un utilisateur du ticket ou de son entité autorisé à répondre aux validations"
 
 msgid "A comment is required to refuse a flatrate"
 msgstr "Un commentaire est obligatoire pour refuser un forfait"
@@ -961,3 +961,9 @@ msgstr "L'enveloppe d'origine est terminée et aucune enveloppe n'est valide auj
 
 msgid "Debited on the main ticket"
 msgstr "Débitée sur le ticket principal"
+
+msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
+msgstr "Ce ticket porte un forfait ni refusé ni annulé : il ne peut pas être fusionné dans un autre ticket. Annulez le forfait s'il n'est pas encore approuvé, ou fusionnez l'autre ticket dans celui-ci"
+
+msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
+msgstr "Ce ticket a des tâches à débiter qui ne sont pas copiées sur le ticket principal : fusionnez-le avec ses tâches, ou clôturez-le avant la fusion"

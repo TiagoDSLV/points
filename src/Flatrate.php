@@ -351,7 +351,7 @@ class Flatrate extends CommonDBTM
             RuleViolation::FLATRATE_NO_CONTRACT   => __('The ticket needs one billable Points contract before a flatrate can be priced', 'points'),
             RuleViolation::FLATRATE_TASKS_DEBITED => __('Tasks of this ticket are already debited: no flatrate is possible', 'points'),
             RuleViolation::FLATRATE_TICKET_CLOSED => __('A solved or closed ticket cannot receive a flatrate', 'points'),
-            RuleViolation::FLATRATE_VALIDATOR     => __('The customer approver must be a user of the ticket or of its entity', 'points'),
+            RuleViolation::FLATRATE_VALIDATOR     => __('The customer approver must be a user of the ticket or of its entity who is allowed to answer approvals', 'points'),
             RuleViolation::FLATRATE_REASON        => __('A comment is required to refuse a flatrate', 'points'),
             RuleViolation::FLATRATE_NO_ESTIMATE_TYPE => sprintf(__('The estimate reads the price of the intervention type "%s", which does not exist: restore it in the intervention types', 'points'), Install::INTERVENTION_TYPES[1]),
             default                               => Billing::describe($e),
@@ -818,7 +818,10 @@ class Flatrate extends CommonDBTM
      * Approbateurs possibles : demandeurs et observateurs du ticket, et utilisateurs ayant un profil dans l'entité du ticket
      * elle-même (pas les parentes). Actifs, non supprimés, triés par nom, sans limite. Jamais l'auteur du forfait, celui
      * qui décide, ni un utilisateur dont un profil porte CREATE ou VALIDATE sur plugin_points_flatrate (il chiffre ou valide
-     * des forfaits : il ne peut pas non plus les approuver pour le client).
+     * des forfaits : il ne peut pas non plus les approuver pour le client). Seuls restent ceux qui peuvent répondre à une validation de
+     * ticket dans l'entité du ticket : droit natif `ticketvalidation` VALIDATEREQUEST ou VALIDATEINCIDENT, lu par la requête de la liste
+     * native des approbateurs (User::getSqlSearchResult, droits `validate_request` et `validate_incident` : src/CommonITILValidation.php:952,
+     * src/User.php:4285-4304 en 12.0.1) ; sans lui, l'approbateur ne pourrait pas répondre (CommonITILValidation::canUpdate).
      *
      * @param list<int> $excluded utilisateurs écartés (auteur du forfait, décideur)
      * @return array<int, string> id => nom
@@ -854,6 +857,13 @@ class Flatrate extends CommonDBTM
         }
         foreach ($excluded as $userId) {
             unset($ids[$userId]);
+        }
+        if ($ids !== []) {
+            $canAnswer = [];
+            foreach (\User::getSqlSearchResult(false, ['validate_request', 'validate_incident'], $entitiesId) as $row) {
+                $canAnswer[(int) $row['id']] = true;
+            }
+            $ids = array_intersect_key($ids, $canAnswer);
         }
         $names = [];
         if ($ids !== []) {
