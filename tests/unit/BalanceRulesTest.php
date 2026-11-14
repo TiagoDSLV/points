@@ -55,9 +55,10 @@ test('Soldes : commande plugins:points:balances en lecture seule, code non nul s
     assertTrue(str_contains($command, 'Command::FAILURE'), 'code non nul sur un écart');
     $ledger = (string) file_get_contents($root . '/src/Ledger.php');
     assertTrue(preg_match('/private static function balanceOf\(.*?BalanceRules::recompute\(.*?BalanceRules::gaps\(.*?\n    \}\n/s', $ledger) === 1, 'Ledger::balanceOf passe par BalanceRules');
-    foreach (['balances', 'balanceOf'] as $function) {
+    foreach (['balances', 'snapshot', 'balanceOf'] as $function) {
         preg_match('/static function ' . $function . '\(.*?\n    \}\n/s', $ledger, $m);
         assertSame(0, preg_match('/->(insert|update|delete)\(|self::transaction\(|writeCache/', $m[0] ?? 'x'), "Ledger::$function en lecture seule");
     }
-    assertTrue(preg_match('/static function balances\(.*?beginTransaction\(\).*?balanceOf\(.*?commit\(\)/s', $ledger) === 1, 'un instantané par contrat');
+    assertTrue(preg_match('/static function balances\(.*?self::snapshot\(.*?self::snapshot\(/s', $ledger) === 1, 'un instantané par contrat, relu une fois en cas d\'écart');
+    assertTrue(preg_match('/static function snapshot\(.*?beginTransaction\(\).*?balanceOf\(.*?rollBack\(\).*?commit\(\)/s', $ledger) === 1, 'retour arrière sur erreur');
 });

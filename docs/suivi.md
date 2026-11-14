@@ -18,8 +18,9 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
    commerciale) ; réponses aux questions ci-dessous ; nom définitif.
 2. Valeurs réelles des grilles Serenity et Elevate (familles, versions datées, coûts), à saisir par l'Admin.
 3. Fusion de tickets : traitée (branche `claude/fusion-soldes`) : une fusion qui laisserait des points derrière le ticket source (forfait
-   ni refusé ni annulé, tâche facturable non débitée et non copiée) est refusée ; le principal est reconnu par le suivi de fusion natif,
-   ou par le lien « fils de », fusion en chaîne comprise. Reste la décision du responsable (Questions ouvertes, 1 à 3).
+   ni refusé ni annulé, tâche facturable non débitée non copiée, ou copiée sur un principal qui ne la débiterait pas sur le même contrat,
+   copie déjà faite par une fusion précédente, tâches d'un source non facturable copiées sur un principal facturable) est refusée ; le
+   principal est reconnu par le suivi de fusion natif ou le lien « fils de » ; fusion en chaîne verrouillée (`conception.md`, règle 6). Reste la décision du responsable (Questions ouvertes, 1 à 4).
 4. Installation sur Assist en GLPI 12, le jour de la bascule (décision du responsable du 2026-11-13 : Points exigé à la bascule
    d'Assist, production en GLPI 12, aucune branche GLPI 11). Droits à écrire dans
    `deploy/config/profils-cibles-valeurs.sql` d'atheo-assist (valeurs proposées dans sa fiche 03, non appliquées).
@@ -42,7 +43,7 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 | Gardes redondantes non détectables au banc (onglet Entité : accès à l'entité ; commande d'import : plugin actif ; `Import::apply` sur erreur inattendue) : couvertes par des tests de lecture du code seulement | test | 2026-11-13 | tests |
 | Notifications et onglets testés au banc dans la langue par défaut (anglais) ; rendu français vérifié seulement par les fichiers de traduction | test | 2026-11-13 | traductions |
 | L'onglet Points du ticket exige `plugin_points_ticket` READ : un profil avec seulement `plugin_points_flatrate` ne voit pas la section Forfait (conforme à la matrice proposée, fragile) | limite | 2026-11-13 | écrans |
-| Fusion de tickets : une tâche non débitée est jugée « copiée » quand le principal d'une fusion de ce ticket (suivi de fusion natif) porte une tâche de `sourceitems_id` ce ticket et de mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-14 | tâches |
+| Fusion de tickets : une tâche non débitée est jugée « copiée » quand le principal d'une fusion de ce ticket (suivi de fusion natif ou lien « fils de ») porte une tâche de `sourceitems_id` ce ticket et de mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-14 | tâches |
 | Fusion refusée plus largement que le strict risque : un forfait déjà débité bloque aussi une fusion SANS les tâches ; une tâche de coût nul (ou sans grille) compte comme « à débiter » | limite | 2026-11-14 | fusion |
 | Fusion de plusieurs tickets à la fois (action de masse) : un refus annule toute la fusion, mais le cœur annonce réussis les tickets traités avant le refus ; non testé au banc | limite | 2026-11-14 | fusion |
 | `plugins:points:balances` : environ cinq lectures par contrat, rapport gardé en mémoire ; à surveiller si le nombre de contrats à points d'Assist dépasse quelques milliers | charge | 2026-11-14 | console |
@@ -67,6 +68,9 @@ Posées le 2026-11-14 (branche `claude/fusion-soldes`), chacune avec le comporte
    (clore le source d'abord, ce qui débite ses tâches, puis fusionner).
 3. Ticket mis à la corbeille hors fusion avec des points à décompter (tâches non débitées, forfait approuvé non débité) : faut-il refuser la
    mise à la corbeille, ou débiter ? Défaut : comportement inchangé (rien n'est débité tant qu'il n'est pas restauré et clos).
+4. Fusion, avec ses tâches, d'un ticket non facturable (ou sans contrat Points) dans un principal facturable : ses tâches doivent-elles être
+   débitées sur le contrat du principal (le travail devient celui du principal) ? Défaut : la fusion est refusée (fusionner sans les
+   tâches) ; débiter serait possible pour un même client, jamais pour un autre.
 
 Questions fermées 1 à 9 de `cahier-des-charges.md` (valeur par défaut déjà réglable pour chacune) : moment du débit,
 qui demande une compensation, grille par heure ou par quart d'heure et valeurs réelles, destinataires de l'alerte,

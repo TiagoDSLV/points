@@ -252,7 +252,9 @@ cibles = {
     "autre contrat": ticket("principal d'un autre contrat", C7b),
     "clos": ticket("principal clos", C7),
     "au forfait": ticket("principal au forfait", C7),
+    "contrat à choisir": ticket("principal à deux contrats", C7),
 }
+sql_ecrire(f"INSERT INTO glpi_tickets_contracts (tickets_id, contracts_id) VALUES ({cibles['contrat à choisir']}, {C7b});")
 clore(cibles["clos"])
 forfait(cibles["au forfait"], C7, 3)
 for nom, cible in cibles.items():
@@ -260,7 +262,11 @@ for nom, cible in cibles.items():
     tache(S7, 3600, "à débiter sur C7")
     code, messages = fusion(cible, S7)
     v(f"(7) principal {nom} : fusion refusée, source hors corbeille, rien copié", (code, corbeille(S7), nb_taches(cible)), (1, "0", 0))
-    v(f"(7) principal {nom} : refus expliqué", any("would not debit them on the same contract" in m for m in messages), True)
+    if nom == "clos":
+        v("(7) le principal clos l'est resté (le refus porte bien sur un principal clos)", une(f"SELECT status FROM glpi_tickets WHERE id = {cible}"), "6")
+    # principal à contrat à choisir : la copie de la tâche y est déjà refusée (ItilHooks::check), ce qui annule aussi la fusion
+    attendu = "Several Points contracts are linked to this ticket" if nom == "contrat à choisir" else "would not debit them on the same contract"
+    v(f"(7) principal {nom} : refus expliqué", any(attendu in m for m in messages), True)
 clore(S7)
 code, _ = fusion(cibles["non facturable"], S7)
 v("(7) témoin : source clos d'abord (tâche débitée sur C7), la fusion passe", (code, debits_taches(C7), debits_taches(C7b)), (0, [(S7, "-1.00")], []))
@@ -293,7 +299,39 @@ except ErreurApi:
     pass
 v("(9) mise à la corbeille ordinaire du ticket restauré : acceptée", corbeille(A9), "1")
 
-for c in (C1, C2, C3, C6, C7, C7b, C8, C9):
+# =====================================================================================================================
+# (10) source NON facturable (aucun contrat Points) fusionné avec ses tâches dans un principal facturable : les copies seraient débitées
+#      sur le contrat du principal (un autre client, peut-être). Refus ; témoin : sans les tâches, la fusion passe.
+# =====================================================================================================================
+C10 = avec_points("principal-facturable")
+S10 = creer(api, "Ticket", {"name": "source non facturable", "content": "x", "entities_id": entite})
+M10 = ticket("principal facturable", C10)
+tache(S10, 3600, "travail non facturable")
+code, messages = fusion(M10, S10)
+v("(10) fusion avec les tâches refusée : source hors corbeille, rien copié", (code, corbeille(S10), nb_taches(M10)), (1, "0", 0))
+v("(10) refus expliqué", any("is not billable on Points" in m for m in messages), True)
+v("(10) témoin : sans les tâches, la fusion passe", fusion(M10, S10, linktypes=[])[0], 0)
+clore(M10)
+v("(10) rien n'est débité sur le contrat du principal", debits_taches(C10), [])
+
+# =====================================================================================================================
+# (11) seconde fusion d'un source restauré : ses tâches, déjà recopiées sur un premier principal, le seraient sur un second (double débit).
+#      Refus ; témoin : la seconde fusion sans les tâches passe, et la tâche est débitée une fois (premier principal).
+# =====================================================================================================================
+C11 = avec_points("seconde-fusion")
+S11, T1, T2 = ticket("source fusionné deux fois", C11), ticket("premier principal", C11), ticket("second principal", C11)
+tache(S11, 3600, "copiée deux fois ?")
+v("(11) première fusion : passe", fusion(T1, S11)[0], 0)
+sql_ecrire(f"UPDATE glpi_tickets SET is_deleted = 0 WHERE id = {S11};")
+code, messages = fusion(T2, S11)
+v("(11) seconde fusion avec les tâches refusée : rien copié sur le second principal", (code, corbeille(S11), nb_taches(T2)), (1, "0", 0))
+v("(11) refus expliqué", any("already copied to another ticket" in m for m in messages), True)
+v("(11) témoin : seconde fusion sans les tâches, passe", fusion(T2, S11, linktypes=[])[0], 0)
+clore(T1)
+clore(T2)
+v("(11) la tâche est débitée une fois, sur le premier principal", debits_taches(C11), [(T1, "-1.00")])
+
+for c in (C1, C2, C3, C6, C7, C7b, C8, C9, C10, C11):
     v(f"invariants du contrat {c}", ok(led("check", c)), [])
 fautes = [l for nom in DEPART for l in lecture(nom).splitlines()[DEPART[nom]:] if re.search("points", l, re.I)]
 v("aucune erreur du plugin dans les journaux PHP et SQL", fautes, [])

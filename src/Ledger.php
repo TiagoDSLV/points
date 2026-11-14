@@ -651,16 +651,38 @@ final class Ledger
         $out = [];
         foreach ($ids as $contractsId) {
             // Instantané cohérent par contrat (transaction sans écriture : sous REPEATABLE READ, isolement par défaut d'InnoDB, toutes les
-            // lectures voient le même état) : un débit validé entre la lecture de la ligne et celle du journal ne donne pas un faux écart
-            $DB->beginTransaction();
-            try {
-                $out[] = self::balanceOf($contractsId, $names[$contractsId] ?? '');
-            } finally {
-                $DB->commit();
+            // lectures voient le même état) ; un contrat en écart est relu une fois : sous un isolement plus faible (READ COMMITTED), un débit
+            // validé entre deux lectures ne donne pas un faux écart, sauf à se reproduire exactement à la relecture
+            $line = self::snapshot($contractsId, $names[$contractsId] ?? '');
+            if ($line['gaps'] !== []) {
+                $line = self::snapshot($contractsId, $names[$contractsId] ?? '');
             }
+            $out[] = $line;
         }
 
         return $out;
+    }
+
+    /**
+     * balanceOf() dans une transaction sans écriture (instantané) ; retour arrière sur erreur, l'erreur d'origine remonte.
+     *
+     * @return array{contracts_id: int, name: string, recorded: ?array<string, int|string|null>, computed: array<string, int|string|null>,
+     *         gaps: list<array{field: string, recorded: int|string|null, computed: int|string|null}>}
+     */
+    private static function snapshot(int $contractsId, string $name): array
+    {
+        global $DB;
+
+        $DB->beginTransaction();
+        try {
+            $line = self::balanceOf($contractsId, $name);
+        } catch (\Throwable $e) {
+            $DB->rollBack();
+            throw $e;
+        }
+        $DB->commit();
+
+        return $line;
     }
 
     /**

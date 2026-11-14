@@ -968,5 +968,11 @@ msgstr "Ce ticket porte un forfait ni refusé ni annulé : il ne peut pas être 
 msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
 msgstr "Ce ticket a des tâches à débiter qui ne sont pas copiées sur le ticket principal : fusionnez-le avec ses tâches, ou clôturez-le avant la fusion"
 
-msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"
-msgstr "Ce ticket a des tâches à débiter que le ticket principal ne débiterait pas sur le même contrat (non facturable, au forfait, autre contrat ou clos) : clôturez ce ticket avant la fusion, ou fusionnez-le dans un ticket ouvert du même contrat"
+msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, contract to choose, other contract or closed): close this ticket before merging if it can be closed, or merge it into an open ticket of the same contract"
+msgstr "Ce ticket a des tâches à débiter que le ticket principal ne débiterait pas sur le même contrat (non facturable, au forfait, contrat à choisir, autre contrat ou clos) : clôturez ce ticket avant la fusion s'il peut l'être, ou fusionnez-le dans un ticket ouvert du même contrat"
+
+msgid "Tasks of this ticket were already copied to another ticket by a previous merge: merge it without its tasks"
+msgstr "Des tâches de ce ticket ont déjà été copiées sur un autre ticket par une fusion précédente : fusionnez-le sans ses tâches"
+
+msgid "This ticket is not billable on Points but its tasks would be debited by the main ticket: merge it without its tasks, or into a ticket that is not billable"
+msgstr "Ce ticket n'est pas facturable en points mais ses tâches seraient débitées par le ticket principal : fusionnez-le sans ses tâches, ou dans un ticket non facturable"

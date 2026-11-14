@@ -22,7 +22,7 @@ test('Billing : le journal n\'est écrit que par Ledger::debit, jamais depuis un
     assertTrue(str_contains($code, 'function isFlatrateTicket'), 'emplacement de l\'exclusion des forfaits (lot d)');
 });
 
-test('Hooks : les huit crochets du décompte sont enregistrés par setup.php', function (): void {
+test('Hooks : les crochets du décompte et de la fusion sont enregistrés par setup.php', function (): void {
     $code = file_get_contents(__DIR__ . '/../../setup.php');
     foreach ([
         'POST_PREPAREADD' => 'taskPostPrepareAdd', 'ITEM_ADD' => 'taskItemAdd', 'POST_PREPAREUPDATE' => 'taskPostPrepareUpdate',

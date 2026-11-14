@@ -411,7 +411,7 @@ final class Billing
     /**
      * Fusions EN COURS dans cette requête : ticket source => ticket principal, notées à l'ajout du suivi de fusion (noteMergeFollowup).
      *
-     * @var array<int, int>
+     * @var array<int, array{0: int, 1: int}> source => [principal, suivi de fusion]
      */
     private static array $merging = [];
 
@@ -425,14 +425,15 @@ final class Billing
         $source = (int) ($followup->fields['sourceitems_id'] ?? 0);
         $target = (int) ($followup->fields['items_id'] ?? 0);
         if (($followup->fields['itemtype'] ?? '') === \Ticket::class && $source > 0 && $target > 0 && $source !== $target) {
-            self::$merging[$source] = $target;
+            self::$merging[$source] = [$target, (int) $followup->getID()];
         }
     }
 
     /**
      * Tickets principaux d'une fusion dont ce ticket est le source : suivi de fusion (posé par Ticket::merge quel que soit le lien choisi :
      * aucun, lié, doublon, fils de, parent de, src/Ticket.php:2204-2210, 5835-5850 en 12.0.1) ou lien « fils de » (lien par défaut de la
-     * fusion, 5915-5926) : l'une des deux traces suffit.
+     * fusion, 5915-5926) : l'une des deux traces suffit. Avec le lien « parent de », le cœur enregistre le lien à l'envers
+     * (tickets_id_1 = principal : CommonITILObject_CommonITILObject::normalizeParentSonRelation) : le suivi reste la trace sûre.
      *
      * @return list<int>
      */
@@ -464,16 +465,17 @@ final class Billing
      * une tâche ajoutée au ticket restauré, sans copie, reste débitable.
      *
      * @param list<array<string, mixed>> $tasks tâches du ticket (champs id, actiontime, begin, end, date, content, users_id_tech)
+     * @param list<int>|null $targets principaux à regarder (null : tous, mergeTargets)
      * @return list<int> identifiants des tâches à ne pas débiter
      */
-    public static function mergedElsewhere(int $ticketsId, array $tasks): array
+    public static function mergedElsewhere(int $ticketsId, array $tasks, ?array $targets = null): array
     {
         global $DB;
 
         if ($tasks === []) {
             return [];
         }
-        $targets = self::mergeTargets($ticketsId);
+        $targets ??= self::mergeTargets($ticketsId);
         if ($targets === []) {
             return [];
         }
@@ -492,39 +494,55 @@ final class Billing
     /**
      * Refus de la mise à la corbeille du ticket source d'une fusion EN COURS (crochet PRE_ITEM_DELETE : Ticket::merge met le source à la
      * corbeille en dernier, src/Ticket.php:6023 en 12.0.1 ; un refus annule toute la fusion, transaction 6045-6055). Null si la fusion peut
-     * aller au bout ; hors fusion en cours (noteMergeFollowup), rien n'est refusé. Refus quand des points resteraient à décompter derrière
-     * le source, ou seraient décomptés ailleurs :
+     * aller au bout ; hors fusion en cours (noteMergeFollowup, suivi encore en base), rien n'est refusé. Refus quand des points resteraient à
+     * décompter derrière le source, ou seraient décomptés deux fois ou ailleurs :
      * - forfait ni refusé ni annulé : à la corbeille, un forfait approuvé ne serait jamais débité, et les tâches qu'il couvre, recopiées sur
      *   le principal, y seraient débitées (débité : en plus du forfait) ;
-     * - tâche facturable non débitée et non recopiée sur le principal (fusion sans « Fusionner les tâches ») : jamais débitée ;
-     * - tâche facturable non débitée recopiée sur un principal qui ne la débiterait pas sur le même contrat (non facturable, au forfait,
-     *   contrat à choisir ou autre contrat, déjà clos) : perdue, ou débitée chez un autre client.
+     * - tâche non débitée déjà recopiée sur le principal d'une fusion PRÉCÉDENTE (source restauré puis fusionné de nouveau) et recopiée
+     *   encore : débitée deux fois ;
+     * - source qui ne décompte pas (non facturable, sans contrat Points) dont des tâches sont recopiées sur un principal qui décompte : elles y
+     *   seraient débitées, sur le contrat du principal ;
+     * - source facturable : tâche non débitée et non recopiée (fusion sans « Fusionner les tâches ») : jamais débitée ; tâche recopiée sur un
+     *   principal qui ne la débiterait pas sur le même contrat (non facturable, au forfait, contrat à choisir ou autre contrat, déjà clos).
      */
     public static function mergeProblem(int $ticketsId): ?string
     {
         global $DB;
 
-        $target = self::$merging[$ticketsId] ?? 0;
-        if ($target < 1) {
+        [$target, $followupId] = self::$merging[$ticketsId] ?? [0, 0];
+        unset(self::$merging[$ticketsId]);
+        // Suivi annulé depuis (fusion précédente en échec, retour arrière de sa transaction) : pas de fusion en cours
+        if ($target < 1 || count($DB->request(['SELECT' => ['id'], 'FROM' => \ITILFollowup::getTable(), 'WHERE' => ['id' => $followupId], 'LIMIT' => 1])) === 0) {
             return null;
         }
         if (Flatrate::countsForTicket($ticketsId)) {
             return __('This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket (cancel the flatrate first if it is not approved yet)', 'points');
         }
-        $ctx = self::context($ticketsId);
+        $tasks    = self::pendingTasks($ticketsId, false);
+        $onTarget = self::mergedElsewhere($ticketsId, $tasks, [$target]);
+        $before   = array_values(array_diff(self::mergeTargets($ticketsId), [$target]));
+        $onBefore = $before === [] ? [] : self::mergedElsewhere($ticketsId, $tasks, $before);
+        if (array_intersect($onTarget, $onBefore) !== []) {
+            return __('Tasks of this ticket were already copied to another ticket by a previous merge: merge it without its tasks', 'points');
+        }
+        $ctx  = self::context($ticketsId);
+        $main = self::context($target);
         if (!self::counts($ctx)) {
+            if ($onTarget !== [] && self::counts($main)) {
+                return __('This ticket is not billable on Points but its tasks would be debited by the main ticket: merge it without its tasks, or into a ticket that is not billable', 'points');
+            }
+
             return null;
         }
-        if (self::pendingTasks($ticketsId) !== []) {
+        if (array_diff(array_column($tasks, 'id'), $onTarget, $onBefore) !== []) {
             return __('This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging', 'points');
         }
-        if (self::pendingTasks($ticketsId, false) === []) {
+        if ($onTarget === []) {
             return null;
         }
-        $main   = self::context($target);
         $status = (int) ($DB->request(['SELECT' => ['status'], 'FROM' => 'glpi_tickets', 'WHERE' => ['id' => $target], 'LIMIT' => 1])->current()['status'] ?? 0);
         if (!self::counts($main) || $main['contracts_id'] < 1 || $main['contracts_id'] !== $ctx['contracts_id'] || in_array($status, \Ticket::getClosedStatusArray(), true)) {
-            return __('This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract', 'points');
+            return __('This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, contract to choose, other contract or closed): close this ticket before merging if it can be closed, or merge it into an open ticket of the same contract', 'points');
         }
 
         return null;

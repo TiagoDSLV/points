@@ -968,5 +968,11 @@ msgstr "This ticket has a flatrate that is neither refused nor cancelled: it can
 msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
 msgstr "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
 
-msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"
-msgstr "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"
+msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, contract to choose, other contract or closed): close this ticket before merging if it can be closed, or merge it into an open ticket of the same contract"
+msgstr "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, contract to choose, other contract or closed): close this ticket before merging if it can be closed, or merge it into an open ticket of the same contract"
+
+msgid "Tasks of this ticket were already copied to another ticket by a previous merge: merge it without its tasks"
+msgstr "Tasks of this ticket were already copied to another ticket by a previous merge: merge it without its tasks"
+
+msgid "This ticket is not billable on Points but its tasks would be debited by the main ticket: merge it without its tasks, or into a ticket that is not billable"
+msgstr "This ticket is not billable on Points but its tasks would be debited by the main ticket: merge it without its tasks, or into a ticket that is not billable"
