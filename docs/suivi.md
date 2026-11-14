@@ -13,7 +13,7 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
   `plugins:points:balances` (contrôle des soldes, lecture seule). Deux relectures Opus (constats corrigés, rouges avant), suite complète
   verte au banc GLPI 12.0.1 puis 12.0.2 (`scripts/check.sh --banc`, 2026-11-14). `/ponytail-review` fait par la session d'audit le 2026-11-14
   (« corriger 1 d'abord ») : refusion dans le même principal (double débit) prouvée puis corrigée ; codes de sortie de `balances`
-  distingués (1 écart, 2 usage). Décisions 1 à 4 consignées le 2026-11-14 ; banc passé en GLPI 12.0.2 le 2026-11-14. Reste au responsable : décision de fusion de la PR.
+  distingués (1 écart, 2 usage). Décisions 1 à 4 consignées le 2026-11-14 ; banc passé en GLPI 12.0.2 le 2026-11-14 (seul écart : un refus d'onglet ou d'historique y rend une page « Access denied » complète, code 403, au lieu d'une réponse vide ; deux vérifications de `scenario_cloisonnement.py` lisent désormais le code 403, la fuite reste testée par la donnée témoin). Reste au responsable : décision de fusion de la PR.
 
 ## À faire
 

@@ -545,8 +545,10 @@ v("(3) Responsable client (interface standard) : voit l'onglet Points de son con
   ('id="points-balance"' in onglet_contrat(web("rcA"), CT["A"])[1], 'id="points-balance"' in onglet_contrat(web("rcA"), CT["B"])[1]), (True, False))
 v("(3) Responsable client (interface simplifiée) : la fiche contrat native est refusée (403), même pour son propre contrat ; témoin : l'interface standard l'ouvre",
   (web("rcsA").get(f"/front/contract.form.php?id={CT['A']}")[0], web("rcsA").get(f"/front/contract.form.php?id={CT['B']}")[0], web("rcA").get(f"/front/contract.form.php?id={CT['A']}")[0]), (403, 403, 200))
-v("(3) Responsable client (interface simplifiée) : l'onglet Points n'est pas servi non plus par l'URL d'onglet",
-  onglet_contrat(web("rcsA"), CT["A"])[1], "")
+# Refus : réponse vide en 12.0.1, page « Access denied » complète (code 403) en 12.0.2 ; dans les deux cas, rien de l'onglet
+_code, _page = onglet_contrat(web("rcsA"), CT["A"])
+v("(3) Responsable client (interface simplifiée) : l'onglet Points n'est pas servi non plus par l'URL d'onglet (vide ou 403, sans le solde)",
+  (_page == "" or _code == 403, "points-balance" in _page), (True, False))
 
 # onglet Points du ticket (droit plugin_points_ticket READ + lecture du ticket)
 LIT_TICKET = {"tech", "bu", "adv", "adm"}
@@ -779,7 +781,9 @@ for r in sorted(LISENT):
             ecarts[(r, nom)] = (ok_v, [x.get("id") for x in lignes_v][:6], SECRET in texte_v)
     # historique natif du contrat (Historique) : rien du plugin ni de interne
     code_h, hist = web(r).get("/ajax/common.tabs.php?_target=/front/contract.form.php&_itemtype=Contract&_glpi_tab=Log%241&id=" + str(CT["A"]))
-    if SECRET in hist or "GlpiPlugin" in hist:
+    # Un refus (403, GLPI 12.0.2) rend une page complète dont la configuration JavaScript liste les classes de notification déclarées
+    # (dont celles du plugin) : sans donnée ; un écart est le témoin interne, ou une trace du plugin dans un historique SERVI (200)
+    if SECRET in hist or (code_h == 200 and "GlpiPlugin" in hist):
         ecarts[(r, "historique natif")] = code_h
     code, csv = export(r, "Operation", (2, 6, 8, 4))
     if code != 200 or (SECRET in csv) == (not interne):
