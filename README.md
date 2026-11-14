@@ -14,6 +14,8 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 - g : alerte de seuil (action `pointsalert`, notification `threshold`), liste « Contrats à points » (Outils > Points), options de recherche sur
   Contract et Entity, onglet « Points » de l'entité.
 - h : import des soldes du BPM Kiwi par la console (voir « Importer les soldes »).
+- Fusion de tickets sans double décompte ni point perdu (`docs/conception.md`, règle 6) ; contrôle des soldes par la console
+  (voir « Contrôler le journal et les soldes »).
 
 ## Documentation
 
@@ -26,7 +28,7 @@ seul, forfaits, contrôles et compensations. Cible : GLPI 12.0.x (12.0.0 à 12.0
 scripts/check.sh            # php -l, tests unitaires, .mo à jour ; le banc est SAUTÉ (pas vert)
 scripts/check.sh --banc     # idem + banc GLPI 12 jetable sous Docker (images figées par digest)
 php tests/unit/run.php      # tests unitaires seuls, sans GLPI
-tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, final, forfaits, import, journal, socle, taches, zdesinstallation) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
+tests/banc/run.sh [scenario_alerte …]   # banc seul (scénarios : alerte, cloisonnement, controles, final, forfaits, fusion, import, journal, socle, soldes, taches, zdesinstallation) ; BANC_GARDER=1 garde les conteneurs, BANC_PORT=8097 par défaut
 ```
 
 Le banc crée les conteneurs `points-banc-app` et `points-banc-db` (réseau `points-banc`), installe le plugin par la
@@ -42,11 +44,23 @@ php bin/console plugins:points:import fichier.csv --apply   # écrit une envelop
 Une ligne de même contrat, solde et dates qu'une enveloppe déjà importée, sous un autre libellé, est une erreur de plan (le libellé a sans doute
 été corrigé) : `--accept-similar` la laisse passer.
 
-## Contrôler le journal
+## Contrôler le journal et les soldes
+
+Sur le serveur GLPI, depuis le dossier de GLPI (celui qui contient `bin/console`), avec l'utilisateur du serveur web :
 
 ```bash
-php bin/console plugins:points:check   # lecture seule : invariants du journal de tous les contrats, code de sortie non nul au moindre écart
+php bin/console plugins:points:check      # lecture seule : invariants du journal de tous les contrats, code de sortie non nul au moindre écart
+php bin/console plugins:points:balances   # lecture seule : solde enregistré de chaque contrat contre le recalcul depuis les mouvements
+php bin/console plugins:points:balances --all             # liste aussi les contrats justes (OK) avec solde, crédité, consommé
+php bin/console plugins:points:balances --contract=123    # un seul contrat (identifiant du contrat natif)
 ```
+
+`plugins:points:balances` compare le solde, le crédité, le consommé, le % consommé et la prochaine échéance enregistrés sur la ligne Points
+de chaque contrat à ce que donnent ses mouvements (journal des opérations, restes des lots). Une ligne `GAP contract N (nom)` par contrat
+faux, suivie d'une ligne par écart (`balance: recorded …, recomputed …` ; `lots: journal …, sum of the lot remainders …`), puis le bilan
+`N contract(s) checked, M with a gap` ; code de sortie 1 s'il y a un écart, 0 sinon. Rien n'est écrit. Usage : recette (avant et après
+l'import des soldes du BPM Kiwi), puis après la bascule (à côté de `plugins:points:check`). Un écart ne se corrige pas par cette commande :
+le signaler (le cache se recalcule à la prochaine écriture du contrat ; le journal, lui, ne se modifie jamais).
 
 CSV UTF-8, séparateur `;`, en-tête `contrat;solde;debut;fin;report;libelle` (exemple fictif : `tests/banc/import-exemple.csv`). Tout le
 fichier est contrôlé avant la première écriture ; une ligne invalide donne un code de sortie non nul et rien n'est écrit. Rejouable : une

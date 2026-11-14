@@ -7,24 +7,31 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 
 - Plugin réécrit de zéro pour GLPI 12 (branche `claude/busy-gates-snaod5`, PR en brouillon, jamais fusionnée sans
   décision du responsable) : lots a à h livrés, chacun relu indépendamment, puis lot final (corrections de la relecture et de la revue ponytail globales), vert au banc
-  GLPI 12.0.1 (`scripts/check.sh --banc`).
+  GLPI 12.0.1 (`scripts/check.sh --banc`). Fusionnée dans main (PR #1).
+- Branche `claude/fusion-soldes` (PR en brouillon, 2026-11-14) : fusion de tickets (écarts prouvés au banc puis corrigés par crochet),
+  deux constats corrigés (approbateur client sans droit natif de validation, méta-critère à la désinstallation), commande
+  `plugins:points:balances` (contrôle des soldes, lecture seule).
 
 ## À faire
 
 1. Présentation du cahier des charges à Céline Lefebvre (validation administrative) et Simon Delus (validation
    commerciale) ; réponses aux questions ci-dessous ; nom définitif.
 2. Valeurs réelles des grilles Serenity et Elevate (familles, versions datées, coûts), à saisir par l'Admin.
-3. Fusion de tickets : les forfaits du ticket source ne suivent pas le ticket principal (les tâches, elles, sont
-   traitées : copie d'une tâche débitée verrouillée sans nouveau débit). À concevoir.
-4. Installation sur Assist seulement après sa montée en GLPI 12 (atheo-assist, suivi point 43) ; sinon branche
-   11.0.x (environ 2 jours, `conception.md`, « Compatibilité GLPI 11.0.x »). Droits à écrire dans
+3. Fusion de tickets : traitée (branche `claude/fusion-soldes`) : une fusion qui laisserait des points derrière le ticket source (forfait
+   ni refusé ni annulé, tâche facturable non débitée et non copiée) est refusée ; le principal est reconnu par le suivi de fusion natif,
+   quel que soit le lien. Reste la décision du responsable (Questions ouvertes, 1 à 3).
+4. Installation sur Assist en GLPI 12, le jour de la bascule (décision du responsable du 2026-11-13 : Points exigé à la bascule
+   d'Assist, production en GLPI 12, aucune branche GLPI 11). Droits à écrire dans
    `deploy/config/profils-cibles-valeurs.sql` d'atheo-assist (valeurs proposées dans sa fiche 03, non appliquées).
 5. Relecture d'ensemble et `/ponytail-review` global : faits le 2026-11-13 ; le lot final de corrections a été
    relu par deux relecteurs (fond et refactor), dont les constats sont corrigés et vérifiés au banc par des tests qui
    échouent sans la correction (cette dernière série n'a pas été relue une nouvelle fois). Reste au responsable : passer la PR en prête à relire et décider de
    la fusion.
-6. Brancher `plugins:points:check` (lecture seule, code de sortie non nul au moindre écart) sur la supervision d'Assist, à côté de l'action
-   automatique d'expiration.
+6. Brancher `plugins:points:check` et `plugins:points:balances` (lecture seule, code de sortie non nul au moindre écart) sur la supervision
+   d'Assist, à côté de l'action automatique d'expiration ; les lancer à la recette (avant et après l'import du BPM Kiwi) : sur le serveur GLPI,
+   dans le dossier de GLPI, avec l'utilisateur du serveur web (`README.md`, « Contrôler le journal et les soldes »).
+7. Banc : un passage complet après chaque changement (`scripts/check.sh --banc`) ; les scénarios d'une passe partielle dépendent de l'ordre
+   (`scenario_taches.py` compte les grilles et attend la réinstallation de `scenario_socle.py`).
 
 ## Constats ouverts
 
@@ -35,17 +42,28 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 | Gardes redondantes non détectables au banc (onglet Entité : accès à l'entité ; commande d'import : plugin actif ; `Import::apply` sur erreur inattendue) : couvertes par des tests de lecture du code seulement | test | 2026-11-13 | tests |
 | Notifications et onglets testés au banc dans la langue par défaut (anglais) ; rendu français vérifié seulement par les fichiers de traduction | test | 2026-11-13 | traductions |
 | L'onglet Points du ticket exige `plugin_points_ticket` READ : un profil avec seulement `plugin_points_flatrate` ne voit pas la section Forfait (conforme à la matrice proposée, fragile) | limite | 2026-11-13 | écrans |
-| À la proposition d'un forfait, le droit natif de validation du valideur client n'est pas vérifié : sans ce droit, il ne peut pas répondre | limite | 2026-11-13 | forfaits |
-| Fusion de tickets : une tâche non débitée est jugée « copiée » quand une tâche d'un autre ticket a pour `sourceitems_id` ce ticket et mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-13 | tâches |
+| Fusion de tickets : une tâche non débitée est jugée « copiée » quand le principal d'une fusion de ce ticket (suivi de fusion natif) porte une tâche de `sourceitems_id` ce ticket et de mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-14 | tâches |
+| Fusion dans un ticket principal au forfait : les tâches non débitées recopiées du source sont couvertes par ce forfait (pas débitées) ; voulu si les tickets portent le même incident, à confirmer (Questions ouvertes, 2) | conception à confirmer | 2026-11-14 | fusion |
+| Mise à la corbeille HORS fusion d'un ticket qui a des tâches non débitées ou un forfait approuvé non débité : rien n'est débité tant qu'il n'est pas restauré et clos (comportement inchangé ; Questions ouvertes, 3) | limite | 2026-11-14 | fusion |
+| Tâche ajoutée à un ticket source en corbeille : GLPI la recopie sur le principal (`CommonITILTask::addToMergedTickets`) ; si le principal la refuse (aucun point valide à sa date), la copie n'est pas faite et la tâche reste sur le source, non débitée | limite | 2026-11-14 | fusion |
 | La date du jour (`Billing::today()`, fuseau de référence) est vérifiée en unitaire (`Dates::todayIn`) et par lecture du code, pas au banc : le changement de jour entre deux fuseaux ne se rejoue pas | test | 2026-11-13 | tests |
 | Un dépassement écrit avant le lot final (détails `overdraft` sans `overdraft_lot`) serait signalé par `plugins:points:check` ; aucun contrat réel n'est concerné (le plugin n'est pas installé sur Assist), pas de reprise écrite | limite | 2026-11-13 | journal |
-| Désinstallation : une recherche enregistrée dont seul un méta-critère (critère sur un type lié) porte une option du plugin n'est pas reconnue et reste ; les recherches et colonnes du cœur ne sont pas touchées | limite | 2026-11-13 | désinstallation |
 | Un type d'intervention qui a été le défaut d'un ticket (ligne Points figée à la création) n'est plus supprimable | limite | 2026-11-13 | tickets |
 | `tests/unit/FinalTest.php` : en partie des tests de structure (lecture du code), le comportement est au banc (`scenario_final.py`, `scenario_zdesinstallation.py`) | test | 2026-11-13 | tests |
 | Une ligne Points est écrite pour tout ticket à sa création (type d'intervention figé) : un enregistrement par ticket, à surveiller si le volume de tickets d'Assist le justifie | charge | 2026-11-13 | tickets |
 | Un remboursement dont le lot est échu crée un lot de plus par opération (`compensation_on_expired` = `valid_lot`) ; ces lots se reportent ou expirent comme les autres | limite | 2026-11-13 | journal |
 
 ## Questions ouvertes
+
+Posées le 2026-11-14 (branche `claude/fusion-soldes`), chacune avec le comportement par défaut déjà en place :
+
+1. Fusion d'un ticket au forfait (ni refusé ni annulé) dans un autre : le forfait doit-il suivre le ticket principal ? Défaut : la fusion
+   est refusée (annuler le forfait s'il n'est pas approuvé, ou fusionner l'autre ticket dans celui-ci). Faire suivre le forfait demande de
+   déplacer aussi sa validation native et de trancher le cas d'un principal qui a déjà un forfait ou des tâches débitées.
+2. Fusion d'un ticket à tâches non débitées dans un principal au forfait : ces tâches sont-elles couvertes par le forfait du principal ?
+   Défaut : oui (elles ne sont pas débitées), comme toute tâche du principal.
+3. Ticket mis à la corbeille hors fusion avec des points à décompter (tâches non débitées, forfait approuvé non débité) : faut-il refuser la
+   mise à la corbeille, ou débiter ? Défaut : comportement inchangé (rien n'est débité tant qu'il n'est pas restauré et clos).
 
 Questions fermées 1 à 9 de `cahier-des-charges.md` (valeur par défaut déjà réglable pour chacune) : moment du débit,
 qui demande une compensation, grille par heure ou par quart d'heure et valeurs réelles, destinataires de l'alerte,
@@ -54,4 +72,5 @@ filiale.
 
 ## Bloquants
 
-- Assist en GLPI 11.0.11 : le plugin borne `12.0.0`–`12.0.99` (À faire, point 4).
+Aucun. (Assist en GLPI 11.0.11 aujourd'hui, le plugin borne `12.0.0`–`12.0.99` : résolu par la décision du 2026-11-13, installation en
+GLPI 12 le jour de la bascule, À faire, point 4.)
