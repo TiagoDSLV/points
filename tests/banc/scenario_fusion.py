@@ -68,9 +68,14 @@ CLES = ("contracttypes", "debit_moment", "allow_overdraft", "calendars_id", "def
 ancien = {c: une(f"SELECT value FROM glpi_configs WHERE context = 'plugin:points' AND name = '{c}'") for c in CLES}
 
 
+FORFAITS = []  # forfaits du scénario : leur historique natif (glpi_logs) est retiré à la sortie (scenario_socle compte ceux du plugin)
+
+
 def remettre():
     for cle, valeur in ancien.items():
         config(cle, valeur)
+    if FORFAITS:
+        sql_ecrire(f"DELETE FROM glpi_logs WHERE itemtype = 'GlpiPlugin\\\\Points\\\\Flatrate' AND items_id IN ({','.join(map(str, FORFAITS))});")
 
 
 atexit.register(remettre)
@@ -135,7 +140,8 @@ def forfait(tk, c, montant, statut="approved"):
     """Forfait posé directement à l'état voulu (le cycle complet est testé par scenario_forfaits.py)."""
     sql_ecrire(f"INSERT INTO {T}flatrates (entities_id, is_recursive, tickets_id, contracts_id, amount, description, status, approved_amount, date_creation, date_mod) "
                f"VALUES ({entite}, 0, {tk}, {c}, {montant}, 'fusion', '{statut}', {montant if statut == 'approved' else 0}, NOW(), NOW());")
-    return int(une(f"SELECT MAX(id) FROM {T}flatrates WHERE tickets_id = {tk}"))
+    FORFAITS.append(int(une(f"SELECT MAX(id) FROM {T}flatrates WHERE tickets_id = {tk}")))
+    return FORFAITS[-1]
 
 
 def corbeille(tk):
