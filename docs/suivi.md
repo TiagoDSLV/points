@@ -10,7 +10,9 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
   GLPI 12.0.1 (`scripts/check.sh --banc`). Fusionnée dans main (PR #1).
 - Branche `claude/fusion-soldes` (PR en brouillon, 2026-11-14) : fusion de tickets (écarts prouvés au banc puis corrigés par crochet),
   deux constats corrigés (approbateur client sans droit natif de validation, méta-critère à la désinstallation), commande
-  `plugins:points:balances` (contrôle des soldes, lecture seule).
+  `plugins:points:balances` (contrôle des soldes, lecture seule). Deux relectures Opus (constats corrigés, rouges avant), suite complète
+  verte au banc GLPI 12.0.1 (`scripts/check.sh --banc`, 2026-11-14). `/ponytail-review` non lancé (skill indisponible dans la session).
+  Reste au responsable : `/ponytail-review`, réponses aux Questions ouvertes 1 à 4, décision de fusion de la PR.
 
 ## À faire
 
