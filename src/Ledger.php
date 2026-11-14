@@ -650,27 +650,48 @@ final class Ledger
         }
         $out = [];
         foreach ($ids as $contractsId) {
-            $row = $DB->request([
-                'SELECT' => ['balance', 'credited', 'consumed', 'consumed_pct', 'next_expiry'], 'FROM' => self::CONTRACTS, 'WHERE' => ['contracts_id' => $contractsId], 'LIMIT' => 1,
-            ])->current();
-            $recorded = $row === null ? null : [
-                'balance'      => Money::parse((string) $row['balance']),
-                'credited'     => Money::parse((string) $row['credited']),
-                'consumed'     => Money::parse((string) $row['consumed']),
-                'consumed_pct' => Money::parse((string) $row['consumed_pct']),
-                'next_expiry'  => $row['next_expiry'] === null || (string) $row['next_expiry'] === '' ? null : (string) $row['next_expiry'],
-            ];
-            $computed = BalanceRules::recompute(self::totalsByType($contractsId), self::loadLots($contractsId));
-            $out[] = [
-                'contracts_id' => $contractsId,
-                'name'         => $names[$contractsId] ?? '',
-                'recorded'     => $recorded,
-                'computed'     => $computed,
-                'gaps'         => BalanceRules::gaps($recorded, $computed),
-            ];
+            // Instantané cohérent par contrat (transaction sans écriture : sous REPEATABLE READ, isolement par défaut d'InnoDB, toutes les
+            // lectures voient le même état) : un débit validé entre la lecture de la ligne et celle du journal ne donne pas un faux écart
+            $DB->beginTransaction();
+            try {
+                $out[] = self::balanceOf($contractsId, $names[$contractsId] ?? '');
+            } finally {
+                $DB->commit();
+            }
         }
 
         return $out;
+    }
+
+    /**
+     * Une ligne du rapport de balances() (lectures seulement).
+     *
+     * @return array{contracts_id: int, name: string, recorded: ?array<string, int|string|null>, computed: array<string, int|string|null>,
+     *         gaps: list<array{field: string, recorded: int|string|null, computed: int|string|null}>}
+     */
+    private static function balanceOf(int $contractsId, string $name): array
+    {
+        global $DB;
+
+        $row = $DB->request([
+            'SELECT' => ['balance', 'credited', 'consumed', 'consumed_pct', 'next_expiry'], 'FROM' => self::CONTRACTS, 'WHERE' => ['contracts_id' => $contractsId], 'LIMIT' => 1,
+        ])->current();
+        $recorded = $row === null ? null : [
+            'balance'      => Money::parse((string) $row['balance']),
+            'credited'     => Money::parse((string) $row['credited']),
+            'consumed'     => Money::parse((string) $row['consumed']),
+            'consumed_pct' => Money::parse((string) $row['consumed_pct']),
+            'next_expiry'  => $row['next_expiry'] === null || (string) $row['next_expiry'] === '' ? null : (string) $row['next_expiry'],
+        ];
+        $computed = BalanceRules::recompute(self::totalsByType($contractsId), self::loadLots($contractsId));
+
+        return [
+            'contracts_id' => $contractsId,
+            'name'         => $name,
+            'recorded'     => $recorded,
+            'computed'     => $computed,
+            'gaps'         => BalanceRules::gaps($recorded, $computed),
+        ];
     }
 
     /**

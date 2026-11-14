@@ -962,8 +962,11 @@ msgstr "L'enveloppe d'origine est terminée et aucune enveloppe n'est valide auj
 msgid "Debited on the main ticket"
 msgstr "Débitée sur le ticket principal"
 
-msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
-msgstr "Ce ticket porte un forfait ni refusé ni annulé : il ne peut pas être fusionné dans un autre ticket. Annulez le forfait s'il n'est pas encore approuvé, ou fusionnez l'autre ticket dans celui-ci"
+msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket (cancel the flatrate first if it is not approved yet)"
+msgstr "Ce ticket porte un forfait ni refusé ni annulé : il ne peut pas être fusionné dans un autre ticket (annulez d'abord le forfait s'il n'est pas encore approuvé)"
 
 msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
 msgstr "Ce ticket a des tâches à débiter qui ne sont pas copiées sur le ticket principal : fusionnez-le avec ses tâches, ou clôturez-le avant la fusion"
+
+msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"
+msgstr "Ce ticket a des tâches à débiter que le ticket principal ne débiterait pas sur le même contrat (non facturable, au forfait, autre contrat ou clos) : clôturez ce ticket avant la fusion, ou fusionnez-le dans un ticket ouvert du même contrat"

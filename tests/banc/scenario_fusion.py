@@ -176,7 +176,7 @@ f1 = int(une(f"SELECT id FROM {T}flatrates WHERE tickets_id = {S1}"))
 v("(1) témoin : forfait débité (5 points)", (ok(glpi("flatrate_debit", f1)) is not None, une(f"SELECT status FROM {T}flatrates WHERE id = {f1}"), solde(C1)), (True, "debited", "35.00"))
 code, messages = fusion(M1, S1)
 v("(1) fusion refusée : le source reste hors corbeille, aucune tâche copiée", (code, corbeille(S1), nb_taches(M1)), (1, "0", 0))
-v("(1) le refus est expliqué (forfait du ticket source)", any("flatrate" in m for m in messages), True)
+v("(1) le refus est expliqué (forfait du ticket source)", any("has a flatrate that is neither refused nor cancelled" in m for m in messages), True)
 clore(M1)
 v("(1) aucun double décompte : le contrat ne porte que le forfait (aucun débit de tâche), solde 35", (debits_taches(C1), solde(C1)), ([], "35.00"))
 
@@ -204,7 +204,7 @@ S3, M3 = ticket("fusion source sans copie des tâches", C3), ticket("fusion prin
 tache(S3, 3600, "à débiter")
 code, messages = fusion(M3, S3, linktypes=[])
 v("(3) fusion sans les tâches refusée : le source garde sa tâche à débiter", (code, corbeille(S3)), (1, "0"))
-v("(3) le refus est expliqué (tâches à débiter)", any("task" in m for m in messages), True)
+v("(3) le refus est expliqué (tâches à débiter)", any("has tasks to debit that are not copied to the main ticket" in m for m in messages), True)
 code, _ = fusion(M3, S3)
 v("(3) témoin : la même fusion AVEC les tâches passe", (code, corbeille(S3), nb_taches(M3)), (0, "1", 1))
 clore(M3)
@@ -242,7 +242,58 @@ except ErreurApi:
     pass
 v("(6) témoin : mise à la corbeille hors fusion inchangée", corbeille(S6), "1")
 
-for c in (C1, C2, C3, C6):
+# =====================================================================================================================
+# (7) le principal ne débiterait pas les copies sur le même contrat : non facturable, autre contrat, clos, au forfait. Refus (points perdus
+#     ou débités chez un autre client sinon) ; témoin : le source clos d'abord débite ses tâches, puis fusionne librement.
+# =====================================================================================================================
+C7, C7b = avec_points("principal-ko"), avec_points("autre-contrat")
+cibles = {
+    "non facturable": creer(api, "Ticket", {"name": "principal sans contrat", "content": "x", "entities_id": entite}),
+    "autre contrat": ticket("principal d'un autre contrat", C7b),
+    "clos": ticket("principal clos", C7),
+    "au forfait": ticket("principal au forfait", C7),
+}
+clore(cibles["clos"])
+forfait(cibles["au forfait"], C7, 3)
+for nom, cible in cibles.items():
+    S7 = ticket(f"source vers principal {nom}", C7)
+    tache(S7, 3600, "à débiter sur C7")
+    code, messages = fusion(cible, S7)
+    v(f"(7) principal {nom} : fusion refusée, source hors corbeille, rien copié", (code, corbeille(S7), nb_taches(cible)), (1, "0", 0))
+    v(f"(7) principal {nom} : refus expliqué", any("would not debit them on the same contract" in m for m in messages), True)
+clore(S7)
+code, _ = fusion(cibles["non facturable"], S7)
+v("(7) témoin : source clos d'abord (tâche débitée sur C7), la fusion passe", (code, debits_taches(C7), debits_taches(C7b)), (0, [(S7, "-1.00")], []))
+
+# =====================================================================================================================
+# (8) fusion en chaîne A → B → C d'une tâche débitée : la copie de la copie reste verrouillée, aucun second débit
+# =====================================================================================================================
+C8 = avec_points("chaine")
+A8, B8, D8 = ticket("chaîne A", C8), ticket("chaîne B", C8), ticket("chaîne C", C8)
+tache(A8, 3600, "débitée sur A")
+clore(A8)
+v("(8) témoin : tâche débitée sur A", debits_taches(C8), [(A8, "-1.00")])
+v("(8) A → B : passe", fusion(B8, A8)[0], 0)
+v("(8) B → C : passe", fusion(D8, B8)[0], 0)
+clore(D8)
+v("(8) C clos : la copie de la copie n'est pas débitée une seconde fois", (debits_taches(C8), solde(C8)), ([(A8, "-1.00")], "39.00"))
+v("(8) invariants", ok(led("check", C8)), [])
+
+# =====================================================================================================================
+# (9) source fusionné puis restauré, mis à la corbeille hors fusion : comme tout ticket (aucun refus)
+# =====================================================================================================================
+C9 = avec_points("restaure")
+A9, B9 = ticket("restauré source", C9), ticket("restauré principal", C9)
+v("(9) fusion sans tâche : passe", fusion(B9, A9)[0], 0)
+sql_ecrire(f"UPDATE glpi_tickets SET is_deleted = 0 WHERE id = {A9};")
+tache(A9, 3600, "ajoutée après restauration")
+try:
+    api._req("DELETE", f"/Ticket/{A9}")
+except ErreurApi:
+    pass
+v("(9) mise à la corbeille ordinaire du ticket restauré : acceptée", corbeille(A9), "1")
+
+for c in (C1, C2, C3, C6, C7, C7b, C8, C9):
     v(f"invariants du contrat {c}", ok(led("check", c)), [])
 fautes = [l for nom in DEPART for l in lecture(nom).splitlines()[DEPART[nom]:] if re.search("points", l, re.I)]
 v("aucune erreur du plugin dans les journaux PHP et SQL", fautes, [])

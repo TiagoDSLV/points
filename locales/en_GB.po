@@ -962,8 +962,11 @@ msgstr "The original envelope has ended and no envelope is valid today to receiv
 msgid "Debited on the main ticket"
 msgstr "Debited on the main ticket"
 
-msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
-msgstr "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket. Cancel the flatrate if it is not approved yet, or merge the other ticket into this one"
+msgid "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket (cancel the flatrate first if it is not approved yet)"
+msgstr "This ticket has a flatrate that is neither refused nor cancelled: it cannot be merged into another ticket (cancel the flatrate first if it is not approved yet)"
 
 msgid "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
 msgstr "This ticket has tasks to debit that are not copied to the main ticket: merge it with its tasks, or close it before merging"
+
+msgid "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"
+msgstr "This ticket has tasks to debit and the main ticket would not debit them on the same contract (not billable, flatrate, other contract or closed): close this ticket before merging, or merge it into an open ticket of the same contract"

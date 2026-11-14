@@ -140,6 +140,7 @@ test('SearchOptions : une recherche enregistrée qui utilise une option du plugi
     assertSame(false, $uses('criteria[0][itemtype]=Contract&criteria[0][meta]=1&criteria[0][field]=1', 'Ticket'), 'témoin : méta-critère sur une option du cœur');
     assertSame(false, $uses('criteria[0][itemtype]=Entity&criteria[0][meta]=1&criteria[0][field]=9703', 'Ticket'), 'témoin : 9703 sur l\'entité n\'est pas une option du plugin');
     assertSame(false, $uses('sort=9701', 'Ticket'), 'témoin : le tri porte sur le type de la recherche');
+    assertSame(false, $uses('criteria[0][itemtype]=Contract&criteria[0][field]=9703', 'Ticket'), 'témoin : itemtype sans meta n\'est pas lu (comme le cœur)');
 });
 
 test('Contrat : purge refusée par le crochet, type vérifié par requireContract', function () use ($finalSrc): void {
@@ -264,7 +265,8 @@ test('Structure : ligne Points du ticket (entité suivie, lecture du ticket), fu
     assertTrue(preg_match('/function canViewItem\(\).*?self::canReadTicket\(/s', $ticket) === 1, 'canViewItem exige la lecture du ticket');
     assertTrue(str_contains($ticket, 'function followTicketEntity(') && str_contains($finalSrc('src/ItilHooks.php'), 'Ticket::followTicketEntity('), 'entité suivie');
     $billing = $finalSrc('src/Billing.php');
-    assertTrue(preg_match('/function mergeTargets\(.*?ITILFollowup::getTable\(\).*?sourceitems_id.*?\n    \}\n/s', $billing) === 1, 'principal reconnu par le suivi de fusion natif');
+    assertTrue(preg_match('/function mergeTargets\(.*?ITILFollowup::getTable\(\).*?sourceitems_id.*?SON_OF.*?\n    \}\n/s', $billing) === 1, 'principal reconnu par le suivi de fusion natif ou le lien « fils de »');
+    assertTrue(preg_match('/function mergeProblem\(.*?self::\$merging\[/s', $billing) === 1, 'refus seulement pendant une fusion en cours');
     assertTrue(preg_match('/function mergedElsewhere\(.*?self::mergeTargets\(.*?\n    \}\n/s', $billing) === 1, 'copie exclue seulement sur un principal de fusion');
     preg_match('/public static function evaluate\(.*?\n    \}\n/s', $billing, $m);
     assertSame(0, preg_match('/freezeType/', $m[0] ?? ''), 'evaluate reste en lecture seule');

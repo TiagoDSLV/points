@@ -19,7 +19,7 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 2. Valeurs réelles des grilles Serenity et Elevate (familles, versions datées, coûts), à saisir par l'Admin.
 3. Fusion de tickets : traitée (branche `claude/fusion-soldes`) : une fusion qui laisserait des points derrière le ticket source (forfait
    ni refusé ni annulé, tâche facturable non débitée et non copiée) est refusée ; le principal est reconnu par le suivi de fusion natif,
-   quel que soit le lien. Reste la décision du responsable (Questions ouvertes, 1 à 3).
+   ou par le lien « fils de », fusion en chaîne comprise. Reste la décision du responsable (Questions ouvertes, 1 à 3).
 4. Installation sur Assist en GLPI 12, le jour de la bascule (décision du responsable du 2026-11-13 : Points exigé à la bascule
    d'Assist, production en GLPI 12, aucune branche GLPI 11). Droits à écrire dans
    `deploy/config/profils-cibles-valeurs.sql` d'atheo-assist (valeurs proposées dans sa fiche 03, non appliquées).
@@ -43,9 +43,11 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 | Notifications et onglets testés au banc dans la langue par défaut (anglais) ; rendu français vérifié seulement par les fichiers de traduction | test | 2026-11-13 | traductions |
 | L'onglet Points du ticket exige `plugin_points_ticket` READ : un profil avec seulement `plugin_points_flatrate` ne voit pas la section Forfait (conforme à la matrice proposée, fragile) | limite | 2026-11-13 | écrans |
 | Fusion de tickets : une tâche non débitée est jugée « copiée » quand le principal d'une fusion de ce ticket (suivi de fusion natif) porte une tâche de `sourceitems_id` ce ticket et de mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-14 | tâches |
-| Fusion dans un ticket principal au forfait : les tâches non débitées recopiées du source sont couvertes par ce forfait (pas débitées) ; voulu si les tickets portent le même incident, à confirmer (Questions ouvertes, 2) | conception à confirmer | 2026-11-14 | fusion |
+| Fusion refusée plus largement que le strict risque : un forfait déjà débité bloque aussi une fusion SANS les tâches ; une tâche de coût nul (ou sans grille) compte comme « à débiter » | limite | 2026-11-14 | fusion |
+| Fusion de plusieurs tickets à la fois (action de masse) : un refus annule toute la fusion, mais le cœur annonce réussis les tickets traités avant le refus ; non testé au banc | limite | 2026-11-14 | fusion |
+| `plugins:points:balances` : environ cinq lectures par contrat, rapport gardé en mémoire ; à surveiller si le nombre de contrats à points d'Assist dépasse quelques milliers | charge | 2026-11-14 | console |
 | Mise à la corbeille HORS fusion d'un ticket qui a des tâches non débitées ou un forfait approuvé non débité : rien n'est débité tant qu'il n'est pas restauré et clos (comportement inchangé ; Questions ouvertes, 3) | limite | 2026-11-14 | fusion |
-| Tâche ajoutée à un ticket source en corbeille : GLPI la recopie sur le principal (`CommonITILTask::addToMergedTickets`) ; si le principal la refuse (aucun point valide à sa date), la copie n'est pas faite et la tâche reste sur le source, non débitée | limite | 2026-11-14 | fusion |
+| Tâche ajoutée à un ticket source en corbeille : GLPI la recopie sur le principal SEULEMENT avec le lien « fils de » (`CommonITILTask::addToMergedTickets`, `Ticket::getMergedTickets`) ; avec un autre lien ou sans lien, ou si le principal refuse la copie (aucun point valide à sa date), elle reste sur le source, non débitée tant qu'il n'est pas restauré et clos | limite | 2026-11-14 | fusion |
 | La date du jour (`Billing::today()`, fuseau de référence) est vérifiée en unitaire (`Dates::todayIn`) et par lecture du code, pas au banc : le changement de jour entre deux fuseaux ne se rejoue pas | test | 2026-11-13 | tests |
 | Un dépassement écrit avant le lot final (détails `overdraft` sans `overdraft_lot`) serait signalé par `plugins:points:check` ; aucun contrat réel n'est concerné (le plugin n'est pas installé sur Assist), pas de reprise écrite | limite | 2026-11-13 | journal |
 | Un type d'intervention qui a été le défaut d'un ticket (ligne Points figée à la création) n'est plus supprimable | limite | 2026-11-13 | tickets |
@@ -58,10 +60,11 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 Posées le 2026-11-14 (branche `claude/fusion-soldes`), chacune avec le comportement par défaut déjà en place :
 
 1. Fusion d'un ticket au forfait (ni refusé ni annulé) dans un autre : le forfait doit-il suivre le ticket principal ? Défaut : la fusion
-   est refusée (annuler le forfait s'il n'est pas approuvé, ou fusionner l'autre ticket dans celui-ci). Faire suivre le forfait demande de
+   est refusée (annuler le forfait s'il n'est pas approuvé). Faire suivre le forfait demande de
    déplacer aussi sa validation native et de trancher le cas d'un principal qui a déjà un forfait ou des tâches débitées.
-2. Fusion d'un ticket à tâches non débitées dans un principal au forfait : ces tâches sont-elles couvertes par le forfait du principal ?
-   Défaut : oui (elles ne sont pas débitées), comme toute tâche du principal.
+2. Fusion d'un ticket à tâches non débitées dans un principal qui ne les débiterait pas sur le même contrat (au forfait, non facturable,
+   autre contrat, clos) : faut-il les laisser couvrir par le principal (forfait, cas d'un même incident) ? Défaut : la fusion est refusée
+   (clore le source d'abord, ce qui débite ses tâches, puis fusionner).
 3. Ticket mis à la corbeille hors fusion avec des points à décompter (tâches non débitées, forfait approuvé non débité) : faut-il refuser la
    mise à la corbeille, ou débiter ? Défaut : comportement inchangé (rien n'est débité tant qu'il n'est pas restauré et clos).
 

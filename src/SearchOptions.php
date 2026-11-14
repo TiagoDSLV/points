@@ -42,7 +42,7 @@ final class SearchOptions
     /**
      * Une recherche enregistrée (champ `query`, chaîne d'URL ; `$itemtype` = son type) utilise-t-elle une option du plugin : critère, tri, ou
      * méta-critère sur un type lié (format GLPI 12 : `criteria[n][meta]=1`, `[itemtype]`, `[field]`, groupes `criteria[n][criteria]` compris,
-     * lus par src/Glpi/Search/Provider/SQLProvider.php:4765-4777 en 12.0.1 ; ancien format `metacriteria[n][itemtype]`) ? Un numéro ne compte
+     * type du méta-critère lu dans `itemtype` : src/Glpi/Search/Provider/SQLProvider.php:5553-5560 en 12.0.1 ; ancien format `metacriteria[n][itemtype]`) ? Un numéro ne compte
      * que pour le type qu'il désigne : 9703 d'un ticket n'est pas l'option du contrat. Fonction pure.
      *
      * @param array<string, list<int>> $numbers numéros du plugin par itemtype (numbers())
@@ -52,7 +52,7 @@ final class SearchOptions
         parse_str($query, $params);
         $isOurs = static fn (string $type, mixed $field): bool => is_scalar($field) && preg_match('/^\d+$/', (string) $field) === 1
             && in_array((int) $field, $numbers[$type] ?? [], true);
-        $criteria = static function (mixed $list) use (&$criteria, $itemtype, $isOurs): bool {
+        $criteria = static function (mixed $list, bool $legacy) use (&$criteria, $itemtype, $isOurs): bool {
             if (!is_array($list)) {
                 return false;
             }
@@ -60,11 +60,12 @@ final class SearchOptions
                 if (!is_array($criterion)) {
                     continue;
                 }
-                if (isset($criterion['criteria']) && $criteria($criterion['criteria'])) {
+                if (isset($criterion['criteria']) && $criteria($criterion['criteria'], $legacy)) {
                     return true;
                 }
-                // Méta-critère : son propre type ; critère simple : celui de la recherche
-                $type = isset($criterion['itemtype']) && is_string($criterion['itemtype']) && $criterion['itemtype'] !== '' ? $criterion['itemtype'] : $itemtype;
+                // Méta-critère (`meta` vrai, ou ancien format `metacriteria`) : son propre type ; sinon celui de la recherche (comme le cœur)
+                $meta = $legacy || !empty($criterion['meta']);
+                $type = $meta && isset($criterion['itemtype']) && is_string($criterion['itemtype']) && $criterion['itemtype'] !== '' ? $criterion['itemtype'] : $itemtype;
                 if ($isOurs($type, $criterion['field'] ?? null)) {
                     return true;
                 }
@@ -72,7 +73,7 @@ final class SearchOptions
 
             return false;
         };
-        if ($criteria($params['criteria'] ?? null) || $criteria($params['metacriteria'] ?? null)) {
+        if ($criteria($params['criteria'] ?? null, false) || $criteria($params['metacriteria'] ?? null, true)) {
             return true;
         }
         foreach ((array) ($params['sort'] ?? []) as $sort) {

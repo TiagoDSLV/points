@@ -27,7 +27,7 @@ test('Hooks : les huit crochets du décompte sont enregistrés par setup.php', f
     foreach ([
         'POST_PREPAREADD' => 'taskPostPrepareAdd', 'ITEM_ADD' => 'taskItemAdd', 'POST_PREPAREUPDATE' => 'taskPostPrepareUpdate',
         'PRE_ITEM_PURGE' => 'taskPrePurge', 'PRE_ITEM_UPDATE' => 'ticketPreUpdate', 'ticketItemUpdate' => 'ticketItemUpdate', 'taskItemUpdate' => 'taskItemUpdate',
-        'ticketPrePurge' => 'ticketPrePurge', 'PRE_ITEM_DELETE' => 'ticketPreDelete', 'ITEM_PURGE' => 'ticketItemPurge', 'ticketItemAdd' => 'ticketItemAdd',
+        'ticketPrePurge' => 'ticketPrePurge', 'PRE_ITEM_DELETE' => 'ticketPreDelete', 'followupItemAdd' => 'followupItemAdd', 'ITEM_PURGE' => 'ticketItemPurge', 'ticketItemAdd' => 'ticketItemAdd',
     ] as $hook => $method) {
         assertTrue(str_contains($code, $hook) && str_contains($code, "'$method'"), "$hook / $method");
         assertTrue(method_exists(\GlpiPlugin\Points\ItilHooks::class, $method), "ItilHooks::$method existe");
