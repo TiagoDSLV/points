@@ -546,6 +546,29 @@ v("(5) ticket sans contrat Points : chiffrage refusé", forfaits(t7), [])
 corps = sql(f"SELECT body_text FROM glpi_queuednotifications WHERE itemtype = {FLAT} AND items_id = {f1} AND recipient = 'forfait-bu{SUF}@example.invalid' LIMIT 1")
 v("(5) message de la notification : balises remplacées (montant, description)", (len(corps) == 1, "##" in (corps[0][0] if corps else "##"), "6.00" in (corps[0][0] if corps else "")), (True, False, True))
 
+# =====================================================================================================================
+# (5b) approbateur client sans le droit natif de répondre à une validation (ticketvalidation : VALIDATEREQUEST 4096 / VALIDATEINCIDENT 8192,
+#      contrôlé par la liste native des approbateurs, src/CommonITILValidation.php:952 en 12.0.1) : il ne pourrait pas répondre ; refusé
+#      comme approbateur, par défaut (demandeur) comme choisi, et absent de la liste. Témoin : le client avec le droit (sections précédentes).
+# =====================================================================================================================
+p_sans = profil(f"points-forfait-client-sans-{SUF}", profil_ss, "helpdesk", {"ticketvalidation": 0})
+atexit.register(lambda: sql_ecrire(f"DELETE FROM glpi_profiles_users WHERE profiles_id = {p_sans};DELETE FROM glpi_profilerights WHERE profiles_id = {p_sans};"
+                                   f"DELETE FROM glpi_profiles WHERE id = {p_sans};"))
+console("cache:clear")
+sans_id = utilisateur(f"forfait-client-sans{SUF}", p_sans, entite)
+t8 = creer(api, "Ticket", {"name": "forfait : demandeur sans droit de validation", "content": "x", "entities_id": entite, "_contracts_id": A, "_users_id_requester": sans_id})
+f8 = chiffrer_soumettre(w_tech, t8, "2", "Petit forfait")
+poster(w_tech, {"action": "submit", "tickets_id": t8, "id": f8})
+code, page = onglet(w_bu, t8)
+v("(5b) liste des approbateurs : le demandeur sans droit de validation n'y est pas, le client avec le droit oui",
+  (f'<option value="{sans_id}"' in page, f'<option value="{client_id}"' in page), (False, True))
+poster(w_bu, {"action": "accept", "tickets_id": t8, "id": f8, "comment": "ok"})
+v("(5b) approbateur par défaut (demandeur) sans droit de validation : refusé, aucune validation créée", (statut(t8), valider_ticket(t8)), ("submitted", None))
+poster(w_bu, {"action": "accept", "tickets_id": t8, "id": f8, "validator": sans_id, "comment": "ok"})
+v("(5b) même approbateur choisi explicitement : refusé", (statut(t8), valider_ticket(t8)), ("submitted", None))
+poster(w_bu, {"action": "accept", "tickets_id": t8, "id": f8, "validator": client_id, "comment": "ok"})
+v("(5b) témoin : approbateur avec le droit, forfait proposé", statut(t8), "proposed")
+
 # --- invariants et journaux (la remise en l'état est faite par atexit : configuration, profils de test, historique)
 for contrat in (A, D, H, E):
     v(f"(6) invariants du contrat {contrat}", ok(led("check", contrat)), [])

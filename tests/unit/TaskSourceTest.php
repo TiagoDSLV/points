@@ -22,12 +22,12 @@ test('Billing : le journal n\'est écrit que par Ledger::debit, jamais depuis un
     assertTrue(str_contains($code, 'function isFlatrateTicket'), 'emplacement de l\'exclusion des forfaits (lot d)');
 });
 
-test('Hooks : les huit crochets du décompte sont enregistrés par setup.php', function (): void {
+test('Hooks : les crochets du décompte et de la fusion sont enregistrés par setup.php', function (): void {
     $code = file_get_contents(__DIR__ . '/../../setup.php');
     foreach ([
         'POST_PREPAREADD' => 'taskPostPrepareAdd', 'ITEM_ADD' => 'taskItemAdd', 'POST_PREPAREUPDATE' => 'taskPostPrepareUpdate',
         'PRE_ITEM_PURGE' => 'taskPrePurge', 'PRE_ITEM_UPDATE' => 'ticketPreUpdate', 'ticketItemUpdate' => 'ticketItemUpdate', 'taskItemUpdate' => 'taskItemUpdate',
-        'ticketPrePurge' => 'ticketPrePurge', 'ITEM_PURGE' => 'ticketItemPurge', 'ticketItemAdd' => 'ticketItemAdd',
+        'ticketPrePurge' => 'ticketPrePurge', 'PRE_ITEM_DELETE' => 'ticketPreDelete', 'followupItemAdd' => 'followupItemAdd', 'ITEM_PURGE' => 'ticketItemPurge', 'ticketItemAdd' => 'ticketItemAdd',
     ] as $hook => $method) {
         assertTrue(str_contains($code, $hook) && str_contains($code, "'$method'"), "$hook / $method");
         assertTrue(method_exists(\GlpiPlugin\Points\ItilHooks::class, $method), "ItilHooks::$method existe");

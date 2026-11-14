@@ -630,23 +630,24 @@ final class Install
 
     /**
      * Ce que le plugin a ajouté au contrat et à l'entité natifs : colonnes de la liste (préférences d'affichage) portant ses options de
-     * recherche, et recherches enregistrées qui les utilisent (supprimées par SavedSearch::delete avec leurs tables filles : utilisateurs
-     * par défaut, alertes). Les recherches enregistrées sur les classes du plugin sont supprimées de la même façon.
+     * recherche, et recherches enregistrées qui les utilisent, de tout type (méta-critère d'un ticket sur le contrat compris :
+     * SearchOptions::queryUses), supprimées par SavedSearch::delete avec leurs tables filles (utilisateurs par défaut, alertes). Les
+     * recherches enregistrées sur les classes du plugin sont supprimées de la même façon.
      */
     private static function removeSearchTraces(): void
     {
         global $DB;
 
-        foreach (SearchOptions::numbers() as $itemtype => $numbers) {
-            $DB->delete('glpi_displaypreferences', ['itemtype' => $itemtype, 'num' => $numbers]);
-            foreach ($DB->request(['SELECT' => ['id', 'query'], 'FROM' => 'glpi_savedsearches', 'WHERE' => ['itemtype' => $itemtype]]) as $row) {
-                if (SearchOptions::queryUses((string) $row['query'], $numbers)) {
-                    (new \SavedSearch())->delete(['id' => (int) $row['id']], true);
-                }
-            }
+        $numbers = SearchOptions::numbers();
+        foreach ($numbers as $itemtype => $list) {
+            $DB->delete('glpi_displaypreferences', ['itemtype' => $itemtype, 'num' => $list]);
         }
-        foreach ($DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_savedsearches', 'WHERE' => ['itemtype' => ['LIKE', self::LIKE_CLASSES]]]) as $row) {
-            (new \SavedSearch())->delete(['id' => (int) $row['id']], true);
+        foreach ($DB->request(['SELECT' => ['id', 'itemtype', 'query'], 'FROM' => 'glpi_savedsearches']) as $row) {
+            $ours = str_starts_with((string) $row['itemtype'], 'GlpiPlugin\\Points\\')
+                || SearchOptions::queryUses((string) $row['query'], (string) $row['itemtype'], $numbers);
+            if ($ours) {
+                (new \SavedSearch())->delete(['id' => (int) $row['id']], true);
+            }
         }
     }
 

@@ -49,6 +49,8 @@ function plugin_init_points(): void
         'TicketTask' => [ItilHooks::class, 'taskItemAdd'],
         // Type d'intervention du paramétrage figé dans la ligne Points du ticket créé
         'Ticket'     => [ItilHooks::class, 'ticketItemAdd'],
+        // Suivi de fusion (sourceitems_id) : marque la fusion en cours, contrôlée à la mise à la corbeille du source (ticketPreDelete)
+        'ITILFollowup' => [ItilHooks::class, 'followupItemAdd'],
     ];
     $PLUGIN_HOOKS[Hooks::POST_PREPAREUPDATE]['points'] = [
         'TicketTask'       => [ItilHooks::class, 'taskPostPrepareUpdate'],
@@ -64,6 +66,8 @@ function plugin_init_points(): void
         'Ticket'     => [ItilHooks::class, 'ticketItemUpdate'],
         'TicketValidation' => [ItilHooks::class, 'validationItemUpdate'],
     ];
+    // Fusion de tickets : le ticket source va à la corbeille en dernier (src/Ticket.php:6023) ; un refus annule toute la fusion
+    $PLUGIN_HOOKS[Hooks::PRE_ITEM_DELETE]['points']    = ['Ticket' => [ItilHooks::class, 'ticketPreDelete']];
     $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['points']     = [
         'TicketTask' => [ItilHooks::class, 'taskPrePurge'],
         'Ticket'     => [ItilHooks::class, 'ticketPrePurge'],

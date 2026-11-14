@@ -9,7 +9,7 @@ use Session;
 
 /**
  * Hooks sur TicketTask (POST_PREPAREADD, ITEM_ADD, POST_PREPAREUPDATE, ITEM_UPDATE, PRE_ITEM_PURGE) et Ticket
- * (ITEM_ADD, PRE_ITEM_UPDATE, ITEM_UPDATE, PRE_ITEM_PURGE, ITEM_PURGE), enregistrés par setup.php. Ils n'ont pas de logique propre :
+ * (ITEM_ADD, PRE_ITEM_UPDATE, ITEM_UPDATE, PRE_ITEM_DELETE, PRE_ITEM_PURGE, ITEM_PURGE) et ITILFollowup (ITEM_ADD), enregistrés par setup.php. Ils n'ont pas de logique propre :
  * refus (entrée à false et message traduit, src/CommonDBTM.php:1348-1370, 1688-1700 en 12.0.1) ou appel de Billing.
  *
  * Les contrôles d'une tâche se font à POST_PREPAREADD / POST_PREPAREUPDATE (src/CommonDBTM.php:1362, 1698), après
@@ -230,6 +230,26 @@ final class ItilHooks
             $back = (int) ($ticket->oldvalues['status'] ?? \CommonITILObject::SOLVED);
             (new \Ticket())->update(['id' => (int) $ticket->getID(), 'status' => $back === \CommonITILObject::CLOSED ? \CommonITILObject::SOLVED : $back]);
             Session::addMessageAfterRedirect(htmlescape(__('The ticket was not closed: a task could not be debited, try again', 'points')), false, ERROR);
+        }
+    }
+
+    /**
+     * Suivi ajouté : un suivi de fusion (Ticket::merge) marque la fusion en cours (Billing::noteMergeFollowup).
+     */
+    public static function followupItemAdd(\ITILFollowup $followup): void
+    {
+        Billing::noteMergeFollowup($followup);
+    }
+
+    /**
+     * Mise à la corbeille du ticket source d'une fusion : refusée si des points resteraient à décompter derrière lui (Billing::mergeProblem) ;
+     * le refus annule toute la fusion. Hors fusion, rien ne change.
+     */
+    public static function ticketPreDelete(\Ticket $ticket): void
+    {
+        $problem = Billing::mergeProblem((int) $ticket->getID());
+        if ($problem !== null) {
+            self::refuse($ticket, $problem);
         }
     }
 

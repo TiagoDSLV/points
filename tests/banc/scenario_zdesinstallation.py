@@ -170,6 +170,9 @@ RECH = {
     "entite-critere": ("Entity", "criteria[0][field]=9722&criteria[0][searchtype]=contains&criteria[0][value]=1&itemtype=Entity&start=0"),
     "temoin-contrat": ("Contract", "criteria[0][field]=1&criteria[0][searchtype]=contains&criteria[0][value]=9703&itemtype=Contract&start=0"),
     "temoin-entite": ("Entity", "criteria[0][field]=1&criteria[0][searchtype]=contains&criteria[0][value]=x&itemtype=Entity&start=0"),
+    # recherche d'un autre type dont seul un méta-critère (format GLPI 12 : meta, itemtype, field) porte une option du plugin, et ses témoins
+    "ticket-meta": ("Ticket", "criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=1&criteria[1][link]=AND&criteria[1][itemtype]=Contract&criteria[1][meta]=1&criteria[1][field]=9703&criteria[1][searchtype]=morethan&criteria[1][value]=0&itemtype=Ticket&start=0"),
+    "temoin-ticket": ("Ticket", "criteria[0][field]=9703&criteria[0][searchtype]=contains&criteria[0][value]=x&criteria[1][link]=AND&criteria[1][itemtype]=Contract&criteria[1][meta]=1&criteria[1][field]=1&criteria[1][searchtype]=contains&criteria[1][value]=x&itemtype=Ticket&start=0"),
     "plugin-liste": ("GlpiPlugin\\\\Points\\\\Contract", "criteria[0][field]=8&criteria[0][searchtype]=morethan&criteria[0][value]=50&itemtype=GlpiPlugin\\\\Points\\\\Contract&start=0"),
 }
 ids = {}
@@ -180,7 +183,7 @@ for rang, (nom, (itemtype, requete)) in enumerate(RECH.items()):
     ids[nom] = int(une(f"SELECT id FROM glpi_savedsearches WHERE name = 'zdes-{nom}-{SUF}'"))
     sql_ecrire(f"INSERT INTO glpi_savedsearches_users (users_id, itemtype, savedsearches_id) VALUES ({SYNTH + rang}, '{itemtype}', {ids[nom]});")
     sql_ecrire(f"INSERT INTO glpi_savedsearches_alerts (savedsearches_id, name, is_active, operator, value, frequency, date_creation) VALUES ({ids[nom]}, 'alerte-{nom}', 0, 0, 1, 0, NOW());")
-v("(0) usage : six recherches enregistrées avec leurs tables filles", une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name LIKE 'zdes-%-{SUF}'"), "6")
+v("(0) usage : huit recherches enregistrées avec leurs tables filles", une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name LIKE 'zdes-%-{SUF}'"), "8")
 
 temoins_avant = une(TEMOINS_AFFICHAGE)
 v("(1) avant : les colonnes témoins existent (au moins les deux numéros voisins)", int(temoins_avant) >= 2, True)
@@ -207,14 +210,18 @@ v("(2) colonnes d'affichage des options 9701-9707 et 9721-9725 retirées (contra
 v("(2) témoins : les colonnes du cœur et les numéros voisins (9720, 9700) restent", une(TEMOINS_AFFICHAGE), temoins_avant)
 v("(2) recherches enregistrées qui utilisent une option du plugin ou une classe du plugin : supprimées",
   une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name IN ('zdes-contrat-critere-{SUF}', 'zdes-contrat-tri-{SUF}', 'zdes-entite-critere-{SUF}', 'zdes-plugin-liste-{SUF}')"), "0")
-v("(2) témoins : les recherches enregistrées sans option du plugin restent (9703 en simple valeur de critère)",
-  une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name IN ('zdes-temoin-contrat-{SUF}', 'zdes-temoin-entite-{SUF}')"), "2")
-supprimees = ",".join(str(ids[n]) for n in ("contrat-critere", "contrat-tri", "entite-critere", "plugin-liste"))
+v("(2) recherche d'un ticket dont seul un méta-critère porte une option du contrat à points : supprimée",
+  une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name = 'zdes-ticket-meta-{SUF}'"), "0")
+v("(2) témoins : les recherches enregistrées sans option du plugin restent (9703 en simple valeur de critère, 9703 d'un ticket, méta-critère du cœur)",
+  une(f"SELECT COUNT(*) FROM glpi_savedsearches WHERE name IN ('zdes-temoin-contrat-{SUF}', 'zdes-temoin-entite-{SUF}', 'zdes-temoin-ticket-{SUF}')"), "3")
+supprimees = ",".join(str(ids[n]) for n in ("contrat-critere", "contrat-tri", "entite-critere", "plugin-liste", "ticket-meta"))
 v("(2) tables filles des recherches supprimées : aucun orphelin (utilisateurs par défaut, alertes)",
   (une(f"SELECT COUNT(*) FROM glpi_savedsearches_users WHERE savedsearches_id IN ({supprimees})"), une(f"SELECT COUNT(*) FROM glpi_savedsearches_alerts WHERE savedsearches_id IN ({supprimees})")), ("0", "0"))
 v("(2) témoins : les tables filles des recherches conservées restent",
   (une(f"SELECT COUNT(*) FROM glpi_savedsearches_users WHERE savedsearches_id IN ({ids['temoin-contrat']}, {ids['temoin-entite']})"),
    une(f"SELECT COUNT(*) FROM glpi_savedsearches_alerts WHERE savedsearches_id IN ({ids['temoin-contrat']}, {ids['temoin-entite']})")), ("2", "2"))
+v("(2) témoin : les tables filles de la recherche témoin du ticket restent",
+  (une(f"SELECT COUNT(*) FROM glpi_savedsearches_users WHERE savedsearches_id = {ids['temoin-ticket']}"), une(f"SELECT COUNT(*) FROM glpi_savedsearches_alerts WHERE savedsearches_id = {ids['temoin-ticket']}")), ("1", "1"))
 v("(2) validation native en attente d'un forfait proposé : purgée, statut global du ticket recalculé (aucune validation : 1)",
   (une(f"SELECT COUNT(*) FROM glpi_ticketvalidations WHERE id = {validation}"), une(f"SELECT global_validation FROM glpi_tickets WHERE id = {t2}")), ("0", "1"))
 v("(2) courriel en file d'attente d'un objet du plugin supprimé, celui d'un ticket reste", (une(f"SELECT COUNT(*) FROM glpi_queuednotifications WHERE name = 'zdes-plugin-{SUF}'"), une(f"SELECT COUNT(*) FROM glpi_queuednotifications WHERE name = 'zdes-ticket-{SUF}'")), ("0", "1"))

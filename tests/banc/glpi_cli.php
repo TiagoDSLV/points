@@ -7,7 +7,8 @@ declare(strict_types=1);
  * Entrée standard : {"call": "merge", "args": [cible, [sources]]} ; dernière ligne de sortie :
  * JSON {"ok": …} | {"error": …}.
  *
- *   merge : fusion de tickets avec copie des tâches (Ticket::merge, src/Ticket.php:5765), utilisateur « glpi » connecté.
+ *   merge : fusion de tickets (Ticket::merge, src/Ticket.php:5765), utilisateur « glpi » connecté ; par défaut avec copie des tâches et lien
+ *           « fils de » ; troisième argument facultatif : paramètres de Ticket::merge (`linktypes`, `link_type`) ; renvoie aussi les messages.
  *   transfer : transfert natif d'un contrat vers une entité (Transfer::moveItems, src/Transfer.php:175 en 12.0.1), pour le refus d'un changement d'entité.
  *   flatrate_debit : GlpiPlugin\Points\Flatrate::debit(id), pour les débits concurrents d'un même forfait (lot d).
  *   estimate : GlpiPlugin\Points\Flatrate::estimate(ticket, heures), utilisateur « glpi » connecté (lot final : type « Ordre de travail » introuvable).
@@ -36,8 +37,15 @@ try {
             Session::init($auth);
             Session::changeActiveEntities('all', true);
             $status = [];
-            $done   = Ticket::merge((int) $request['args'][0], array_map('intval', $request['args'][1]), $status, ['linktypes' => ['TicketTask']]);
-            echo "\n" . json_encode(['ok' => ['done' => $done, 'status' => $status]]) . "\n";
+            $params = array_replace(['linktypes' => ['TicketTask']], (array) ($request['args'][2] ?? []));
+            $done   = Ticket::merge((int) $request['args'][0], array_map('intval', $request['args'][1]), $status, $params);
+            $messages = [];
+            foreach ($_SESSION['MESSAGE_AFTER_REDIRECT'] ?? [] as $list) {
+                foreach ((array) $list as $message) {
+                    $messages[] = html_entity_decode(strip_tags((string) $message), ENT_QUOTES);
+                }
+            }
+            echo "\n" . json_encode(['ok' => ['done' => $done, 'status' => $status, 'messages' => $messages]]) . "\n";
             break;
         case 'transfer':
             $user = new User();

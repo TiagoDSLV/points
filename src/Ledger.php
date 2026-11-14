@@ -6,6 +6,7 @@ namespace GlpiPlugin\Points;
 
 use Glpi\DBAL\QueryFunction;
 use GlpiPlugin\Points\Domain\AlertRules;
+use GlpiPlugin\Points\Domain\BalanceRules;
 use GlpiPlugin\Points\Domain\ContractCache;
 use GlpiPlugin\Points\Domain\Dates;
 use GlpiPlugin\Points\Domain\LotRules;
@@ -613,6 +614,115 @@ final class Ledger
      */
     public static function checkAll(): array
     {
+        $out = [];
+        foreach (self::contractIds() as $contractsId) {
+            $problems = self::check($contractsId);
+            if ($problems !== []) {
+                $out[$contractsId] = $problems;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Contrôle des soldes (commande `plugins:points:balances`) : pour chaque contrat qui a une ligne Points ou une opération, ce que la ligne
+     * a enregistré (solde, crédité, consommé, % consommé, prochaine échéance) contre le recalcul depuis les mouvements (journal des
+     * opérations, restes des lots : Domain\BalanceRules). LECTURE SEULE : aucune écriture, pas même du cache.
+     *
+     * @param int $only un seul contrat (0 : tous) ; un contrat sans ligne Points ni opération donne un rapport vide
+     * @return list<array{contracts_id: int, name: string, recorded: ?array<string, int|string|null>, computed: array<string, int|string|null>,
+     *         gaps: list<array{field: string, recorded: int|string|null, computed: int|string|null}>}>
+     */
+    public static function balances(int $only = 0): array
+    {
+        global $DB;
+
+        $ids = self::contractIds();
+        if ($only > 0) {
+            $ids = in_array($only, $ids, true) ? [$only] : [];
+        }
+        $names = [];
+        foreach (array_chunk($ids, self::CHUNK) as $chunk) {
+            foreach ($DB->request(['SELECT' => ['id', 'name'], 'FROM' => 'glpi_contracts', 'WHERE' => ['id' => $chunk]]) as $row) {
+                $names[(int) $row['id']] = (string) $row['name'];
+            }
+        }
+        $out = [];
+        foreach ($ids as $contractsId) {
+            // Instantané cohérent par contrat (transaction sans écriture : sous REPEATABLE READ, isolement par défaut d'InnoDB, toutes les
+            // lectures voient le même état) ; un contrat en écart est relu une fois : sous un isolement plus faible (READ COMMITTED), un débit
+            // validé entre deux lectures ne donne pas un faux écart, sauf à se reproduire exactement à la relecture
+            $line = self::snapshot($contractsId, $names[$contractsId] ?? '');
+            if ($line['gaps'] !== []) {
+                $line = self::snapshot($contractsId, $names[$contractsId] ?? '');
+            }
+            $out[] = $line;
+        }
+
+        return $out;
+    }
+
+    /**
+     * balanceOf() dans une transaction sans écriture (instantané) ; retour arrière sur erreur, l'erreur d'origine remonte.
+     *
+     * @return array{contracts_id: int, name: string, recorded: ?array<string, int|string|null>, computed: array<string, int|string|null>,
+     *         gaps: list<array{field: string, recorded: int|string|null, computed: int|string|null}>}
+     */
+    private static function snapshot(int $contractsId, string $name): array
+    {
+        global $DB;
+
+        $DB->beginTransaction();
+        try {
+            $line = self::balanceOf($contractsId, $name);
+        } catch (\Throwable $e) {
+            $DB->rollBack();
+            throw $e;
+        }
+        $DB->commit();
+
+        return $line;
+    }
+
+    /**
+     * Une ligne du rapport de balances() (lectures seulement).
+     *
+     * @return array{contracts_id: int, name: string, recorded: ?array<string, int|string|null>, computed: array<string, int|string|null>,
+     *         gaps: list<array{field: string, recorded: int|string|null, computed: int|string|null}>}
+     */
+    private static function balanceOf(int $contractsId, string $name): array
+    {
+        global $DB;
+
+        $row = $DB->request([
+            'SELECT' => ['balance', 'credited', 'consumed', 'consumed_pct', 'next_expiry'], 'FROM' => self::CONTRACTS, 'WHERE' => ['contracts_id' => $contractsId], 'LIMIT' => 1,
+        ])->current();
+        $recorded = $row === null ? null : [
+            'balance'      => Money::parse((string) $row['balance']),
+            'credited'     => Money::parse((string) $row['credited']),
+            'consumed'     => Money::parse((string) $row['consumed']),
+            'consumed_pct' => Money::parse((string) $row['consumed_pct']),
+            'next_expiry'  => $row['next_expiry'] === null || (string) $row['next_expiry'] === '' ? null : (string) $row['next_expiry'],
+        ];
+        $computed = BalanceRules::recompute(self::totalsByType($contractsId), self::loadLots($contractsId));
+
+        return [
+            'contracts_id' => $contractsId,
+            'name'         => $name,
+            'recorded'     => $recorded,
+            'computed'     => $computed,
+            'gaps'         => BalanceRules::gaps($recorded, $computed),
+        ];
+    }
+
+    /**
+     * Contrats qui ont une ligne Points ou une opération, par identifiant croissant (contrôles de la console).
+     *
+     * @return list<int>
+     */
+    private static function contractIds(): array
+    {
         global $DB;
 
         $contracts = [];
@@ -622,15 +732,8 @@ final class Ledger
             }
         }
         ksort($contracts);
-        $out = [];
-        foreach ($contracts as $contractsId) {
-            $problems = self::check($contractsId);
-            if ($problems !== []) {
-                $out[$contractsId] = $problems;
-            }
-        }
 
-        return $out;
+        return array_values($contracts);
     }
 
     /**
@@ -1210,6 +1313,16 @@ final class Ledger
      */
     private static function computeCache(int $contractsId): array
     {
+        return ContractCache::compute(self::totalsByType($contractsId));
+    }
+
+    /**
+     * Somme des montants du journal d'un contrat par type d'opération, en centièmes.
+     *
+     * @return array<string, int>
+     */
+    private static function totalsByType(int $contractsId): array
+    {
         global $DB;
 
         $totals = [];
@@ -1217,7 +1330,7 @@ final class Ledger
             $totals[(string) $row['type']] = Money::parse((string) ($row['total'] ?? '0'));
         }
 
-        return ContractCache::compute($totals);
+        return $totals;
     }
 
     /**

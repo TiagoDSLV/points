@@ -1,7 +1,7 @@
 # Points : conception technique
 
-Cible : **GLPI 12.0.1** (image du banc `glpi/glpi:12.0.1@sha256:02b4e8146b9b71d833443718d093352609dafec1b32a1d218b5961d6492e7b06`),
-PHP 8.3. Faits qualifiés : « lu 12.0.1 » = lu dans le code de l'image du banc (`src/…:ligne`), « banc » = vérifié
+Cible : **GLPI 12.0.2** (image du banc `glpi/glpi:12.0.2@sha256:e6a98ec8c190eb199afaf9ba97291c5bd9f4bb75a5ac2843180d633387d83910`, depuis le 2026-11-14, comme atheo-assist et atheo-portail ; avant : 12.0.1),
+PHP 8.3. Faits qualifiés : « lu 12.0.1 » = lu dans le code de l'image 12.0.1 du banc précédent (`src/…:ligne` ; en 12.0.2, `Ticket.php`, `CommandLoader.php` et `CommonITILValidation.php` sont inchangés, d'autres fichiers cités ont bougé de quelques lignes), « banc » = vérifié
 au banc, « doc » = documentation officielle citée. Le besoin en mots simples : `cahier-des-charges.md`.
 
 ## Identité
@@ -85,6 +85,16 @@ ses affectations ; reste d'un lot ≥ 0, sauf sur un lot qui a reçu une affecta
 somme du journal = somme des restes des lots ; aucune ligne de `operations`, `lots`, `allocations` n'est modifiée
 ni supprimée (pas de `date_mod`). La commande `php bin/console plugins:points:check` contrôle ces invariants pour tous les contrats (`Ledger::checkAll`), en lecture seule, et sort avec un code non nul au moindre écart (supervision).
 
+**Contrôle des soldes** (commande `php bin/console plugins:points:balances`, `Ledger::balances`, `Domain\BalanceRules`) : pour chaque contrat
+qui a une ligne Points ou une opération, les valeurs ENREGISTRÉES de la ligne (`balance`, `credited`, `consumed`, `consumed_pct`,
+`next_expiry`) sont comparées au recalcul depuis les mouvements (totaux du journal par type, par `ContractCache` : le même calcul que
+l'écriture du cache, et restes des lots) ; la somme des restes des lots est comparée au solde recalculé. Écarts listés (`row` : contrat à
+mouvements sans ligne Points ; `lots` : journal contre restes), code de sortie 1 s'il y en a un, 2 pour une erreur d'usage (`--contract` invalide ou contrat sans points ; plugin inactif : la commande n'est pas chargée, la console du cœur répond « commande inconnue » avec le code 1). Lecture seule (aucune écriture, pas même le
+cache). Différence avec `plugins:points:check` : `check` contrôle les invariants du journal (opération = affectations, restes négatifs) et le
+solde, le crédité et le consommé du cache ; `balances` rend le rapport chiffré par contrat (enregistré contre recalculé), colonnes de recherche
+comprises (% consommé, prochaine échéance), pour la recette et après la bascule. Options : `--all` liste aussi les contrats justes,
+`--contract=ID` un seul contrat. Tests : `tests/unit/BalanceRulesTest.php`, banc `scenario_soldes.py`.
+
 ## Date du jour
 
 La date métier de tout ce qui a lieu « maintenant » (crédit sans date, décision d'une compensation ou d'une review, correction, approbation et débit
@@ -119,7 +129,7 @@ d'un forfait, passage de l'action automatique d'expiration et d'alerte, notifica
    exige un solde suffisant.
    Une tâche débitée l'est **définitivement** : un remboursement ou une compensation ne la rend jamais débitable une
    seconde fois (même règle pour un forfait). Une tâche recopiée par la fusion de tickets (`sourceitems_id`) depuis
-   une tâche débitée est enregistrée verrouillée, sans nouveau débit ; une tâche NON débitée copiée par la fusion (`sourceitems_id` = le ticket source, même durée, dates, contenu et technicien) n'est débitée que sur le ticket principal, pourvu que le ticket de la copie soit lié au ticket source par le lien natif de la fusion (`glpi_tickets_tickets`, `tickets_id_1` = source, `tickets_id_2` = principal, `link` = SON_OF : lu 12.0.1 `src/Ticket.php:5918-5922`) : une copie posée à la main sans fusion n'exclut rien. Le ticket source, restauré puis clos, ne débite donc pas ses originaux une seconde fois (`Billing::pendingTasks`, `mergedElsewhere`) ; son onglet les montre « débitées sur le ticket principal », hors total ; une tâche ajoutée au ticket restauré, sans copie ailleurs, se débite normalement. Une clôture impossible laisse le ticket Résolu
+   une tâche débitée est enregistrée verrouillée, sans nouveau débit ; une tâche NON débitée copiée par la fusion (`sourceitems_id` = le ticket source, même durée, dates, contenu et technicien) n'est débitée que sur le ticket principal, pourvu que le ticket de la copie soit le principal d'une fusion du ticket source, reconnu par le suivi que `Ticket::merge` y pose TOUJOURS (`glpi_itilfollowups`, `itemtype` Ticket, `items_id` = principal, `sourceitems_id` = source : lu 12.0.1 `src/Ticket.php:5835-5850`) ou par le lien « fils de » (lien par défaut) : l'un ou l'autre suffit ; le suivi existe quel que soit le lien choisi à la fusion (aucun, lié, doublon, fils de, parent de : `src/Ticket.php:2204-2210`), d'où sa lecture : avec le seul lien « fils de », une fusion « lié à » ou sans lien, source restauré puis clos, débitait deux fois (banc `scenario_fusion.py`) : une copie posée à la main sans fusion n'exclut rien (`Billing::mergeTargets`). Le ticket source, restauré puis clos, ne débite donc pas ses originaux une seconde fois (`Billing::pendingTasks`, `mergedElsewhere`) ; son onglet les montre « débitées sur le ticket principal », hors total ; une tâche ajoutée au ticket restauré, sans copie ailleurs, se débite normalement. Une copie de copie (fusion en chaîne A → B → C d'une tâche débitée) reste verrouillée sur l'opération d'origine (`Billing::lockedOperation`). **Fusion refusée** (crochet `PRE_ITEM_DELETE` du ticket : `Ticket::merge` met le source à la corbeille en dernier, `src/Ticket.php:6023`, et un refus annule toute la fusion par sa transaction, `src/Ticket.php:6045-6055` ; `Billing::mergeProblem`) quand des points resteraient derrière le source, ou seraient décomptés deux fois ou ailleurs : (a) il porte un forfait ni refusé ni annulé (règle 9) ; (b) il garde une tâche facturable non débitée qui n'est pas recopiée sur le principal (fusion sans « Fusionner les tâches ») : à la corbeille, elle ne serait jamais débitée ; (c) ses tâches facturables non débitées sont recopiées sur un principal qui ne les débiterait pas sur le même contrat (non facturable, au forfait, contrat à choisir ou autre contrat, déjà clos) ; (d) source restauré puis fusionné de nouveau AVEC ses tâches, déjà recopiées sur le principal de la fusion précédente : double débit ; (e) source qui ne décompte pas (non facturable, sans contrat Points) dont les tâches sont recopiées sur un principal qui décompte : elles seraient débitées sur le contrat du principal (décision du responsable du 2026-11-14, `suivi.md`, Décisions 4). Clore le source avant la fusion, s'il peut l'être, lève (b) et (c) ; fusionner sans les tâches lève (d) et (e). La fusion en cours est reconnue dans la requête même : le crochet `ITEM_ADD` du suivi note le suivi de fusion (`Billing::noteMergeFollowup`) ; une mise à la corbeille ordinaire, même d'un ticket déjà fusionné puis restauré, ne change pas. Fusion de plusieurs tickets à la fois (action de masse) : un refus annule toute la fusion (transaction unique), même si l'action de masse du cœur annonce réussis les tickets traités avant le refus. La documentation officielle ne décrit pas la fusion (help.glpi-project.org, `llms.txt` du 2026-11-14) : le code 12.0.1 tranche. Une clôture impossible laisse le ticket Résolu
    (avec un message, et une trace pour la clôture automatique), jamais dans un état intermédiaire.
 7. **Moment du débit** (paramètre `debit_moment`) : `closure` (défaut, ticket passé à Clos) ou `task` (à l'ajout de
    la tâche). Une tâche ajoutée après une réouverture est débitée à la clôture suivante.
@@ -132,11 +142,11 @@ d'un forfait, passage de l'action automatique d'expiration et d'alerte, notifica
    annulé existe sur le ticket, ses tâches ne sont pas débitées. Débit du montant approuvé au moment du débit choisi.
    Précisions (lot d) : un seul forfait en cours par ticket, et aucun forfait sur un ticket dont des tâches sont déjà
    débitées ; montant modifiable en brouillon seulement ; proposition = validation native de ticket adressée au
-   valideur choisi (défaut : demandeur), qui doit avoir le droit natif de validation ; la validation liée ne peut pas
+   valideur choisi (défaut : demandeur), qui doit avoir le droit natif de répondre à une validation de ticket dans l'entité du ticket (`ticketvalidation` VALIDATEREQUEST ou VALIDATEINCIDENT, lu par la requête de la liste native des approbateurs, `User::getSqlSearchResult` : lu 12.0.1 `src/CommonITILValidation.php:952`, `src/User.php:4285-4304` ; sans lui il ne pourrait pas répondre) ; la validation liée ne peut pas
    être supprimée tant que le forfait est proposé, approuvé ou débité ; date métier du débit = date de la réponse du
    client ; historique des états dans l'historique natif (`glpi_logs`) ; le Responsable BU ne valide pas un forfait
-   qu'il a lui-même chiffré (question 8 du cahier des charges, réglage par défaut) ; à la fusion de tickets, les
-   forfaits du ticket source ne suivent pas (à traiter, plan).
+   qu'il a lui-même chiffré (question 8 du cahier des charges, réglage par défaut) ; un ticket au forfait
+   (ni refusé ni annulé) ne peut pas être le source d'une fusion (règle 6 ; le forfait ne suit pas le principal : décision du responsable du 2026-11-14, `suivi.md`, Décisions 1).
 10. **Review** : créée pour tout débit de tâche hors créneau (calendrier) ou de type de jour 2 ou 3 ; confirmée, ou
     ajustée par une opération `review_adjustment` liée.
     Précisions (lot e) : la review naît dans la même transaction que le débit de la tâche (option `inside` de
@@ -188,8 +198,8 @@ d'un forfait, passage de l'action automatique d'expiration et d'alerte, notifica
 « annulé », GLPI purge la validation et le statut global de validation du ticket est recalculé : `Flatrate::purgeProposedValidation`, le
 même chemin que l'annulation d'un forfait) ; (2) les tables du plugin, les droits, la configuration, les actions automatiques ; (3) les
 notifications, modèles, alertes, courriels en file d'attente (`glpi_queuednotifications`), historiques et préférences d'affichage dont l'itemtype est une classe du plugin ; (4) les colonnes
-d'affichage du contrat et de l'entité natifs portant les options 9701-9707 et 9721-9725 ; (5) les recherches enregistrées qui utilisent
-l'une de ces options (critère, méta-critère ou tri : `SearchOptions::queryUses`) ou dont l'itemtype est une classe du plugin, par
+d'affichage du contrat et de l'entité natifs portant les options 9701-9707 et 9721-9725 ; (5) les recherches enregistrées, de tout type, qui utilisent
+l'une de ces options (critère, tri, ou méta-critère d'une recherche d'un autre type, d'un ticket par exemple, groupes compris : `SearchOptions::queryUses`, qui ne compte un numéro que pour le type qu'il désigne) ou dont l'itemtype est une classe du plugin, par
 `SavedSearch::delete(…, true)` qui supprime aussi leurs tables filles (utilisateurs par défaut, alertes). Les recherches et colonnes du cœur
 restent. Vérifié au banc APRÈS usage réel (`scenario_zdesinstallation.py`) : aucune ligne du cœur ne porte plus un itemtype du plugin,
 puis réinstallation propre.
@@ -376,6 +386,9 @@ double lancement, lignes invalides, contrats inconnus, sans points, à la corbei
 injection, soldes dans l'onglet et la recherche).
 
 ## Compatibilité GLPI 11.0.x (coût estimé, non réalisé)
+
+**Abandonnée** : décision du responsable du 2026-11-13, Points est exigé le jour de la bascule d'Assist, en GLPI 12 ; aucune branche 11.
+L'estimation ci-dessous reste pour mémoire.
 
 Assist est en 11.0.11. Un code unique 11 et 12 n'est pas recommandé (`references/migration-11-12.md` du skill
 glpi-php) : signatures typées du cœur 12 (une surcharge typée casse en 11), CSRF (jeton `_glpi_csrf_token` exigé en
