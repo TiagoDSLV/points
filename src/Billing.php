@@ -492,14 +492,40 @@ final class Billing
     }
 
     /**
+     * Nombre de copies de fusion de chaque tâche du source sur ces principaux (même durée, dates, contenu et technicien).
+     *
+     * @param list<array<string, mixed>> $tasks
+     * @param list<int> $targets
+     * @return array<int, int> tâche => nombre de copies
+     */
+    private static function copyCounts(int $ticketsId, array $tasks, array $targets): array
+    {
+        global $DB;
+
+        $counts = [];
+        if ($tasks === [] || $targets === []) {
+            return $counts;
+        }
+        foreach ($DB->request(['FROM' => 'glpi_tickettasks', 'WHERE' => ['sourceitems_id' => $ticketsId, 'tickets_id' => $targets]]) as $copy) {
+            foreach ($tasks as $task) {
+                if (self::sameTask($task, $copy)) {
+                    $counts[(int) $task['id']] = ($counts[(int) $task['id']] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * Refus de la mise à la corbeille du ticket source d'une fusion EN COURS (crochet PRE_ITEM_DELETE : Ticket::merge met le source à la
      * corbeille en dernier, src/Ticket.php:6023 en 12.0.1 ; un refus annule toute la fusion, transaction 6045-6055). Null si la fusion peut
      * aller au bout ; hors fusion en cours (noteMergeFollowup, suivi encore en base), rien n'est refusé. Refus quand des points resteraient à
      * décompter derrière le source, ou seraient décomptés deux fois ou ailleurs :
      * - forfait ni refusé ni annulé : à la corbeille, un forfait approuvé ne serait jamais débité, et les tâches qu'il couvre, recopiées sur
      *   le principal, y seraient débitées (débité : en plus du forfait) ;
-     * - tâche non débitée déjà recopiée sur le principal d'une fusion PRÉCÉDENTE (source restauré puis fusionné de nouveau) et recopiée
-     *   encore : débitée deux fois ;
+     * - tâche non débitée recopiée plus d'une fois, tous principaux confondus (source restauré puis fusionné de nouveau, dans un autre
+     *   principal ou dans le même) : débitée deux fois ;
      * - source qui ne décompte pas (non facturable, sans contrat Points) dont des tâches sont recopiées sur un principal qui décompte : elles y
      *   seraient débitées, sur le contrat du principal ;
      * - source facturable : tâche non débitée et non recopiée (fusion sans « Fusionner les tâches ») : jamais débitée ; tâche recopiée sur un
@@ -522,7 +548,8 @@ final class Billing
         $onTarget = self::mergedElsewhere($ticketsId, $tasks, [$target]);
         $before   = array_values(array_diff(self::mergeTargets($ticketsId), [$target]));
         $onBefore = $before === [] ? [] : self::mergedElsewhere($ticketsId, $tasks, $before);
-        if (array_intersect($onTarget, $onBefore) !== []) {
+        // Plus d'une copie d'une même tâche, tous principaux confondus (cible comprise : refusion dans le même principal après restauration)
+        if (max([0, ...self::copyCounts($ticketsId, $tasks, array_values(array_unique([...$before, $target])))]) > 1) {
             return __('Tasks of this ticket were already copied to another ticket by a previous merge: merge it without its tasks', 'points');
         }
         $ctx  = self::context($ticketsId);

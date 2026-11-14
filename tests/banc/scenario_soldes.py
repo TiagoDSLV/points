@@ -95,9 +95,15 @@ v("(4) témoin : affectation retirée, aucun écart", soldes(f"--contract={C}")[
 
 # --- (5) options : contrat sans points, identifiant invalide
 code, sortie = soldes(f"--contract={N}")
-v("(5) contrat sans points : code 1, message clair", (code, f"Contract {N} has no points" in sortie), (1, True))
+v("(5) contrat sans points : erreur d'usage, code 2 (pas 1, réservé aux écarts), message clair", (code, f"Contract {N} has no points" in sortie), (2, True))
 code, sortie = soldes("--contract=abc")
-v("(5) identifiant invalide : code 1", (code, "--contract expects a contract ID" in sortie), (1, True))
+v("(5) identifiant invalide : code 2", (code, "--contract expects a contract ID" in sortie), (2, True))
+console("plugin:deactivate", "points")
+code, sortie = soldes()
+console("plugin:activate", "points")
+# plugin inactif : le chargeur du cœur ne charge pas la commande (src/Glpi/Console/CommandLoader.php) ; c'est la console qui répond, code 1
+v("(5) plugin inactif : la console répond « commande inconnue » (code 1 du cœur, pas un écart : le message le dit)",
+  (code, "no commands defined" in sortie), (1, True))
 
 # --- (6) état final : tout le banc cohérent, journaux propres
 v("(6) tous les contrats du banc : aucun écart à la sortie", soldes()[0], 0)

@@ -58,7 +58,8 @@ php bin/console plugins:points:balances --contract=123    # un seul contrat (ide
 `plugins:points:balances` compare le solde, le crédité, le consommé, le % consommé et la prochaine échéance enregistrés sur la ligne Points
 de chaque contrat à ce que donnent ses mouvements (journal des opérations, restes des lots). Une ligne `GAP contract N (nom)` par contrat
 faux, suivie d'une ligne par écart (`balance: recorded …, recomputed …` ; `lots: journal …, sum of the lot remainders …`), puis le bilan
-`N contract(s) checked, M with a gap` ; code de sortie 1 s'il y a un écart, 0 sinon. Rien n'est écrit. Usage : recette (avant et après
+`N contract(s) checked, M with a gap` ; code de sortie 1 s'il y a un écart, 0 sinon, 2 pour une erreur d'usage (identifiant invalide, contrat sans points). Plugin inactif : la console de GLPI ne connaît pas la commande et
+répond elle-même avec le code 1 (« There are no commands defined in the "plugins:points" namespace ») : une supervision lit aussi ce message. Rien n'est écrit. Usage : recette (avant et après
 l'import des soldes du BPM Kiwi), puis après la bascule (à côté de `plugins:points:check`). Un écart ne se corrige pas par cette commande :
 le signaler (le cache se recalcule à la prochaine écriture du contrat ; le journal, lui, ne se modifie jamais).
 

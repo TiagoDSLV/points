@@ -337,7 +337,23 @@ clore(T1)
 clore(T2)
 v("(11) la tâche est débitée une fois, sur le premier principal", debits_taches(C11), [(T1, "-1.00")])
 
-for c in (C1, C2, C3, C6, C7, C7b, C8, C9, C10, C11):
+# =====================================================================================================================
+# (12) fusion, restauration, puis refusion dans le MÊME principal : la tâche serait copiée deux fois sur lui (double débit). Refus ;
+#      témoin : la refusion sans les tâches passe, la tâche est débitée une fois.
+# =====================================================================================================================
+C12 = avec_points("refusion")
+S12, P12 = ticket("source refusionné", C12), ticket("même principal", C12)
+tache(S12, 3600, "copiée une fois seulement")
+v("(12) première fusion : passe", fusion(P12, S12)[0], 0)
+sql_ecrire(f"UPDATE glpi_tickets SET is_deleted = 0 WHERE id = {S12};")
+code, messages = fusion(P12, S12)
+v("(12) refusion avec les tâches dans le même principal : refusée, une seule copie", (code, corbeille(S12), nb_taches(P12)), (1, "0", 1))
+v("(12) refus expliqué", any("already copied to another ticket" in m for m in messages), True)
+v("(12) témoin : refusion sans les tâches, passe", fusion(P12, S12, linktypes=[])[0], 0)
+clore(P12)
+v("(12) la tâche est débitée une fois", debits_taches(C12), [(P12, "-1.00")])
+
+for c in (C1, C2, C3, C6, C7, C7b, C8, C9, C10, C11, C12):
     v(f"invariants du contrat {c}", ok(led("check", c)), [])
 fautes = [l for nom in DEPART for l in lecture(nom).splitlines()[DEPART[nom]:] if re.search("points", l, re.I)]
 v("aucune erreur du plugin dans les journaux PHP et SQL", fautes, [])

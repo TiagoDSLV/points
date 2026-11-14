@@ -89,7 +89,7 @@ ni supprimée (pas de `date_mod`). La commande `php bin/console plugins:points:c
 qui a une ligne Points ou une opération, les valeurs ENREGISTRÉES de la ligne (`balance`, `credited`, `consumed`, `consumed_pct`,
 `next_expiry`) sont comparées au recalcul depuis les mouvements (totaux du journal par type, par `ContractCache` : le même calcul que
 l'écriture du cache, et restes des lots) ; la somme des restes des lots est comparée au solde recalculé. Écarts listés (`row` : contrat à
-mouvements sans ligne Points ; `lots` : journal contre restes), code de sortie 1 s'il y en a un. Lecture seule (aucune écriture, pas même le
+mouvements sans ligne Points ; `lots` : journal contre restes), code de sortie 1 s'il y en a un, 2 pour une erreur d'usage (`--contract` invalide ou contrat sans points ; plugin inactif : la commande n'est pas chargée, la console du cœur répond « commande inconnue » avec le code 1). Lecture seule (aucune écriture, pas même le
 cache). Différence avec `plugins:points:check` : `check` contrôle les invariants du journal (opération = affectations, restes négatifs) et le
 solde, le crédité et le consommé du cache ; `balances` rend le rapport chiffré par contrat (enregistré contre recalculé), colonnes de recherche
 comprises (% consommé, prochaine échéance), pour la recette et après la bascule. Options : `--all` liste aussi les contrats justes,

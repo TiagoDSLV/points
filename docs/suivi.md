@@ -11,8 +11,9 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 - Branche `claude/fusion-soldes` (PR en brouillon, 2026-11-14) : fusion de tickets (écarts prouvés au banc puis corrigés par crochet),
   deux constats corrigés (approbateur client sans droit natif de validation, méta-critère à la désinstallation), commande
   `plugins:points:balances` (contrôle des soldes, lecture seule). Deux relectures Opus (constats corrigés, rouges avant), suite complète
-  verte au banc GLPI 12.0.1 (`scripts/check.sh --banc`, 2026-11-14). `/ponytail-review` non lancé (skill indisponible dans la session).
-  Reste au responsable : `/ponytail-review`, réponses aux Questions ouvertes 1 à 4, décision de fusion de la PR.
+  verte au banc GLPI 12.0.1 (`scripts/check.sh --banc`, 2026-11-14). `/ponytail-review` fait par la session d'audit le 2026-11-14
+  (« corriger 1 d'abord ») : refusion dans le même principal (double débit) prouvée puis corrigée ; codes de sortie de `balances`
+  distingués (1 écart, 2 usage). Reste au responsable : Questions ouvertes 1 à 4, décision de fusion de la PR.
 
 ## À faire
 
@@ -47,7 +48,8 @@ Projet Assist : `docs/suivi.md` d'atheo-assist, points 1 et 50 ; fiche `docs/arc
 | L'onglet Points du ticket exige `plugin_points_ticket` READ : un profil avec seulement `plugin_points_flatrate` ne voit pas la section Forfait (conforme à la matrice proposée, fragile) | limite | 2026-11-13 | écrans |
 | Fusion de tickets : une tâche non débitée est jugée « copiée » quand le principal d'une fusion de ce ticket (suivi de fusion natif ou lien « fils de ») porte une tâche de `sourceitems_id` ce ticket et de mêmes durée, dates, contenu et technicien ; une tâche strictement identique ajoutée à la main au ticket source restauré serait exclue du débit | limite | 2026-11-14 | tâches |
 | Fusion refusée plus largement que le strict risque : un forfait déjà débité bloque aussi une fusion SANS les tâches ; une tâche de coût nul (ou sans grille) compte comme « à débiter » | limite | 2026-11-14 | fusion |
-| Fusion de plusieurs tickets à la fois (action de masse) : un refus annule toute la fusion, mais le cœur annonce réussis les tickets traités avant le refus ; non testé au banc | limite | 2026-11-14 | fusion |
+| Fusion de plusieurs tickets à la fois (action de masse « Fusionner », plusieurs sources dont une refusée) : un refus annule toute la fusion (transaction unique), mais le cœur annonce réussis les tickets traités avant le refus ; lu dans le code, non prouvé au banc | test | 2026-11-14 | fusion |
+| Fusion pendant qu'un autre technicien clôt le ticket principal : `Billing::mergeProblem` lit le statut du principal sans verrou ; une clôture validée entre ce contrôle et la fin de la fusion laisserait des copies non débitées sur un principal clos (débitées à une clôture suivante seulement) ; non prouvé au banc | limite | 2026-11-14 | fusion |
 | `plugins:points:balances` : environ cinq lectures par contrat, rapport gardé en mémoire ; à surveiller si le nombre de contrats à points d'Assist dépasse quelques milliers | charge | 2026-11-14 | console |
 | Mise à la corbeille HORS fusion d'un ticket qui a des tâches non débitées ou un forfait approuvé non débité : rien n'est débité tant qu'il n'est pas restauré et clos (comportement inchangé ; Questions ouvertes, 3) | limite | 2026-11-14 | fusion |
 | Tâche ajoutée à un ticket source en corbeille : GLPI la recopie sur le principal SEULEMENT avec le lien « fils de » (`CommonITILTask::addToMergedTickets`, `Ticket::getMergedTickets`) ; avec un autre lien ou sans lien, ou si le principal refuse la copie (aucun point valide à sa date), elle reste sur le source, non débitée tant qu'il n'est pas restauré et clos | limite | 2026-11-14 | fusion |

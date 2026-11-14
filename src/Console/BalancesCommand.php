@@ -17,7 +17,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `php bin/console plugins:points:balances [--all] [--contract=ID]` : contrôle des soldes (Ledger::balances, docs/conception.md,
  * « Contrôle des soldes »). Pour chaque contrat à points, le solde, le crédité, le consommé, le % consommé et la prochaine échéance
  * ENREGISTRÉS sur sa ligne Points sont comparés au recalcul depuis les mouvements (journal des opérations, restes des lots).
- * LECTURE SEULE : rien n'est écrit, pas même le cache. Code de sortie non nul s'il y a un écart (recette, supervision après la bascule).
+ * LECTURE SEULE : rien n'est écrit, pas même le cache. Code de sortie 1 s'il y a un écart (recette, supervision après la bascule) ; 2 pour une
+ * erreur d'usage (identifiant invalide, contrat sans points) : une supervision ne les confond pas. Plugin inactif : le chargeur du cœur ne
+ * charge pas la commande, la console répond « commande inconnue » avec son propre code 1 ; la garde ci-dessous n'est qu'en profondeur.
  *
  * Le nom porte le préfixe `plugins:points:` exigé par le chargeur des commandes de plugin (src/Glpi/Console/CommandLoader.php:261-280 en 12.0.1).
  */
@@ -36,19 +38,19 @@ final class BalancesCommand extends AbstractCommand
         if (!\Plugin::isPluginActive('points')) {
             $output->writeln('<error>The Points plugin is not active: nothing done</error>');
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
         $only = (string) ($input->getOption('contract') ?? '');
         if ($only !== '' && preg_match('/^[1-9]\d*$/', $only) !== 1) {
             $output->writeln('<error>--contract expects a contract ID</error>');
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
         $report = Ledger::balances((int) $only);
         if ($only !== '' && $report === []) {
             $output->writeln('<error>' . sprintf('Contract %d has no points (no Points row, no movement)', (int) $only) . '</error>');
 
-            return Command::FAILURE;
+            return Command::INVALID;
         }
         $all    = (bool) $input->getOption('all');
         $wrong  = 0;
